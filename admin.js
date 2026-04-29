@@ -65,6 +65,10 @@ async function populateClassFilters() {
     const cur = el.value; el.innerHTML = filterOpts; el.value = cur;
   });
   const lcs = document.getElementById('lClassSelect'); if (lcs) { const cur=lcs.value; lcs.innerHTML=modalOpts; lcs.value=cur; }
+  ['addClass','esClass'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    const cur = el.value; el.innerHTML = modalOpts; el.value = cur;
+  });
 }
 populateClassFilters();
 
@@ -167,9 +171,15 @@ document.getElementById('studentSearch').addEventListener('input', renderStudent
 document.getElementById('studentFilterClass').addEventListener('change', renderStudents);
 
 document.getElementById('openAddStudentBtn').addEventListener('click', () => {
-  ['addCode','addName','addPhone','addUsername','addPassword','addClass'].forEach(id => document.getElementById(id).value='');
+  ['addCode','addName','addPhone','addUsername','addPassword'].forEach(id => document.getElementById(id).value='');
   document.getElementById('addStudentError').textContent='';
+  populateClassFilters().then(() => { document.getElementById('addClass').value=''; });
   document.getElementById('addStudentModal').classList.add('open');
+});
+
+// Tự động điền mật khẩu = mã học viên
+document.getElementById('addCode').addEventListener('input', () => {
+  document.getElementById('addPassword').value = document.getElementById('addCode').value;
 });
 document.getElementById('addStudentCancelBtn').addEventListener('click', () => document.getElementById('addStudentModal').classList.remove('open'));
 document.getElementById('addStudentSaveBtn').addEventListener('click', async () => {
@@ -192,8 +202,8 @@ function openEditStudent(s) {
   document.getElementById('esName').value=s.full_name;
   document.getElementById('esUsername').value=s.username;
   document.getElementById('esPassword').value='';
-  document.getElementById('esClass').value=s.class_name||'';
   document.getElementById('esError').textContent='';
+  populateClassFilters().then(() => { document.getElementById('esClass').value=s.class_name||''; });
   document.getElementById('editStudentModal').classList.add('open');
 }
 document.getElementById('esCancelBtn').addEventListener('click', () => document.getElementById('editStudentModal').classList.remove('open'));
@@ -499,6 +509,18 @@ async function renderAlerts() {
   });
 }
 document.getElementById('alertSearch').addEventListener('input', renderAlerts);
+document.getElementById('exportAlertsBtn').addEventListener('click', async () => {
+  const { data: list } = await db.from('alerts').select('*').order('created_at', { ascending: false });
+  if (!list || !list.length) { alert('Chưa có cảnh báo nào.'); return; }
+  const rows = [['Họ tên', 'Tên đăng nhập', 'Lớp', 'Lý do', 'Thời gian']];
+  list.forEach(a => rows.push([a.student_name||'', a.username||'', a.class_name||'', a.reason||'', fmtTime(a.created_at)]));
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `canh_bao_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+});
 document.getElementById('clearAlertsBtn').addEventListener('click', async ()=>{
   if (confirm('Xóa toàn bộ nhật ký cảnh báo?')) {
     await db.from('alerts').delete().neq('id',0);
