@@ -136,6 +136,10 @@
       btn.textContent = document.querySelector('.viewer-modal').classList.contains('fullscreen') ? '⊡' : '⛶';
     });
     document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) showOverlay('Chuyển tab / ẩn cửa sổ');
+    });
+    window.addEventListener('blur', () => showOverlay('Mất focus — có thể đang quay màn hình'));
     document.addEventListener('keydown', e => {
       const blocked = e.key === 'PrintScreen' || e.key === 'F13' ||
         (e.metaKey && e.shiftKey && ['3','4','5','6'].includes(e.key)) ||

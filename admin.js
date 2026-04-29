@@ -366,7 +366,10 @@ document.getElementById('lvSaveBtn').addEventListener('click', async ()=>{
   const title=document.getElementById('lvTitleInput').value.trim(); if(!title) return;
   const safeName=`${Date.now()}_${pendingLessonVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
   const path=`videos/${currentLessonId}/${safeName}`;
-  const { error:upErr }=await db.storage.from('lessons').upload(path,pendingLessonVideoFile);
+  const btn = document.getElementById('lvSaveBtn');
+  btn.textContent = 'Đang upload...'; btn.disabled = true;
+  const { error:upErr }=await db.storage.from('lessons').upload(path, pendingLessonVideoFile, { cacheControl:'3600', upsert:false });
+  btn.textContent = 'Lưu'; btn.disabled = false;
   if (upErr) { alert('Lỗi upload: '+upErr.message); return; }
   await db.from('lesson_videos').insert({lesson_id:currentLessonId,title,file_name:pendingLessonVideoFile.name,storage_path:path});
   document.getElementById('lessonVideoModal').classList.remove('open');
