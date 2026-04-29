@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Đăng Nhập</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="auth-page">
+
+  <div class="auth-wrap">
+    <div class="auth-left">
+      <div class="brand white" style="cursor:default"></div>
+      <h2>Chào mừng trở lại!</h2>
+      <p></p>
+    </div>
+
+    <div class="auth-right">
+      <div class="auth-box">
+        <h2>Đăng nhập</h2>
+
+        <div class="tab-row">
+          <button class="tab-btn active" id="tabStudent">Học Sinh</button>
+          <button class="tab-btn" id="tabTeacher">Admin</button>
+        </div>
+
+        <form id="loginForm">
+          <label id="usernameLabel">Gmail</label>
+          <div class="input-icon">
+            <span>📧</span>
+            <input type="text" id="usernameInput" placeholder="Nhập Gmail của bạn" required/>
+          </div>
+          <label id="passwordLabel">Số báo danh</label>
+          <div class="input-icon">
+            <span>🔒</span>
+            <input type="password" id="passwordInput" placeholder="Nhập số báo danh" required/>
+          </div>
+          <div class="auth-row">
+            <label class="checkbox-label"><input type="checkbox"/> Ghi nhớ đăng nhập</label>
+            <a href="#" class="link-muted">Quên mật khẩu?</a>
+          </div>
+          <div id="loginError" class="error-msg"></div>
+          <button type="submit" class="btn-primary btn-block">Đăng Nhập</button>
+        </form>
+
+        <p class="auth-hint">Chưa có tài khoản? Liên hệ trợ lý Trần Cường.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './supabase.js';
+
+    localStorage.setItem('dh_teacher', JSON.stringify({ username: 'admin124532Dh', password: 'admindH89065', full_name: 'Admin' }));
+
+    let role = 'student';
+    function setLabels() {
+      document.getElementById('usernameLabel').textContent  = role === 'student' ? 'Gmail' : 'Tên đăng nhập';
+      document.getElementById('passwordLabel').textContent  = role === 'student' ? 'Số báo danh' : 'Mật khẩu';
+      document.getElementById('usernameInput').placeholder  = role === 'student' ? 'Nhập Gmail của bạn' : 'Nhập tên đăng nhập';
+      document.getElementById('passwordInput').placeholder  = role === 'student' ? 'Nhập số báo danh' : 'Nhập mật khẩu';
+    }
+
+    function setTab(r) {
+      role = r;
+      ['tabStudent','tabTeacher'].forEach(id => document.getElementById(id).classList.remove('active'));
+      document.getElementById(r === 'student' ? 'tabStudent' : 'tabTeacher').classList.add('active');
+      setLabels();
+    }
+
+    document.getElementById('tabStudent').onclick = () => setTab('student');
+    document.getElementById('tabTeacher').onclick = () => setTab('teacher');
+
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const u = document.getElementById('usernameInput').value.trim();
+      const p = document.getElementById('passwordInput').value;
+      const err = document.getElementById('loginError');
+      err.textContent = '';
+
+      if (role === 'teacher') {
+        const t = JSON.parse(localStorage.getItem('dh_teacher'));
+        if (u === t.username && p === t.password) {
+          sessionStorage.setItem('dh_role', 'teacher');
+          sessionStorage.setItem('dh_user', u);
+          sessionStorage.setItem('dh_name', t.full_name);
+          window.location.href = 'admin.html';
+        } else { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; }
+
+      } else {
+        // Học sinh đăng nhập qua Supabase
+        const { data, error } = await supabase.from('students').select('*').eq('username', u).eq('password', p).single();
+        if (error || !data) { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
+        if (!data.active) { err.textContent = 'Tài khoản đã bị khóa.'; return; }
+        sessionStorage.setItem('dh_role', 'student');
+        sessionStorage.setItem('dh_user', u);
+        sessionStorage.setItem('dh_name', data.full_name);
+        window.location.href = 'student.html';
+      }
+    });
+  </script>
+</body>
+</html>
