@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body class="dashboard-page">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">Học Sinh</div>
@@ -109,9 +110,12 @@
     </div>
   </div>
 
-  <script src="student.js" type="module"></script>
-  <script type="module">
-    import { supabase } from './supabase.js';
+  <script src="student.js"></script>
+  <script>
+    const _db = supabase.createClient(
+      'https://gojpmogjretoxplydjvg.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
+    );
     const overlay = document.getElementById('securityOverlay');
     let lastLogTime = 0;
     async function logAlert(reason) {
@@ -120,8 +124,8 @@
       lastLogTime = now;
       const username = sessionStorage.getItem('dh_user') || '—';
       const studentName = sessionStorage.getItem('dh_name') || '—';
-      const { data } = await supabase.from('students').select('class_name').eq('username', username).single();
-      await supabase.from('alerts').insert({ username, student_name: studentName, class_name: data?.class_name || '', reason });
+      const { data } = await _db.from('students').select('class_name').eq('username', username).single();
+      await _db.from('alerts').insert({ username, student_name: studentName, class_name: data?.class_name || '', reason });
     }
     function showOverlay(reason) { logAlert(reason); overlay.classList.add('active'); }
     document.getElementById('secDismiss').addEventListener('click', () => overlay.classList.remove('active'));
