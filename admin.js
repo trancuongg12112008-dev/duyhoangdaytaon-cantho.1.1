@@ -292,10 +292,17 @@ document.getElementById('openAddLessonBtn').addEventListener('click', ()=>openLe
 document.getElementById('lCancelBtn').addEventListener('click', ()=>document.getElementById('lessonModal').classList.remove('open'));
 document.getElementById('lSaveBtn').addEventListener('click', async ()=>{
   const name=document.getElementById('lNameInput').value.trim(), err=document.getElementById('lError');
+  console.log('Tạo bài:', name);
   if (!name) { err.textContent='Vui lòng nhập tên bài học.'; return; }
   const cls=document.getElementById('lClassSelect').value, desc=document.getElementById('lDescInput').value.trim();
-  if (editingLessonId) await db.from('lessons').update({name,class_name:cls,description:desc}).eq('id',editingLessonId);
-  else await db.from('lessons').insert({name,class_name:cls,description:desc});
+  console.log('cls:', cls, 'desc:', desc);
+  if (editingLessonId) {
+    const r = await db.from('lessons').update({name,class_name:cls,description:desc}).eq('id',editingLessonId);
+    console.log('update result:', r);
+  } else {
+    const r = await db.from('lessons').insert({name,class_name:cls,description:desc});
+    console.log('insert result:', r);
+  }
   document.getElementById('lessonModal').classList.remove('open');
   await renderLessons();
 });

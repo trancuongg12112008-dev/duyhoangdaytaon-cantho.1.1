@@ -17,9 +17,10 @@ document.getElementById('profileName').textContent  = currentName;
 let myClass = '';
 
 async function loadMe() {
-  const { data } = await db.from('students').select('class_name').eq('username', currentUser).single();
+  const { data } = await db.from('students').select('class_name, student_code').eq('username', currentUser).single();
   myClass = data?.class_name || '';
   document.getElementById('profileClass').textContent = myClass ? `Lớp: ${myClass}` : '';
+  sessionStorage.setItem('dh_code', data?.student_code || '');
 }
 
 document.getElementById('logoutBtn').addEventListener('click', e => { e.preventDefault(); sessionStorage.clear(); location.href = 'index.html'; });
@@ -134,7 +135,7 @@ function openViewer(title, url, fileName, fileType) {
   dl.style.display = isVideo?'none':'';
   dl.href=url; dl.download=fileName||title;
   if (isVideo)
-    body.innerHTML=`<video src="${url}" controls controlsList="nodownload" oncontextmenu="return false" class="viewer-video"></video>`;
+    body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" class="viewer-video"></video>`;
   else if (fileType==='application/pdf')
     body.innerHTML=`<iframe src="${url}" class="viewer-iframe"></iframe>`;
   else if ((fileType||'').startsWith('image/'))
