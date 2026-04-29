@@ -92,9 +92,21 @@
         const { data, error } = await db.from('students').select('*').eq('username', u).eq('password', p).single();
         if (error || !data) { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
         if (!data.active) { err.textContent = 'Tài khoản đã bị khóa.'; return; }
+        // Tạo session token mới, ghi đè token cũ (kick thiết bị cũ)
+        const token = Math.random().toString(36).slice(2) + Date.now();
+        await db.from('students').update({ session_token: token }).eq('id', data.id);
+        // Ghi cảnh báo nếu đã có token cũ (đang đăng nhập thiết bị khác)
+        if (data.session_token) {
+          await db.from('alerts').insert({
+            username: u, student_name: data.full_name,
+            class_name: data.class_name || '',
+            reason: 'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất'
+          });
+        }
         sessionStorage.setItem('dh_role', 'student');
         sessionStorage.setItem('dh_user', u);
         sessionStorage.setItem('dh_name', data.full_name);
+        sessionStorage.setItem('dh_token', token);
         window.location.href = 'student.html';
       }
     });

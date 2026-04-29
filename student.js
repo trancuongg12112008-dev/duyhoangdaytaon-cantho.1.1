@@ -146,7 +146,26 @@ function openViewer(title, url, fileName, fileType) {
 }
 document.getElementById('closeViewer').addEventListener('click', closeViewer);
 document.getElementById('viewerModal').addEventListener('click', e => { if(e.target===document.getElementById('viewerModal')) closeViewer(); });
-function closeViewer() { document.getElementById('viewerModal').classList.remove('open'); document.getElementById('viewerBody').innerHTML=''; }
+function closeViewer() { 
+  document.getElementById('viewerModal').classList.remove('open'); 
+  document.getElementById('viewerBody').innerHTML='';
+  document.querySelector('.viewer-modal').classList.remove('fullscreen');
+  document.getElementById('fullscreenViewer').textContent = '⛶';
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  if (screen.orientation?.unlock) screen.orientation.unlock();
+}
 
 // ---- Init ----
 loadMe().then(() => renderHome());
+
+// Kiểm tra session token mỗi 30 giây
+setInterval(async () => {
+  const token = sessionStorage.getItem('dh_token');
+  if (!token) return;
+  const { data } = await db.from('students').select('session_token').eq('username', currentUser).single();
+  if (data && data.session_token !== token) {
+    alert('Tài khoản của bạn đã đăng nhập ở thiết bị khác. Bạn sẽ bị đăng xuất.');
+    sessionStorage.clear();
+    location.href = 'index.html';
+  }
+}, 30000);

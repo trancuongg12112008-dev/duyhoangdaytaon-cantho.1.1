@@ -136,16 +136,17 @@
       const btn = document.getElementById('fullscreenViewer');
       btn.textContent = document.querySelector('.viewer-modal').classList.contains('fullscreen') ? '⊡' : '⛶';
     });
-    document.getElementById('rotateViewer').addEventListener('click', () => {
-      if (screen.orientation && screen.orientation.lock) {
-        const current = screen.orientation.type;
-        if (current.includes('portrait')) {
-          screen.orientation.lock('landscape').catch(() => {});
+    document.getElementById('rotateViewer').addEventListener('click', async () => {
+      try {
+        const el = document.querySelector('.viewer-modal');
+        if (document.fullscreenElement) {
+          await screen.orientation.lock('landscape');
         } else {
-          screen.orientation.lock('portrait').catch(() => {});
+          await el.requestFullscreen();
+          await screen.orientation.lock('landscape');
         }
-      } else {
-        alert('Trình duyệt không hỗ trợ xoay màn hình tự động. Vui lòng xoay điện thoại thủ công.');
+      } catch(e) {
+        alert('Vui lòng xoay điện thoại thủ công sang ngang.');
       }
     });
     document.addEventListener('contextmenu', e => e.preventDefault());
