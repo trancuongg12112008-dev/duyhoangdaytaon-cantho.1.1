@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Giáo Viên</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="dashboard-page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">htql</div>
+    <nav class="sidebar-nav">
+      <a href="#" class="slink active" data-page="overview">📊 Tổng quan</a>
+      <a href="#" class="slink" data-page="lessons">📚 Bài học</a>
+      <a href="#" class="slink" data-page="create-student">➕ Tạo tài khoản học sinh</a>
+      <a href="#" class="slink" data-page="students">👨‍🎓 Danh sách học sinh</a>
+      <a href="#" class="slink" data-page="classes">🏫 Lớp học</a>
+      <a href="#" class="slink" data-page="security">🚨 Nhật ký cảnh báo <span id="alertNavBadge" class="nav-badge" style="display:none"></span></a>
+      <a href="#" class="slink" data-page="profile">👤 Hồ sơ</a>
+    </nav>
+    <a href="login.html" class="slink slink-logout" id="logoutBtn">🚪 Đăng xuất</a>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="dash-main">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div class="topbar-right">
+        <div class="avatar-info">
+          <div class="avatar">GV</div>
+          <div>
+            <div class="av-name" id="teacherName">Giáo viên</div>
+            <div class="av-role">Admin</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- PAGE: TỔNG QUAN -->
+    <section class="page active" id="pageOverview">
+      <h1 class="page-title">Tổng quan</h1>
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="stat-icon">📄</div><div><div class="stat-num" id="statExams">0</div><div class="stat-label">Tài liệu</div></div></div>
+        <div class="stat-card green"><div class="stat-icon">🎬</div><div><div class="stat-num" id="statVideos">0</div><div class="stat-label">Video bài giảng</div></div></div>        <div class="stat-card purple"><div class="stat-icon">👨‍🎓</div><div><div class="stat-num" id="statStudents">0</div><div class="stat-label">Học sinh</div></div></div>
+        <div class="stat-card red"><div class="stat-icon">🚨</div><div><div class="stat-num" id="statAlerts">0</div><div class="stat-label">Cảnh báo hôm nay</div></div></div>
+      </div>
+      <div class="overview-grid">
+        <div class="overview-panel">
+          <div class="panel-header"><span>Bài học mới nhất</span><a href="#" class="link-blue" data-goto="lessons">Xem tất cả</a></div>
+          <div id="recentExams"></div>
+        </div>
+        <div class="overview-panel">
+          <div class="panel-header"><span>Cảnh báo gần nhất</span><a href="#" class="link-blue" data-goto="security">Xem tất cả</a></div>
+          <div id="recentAlerts"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: BÀI HỌC -->
+    <section class="page" id="pageLessons">
+      <div id="lessonListView">
+        <div class="page-header">
+          <h1 class="page-title">Bài học</h1>
+          <button class="btn-primary" id="openAddLessonBtn">➕ Tạo bài học</button>
+        </div>
+        <div class="filter-bar">
+          <select id="lessonFilterClass"><option value="">Tất cả lớp</option></select>
+        </div>
+        <div class="content-list" id="lessonList"></div>
+        <div class="empty-state" id="emptyLessons">Chưa có bài học nào.</div>
+      </div>
+
+      <div id="lessonDetailView" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title" id="lessonDetailTitle"></h1>
+          <button class="btn-outline" id="backToLessonsBtn">← Quay lại</button>
+        </div>
+        <p class="muted-sm" id="lessonDetailDesc"></p>
+
+        <div class="two-col" style="margin-top:1rem">
+          <div>
+            <div class="panel-header" style="margin-bottom:.5rem">
+              <span>🎬 Video</span>
+              <label class="btn-sm btn-primary" for="lessonVideoInput" style="cursor:pointer">➕ Thêm video
+                <input type="file" id="lessonVideoInput" accept="video/*" hidden/>
+              </label>
+            </div>
+            <div class="video-grid" id="lessonVideoGrid"></div>
+            <div class="empty-state" id="emptyLessonVideos" style="font-size:.85rem">Chưa có video.</div>
+          </div>
+          <div>
+            <div class="panel-header" style="margin-bottom:.5rem">
+              <span>📄 Tài liệu</span>
+              <label class="btn-sm btn-primary" for="lessonDocInput" style="cursor:pointer">➕ Thêm tài liệu
+                <input type="file" id="lessonDocInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden/>
+              </label>
+            </div>
+            <div class="content-list" id="lessonDocList"></div>
+            <div class="empty-state" id="emptyLessonDocs" style="font-size:.85rem">Chưa có tài liệu.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: TẠO TÀI KHOẢN -->
+    <section class="page" id="pageCreateStudent">
+      <h1 class="page-title">Tạo tài khoản học sinh</h1>
+      <div class="two-col">
+        <div class="form-panel">
+          <h3>Thông tin tài khoản</h3>
+          <label>Họ và tên</label>
+          <input type="text" id="csName" placeholder="Nhập họ và tên..."/>
+          <label>Gmail (tên đăng nhập)</label>
+          <input type="text" id="csUsername" placeholder="VD: hocsinh@gmail.com"/>
+          <label>Số báo danh (mật khẩu)</label>
+          <input type="password" id="csPassword" placeholder="Nhập số báo danh..."/>
+          <label>Lớp</label>
+          <input type="text" id="csClass" placeholder="VD: Lớp 9A"/>
+          <div id="csError" class="error-msg"></div>
+          <div class="form-actions">
+            <button class="btn-outline" id="csResetBtn">Hủy</button>
+            <button class="btn-primary" id="csSaveBtn">Tạo tài khoản</button>
+          </div>
+        </div>
+        <div class="form-panel">
+          <h3>Danh sách tài khoản đã tạo</h3>
+          <table class="mini-table" id="miniStudentTable">
+            <thead><tr><th>STT</th><th>Họ tên</th><th>Tên đăng nhập</th><th>Lớp</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody id="miniStudentBody"></tbody>
+          </table>
+          <div class="table-pagination" id="miniPagination"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: DANH SÁCH HỌC SINH -->
+    <section class="page" id="pageStudents">
+      <div class="page-header">
+        <h1 class="page-title">Danh sách học sinh</h1>
+        <button class="btn-primary" id="openAddStudentBtn">➕ Thêm học sinh</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="studentSearch" placeholder="🔍 Tìm kiếm học sinh..."/>
+        <select id="studentFilterClass"><option value="">Tất cả lớp</option></select>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
+        <tbody id="studentBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyStudents">Chưa có học sinh nào.</div>
+    </section>
+
+    <!-- PAGE: LỚP HỌC -->
+    <section class="page" id="pageClasses">
+      <!-- View: danh sách lớp -->
+      <div id="classListView">
+        <div class="page-header">
+          <h1 class="page-title">Lớp học</h1>
+          <button class="btn-primary" id="openAddClassBtn">➕ Tạo lớp</button>
+        </div>
+        <div class="stat-grid" id="classGrid"></div>
+        <div class="empty-state" id="emptyClasses">Chưa có lớp nào. Hãy thêm học sinh và gán lớp.</div>
+      </div>
+      <!-- View: học sinh trong lớp -->
+      <div id="classDetailView" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title" id="classDetailTitle"></h1>
+          <button class="btn-outline" id="backToClassesBtn">← Quay lại</button>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Họ tên</th><th>SĐT</th><th>Gmail</th><th>Trạng thái</th></tr></thead>
+          <tbody id="classStudentBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptyClassStudents">Không có học sinh nào trong lớp này.</div>
+      </div>
+    </section>
+
+    <!-- PAGE: NHẬT KÝ CẢNH BÁO -->
+    <section class="page" id="pageSecurity">
+      <div class="page-header">
+        <h1 class="page-title">Nhật ký cảnh báo</h1>
+        <button class="btn-outline" id="clearAlertsBtn">🗑 Xóa tất cả</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="alertSearch" placeholder="🔍 Tìm theo tên học sinh..."/>
+      </div>
+      <div class="content-list" id="alertList"></div>
+      <div class="empty-state" id="emptyAlerts">Chưa có cảnh báo nào.</div>
+    </section>
+
+    <!-- PAGE: HỒ SƠ -->
+    <section class="page" id="pageProfile">
+      <h1 class="page-title">Hồ sơ</h1>
+      <div class="profile-card">
+        <div class="profile-avatar">GV</div>
+        <div class="profile-info">
+          <div class="profile-name" id="profileName"></div>
+          <div class="profile-role">Admin</div>
+        </div>
+      </div>
+      <div class="form-panel" style="max-width:480px;margin-top:1.5rem">
+        <h3>Đổi mật khẩu</h3>
+        <label>Mật khẩu hiện tại</label>
+        <input type="password" id="pwOld" placeholder="Mật khẩu hiện tại"/>
+        <label>Mật khẩu mới</label>
+        <input type="password" id="pwNew" placeholder="Mật khẩu mới"/>
+        <label>Xác nhận mật khẩu mới</label>
+        <input type="password" id="pwConfirm" placeholder="Nhập lại mật khẩu mới"/>
+        <div id="pwError" class="error-msg"></div>
+        <div id="pwSuccess" class="success-msg"></div>
+        <button class="btn-primary" id="pwSaveBtn" style="margin-top:0.5rem">Lưu thay đổi</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL: Sửa học sinh -->
+  <div class="modal-overlay" id="editStudentModal">
+    <div class="modal">
+      <h2>Chỉnh sửa tài khoản</h2>
+      <label>Mã học viên</label>
+      <input type="text" id="esCode" placeholder="Mã học viên..."/>
+      <label>Họ và tên</label>
+      <input type="text" id="esName" placeholder="Họ và tên..."/>
+      <label>Gmail (tên đăng nhập)</label>
+      <input type="text" id="esUsername" placeholder="Gmail..."/>
+      <label>Số báo danh mới <span class="muted">(để trống nếu không đổi)</span></label>
+      <input type="password" id="esPassword" placeholder="Số báo danh mới..."/>
+      <label>Lớp</label>
+      <input type="text" id="esClass" placeholder="Lớp..."/>
+      <div id="esError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button id="esCancelBtn" class="btn-outline">Hủy</button>
+        <button id="esSaveBtn" class="btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Xem đề / video -->
+  <div class="modal-overlay" id="viewerModal">
+    <div class="modal viewer-modal">
+      <button class="modal-close" id="closeViewer">✕</button>
+      <h2 id="viewerTitle"></h2>
+      <div id="viewerBody"></div>
+      <div class="modal-actions" style="margin-top:.75rem">
+        <a id="viewerDownload" class="btn-outline" download>⬇ Tải xuống</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Thêm học sinh -->
+  <div class="modal-overlay" id="addStudentModal">
+    <div class="modal">
+      <h2>Thêm học sinh</h2>
+      <label>Mã học viên</label>
+      <input type="text" id="addCode" placeholder="VD: HV001..."/>
+      <label>Họ và tên</label>
+      <input type="text" id="addName" placeholder="Nhập họ và tên..."/>
+      <label>Số điện thoại</label>
+      <input type="text" id="addPhone" placeholder="Nhập số điện thoại..."/>
+      <label>Gmail (tên đăng nhập)</label>
+      <input type="text" id="addUsername" placeholder="VD: hocsinh@gmail.com"/>
+      <label>Số báo danh (mật khẩu)</label>
+      <input type="text" id="addPassword" placeholder="Nhập số báo danh..."/>
+      <label>Lớp</label>
+      <input type="text" id="addClass" placeholder="VD: Lớp 9A"/>
+      <div id="addStudentError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button id="addStudentCancelBtn" class="btn-outline">Hủy</button>
+        <button id="addStudentSaveBtn" class="btn-primary">Thêm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Tạo lớp -->
+  <div class="modal-overlay" id="addClassModal">
+    <div class="modal">
+      <h2>Tạo lớp mới</h2>
+      <label>Tên lớp</label>
+      <input type="text" id="addClassName" placeholder="VD: Lớp 9A..."/>
+      <div id="addClassError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button id="addClassCancelBtn" class="btn-outline">Hủy</button>
+        <button id="addClassSaveBtn" class="btn-primary">Tạo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Sửa lớp -->
+  <div class="modal-overlay" id="editClassModal">
+    <div class="modal">
+      <h2>Sửa tên lớp</h2>
+      <label>Tên lớp</label>
+      <input type="text" id="editClassName" placeholder="Tên lớp..."/>
+      <div id="editClassError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button id="editClassCancelBtn" class="btn-outline">Hủy</button>
+        <button id="editClassSaveBtn" class="btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Tạo bài học -->
+  <div class="modal-overlay" id="lessonModal">
+    <div class="modal">
+      <h2 id="lessonModalTitle">Tạo bài học</h2>
+      <label>Tên bài học</label>
+      <input type="text" id="lNameInput" placeholder="VD: Bài 1 - Phương trình bậc nhất..."/>
+      <label>Lớp</label>
+      <select id="lClassSelect"><option value="">-- Tất cả lớp --</option></select>
+      <label>Mô tả <span class="muted">(tuỳ chọn)</span></label>
+      <input type="text" id="lDescInput" placeholder="Mô tả ngắn về bài học..."/>
+      <div id="lError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button id="lCancelBtn" class="btn-outline">Hủy</button>
+        <button id="lSaveBtn" class="btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Upload Video bài học -->
+  <div class="modal-overlay" id="lessonVideoModal">
+    <div class="modal">
+      <h2>Thêm video vào bài học</h2>
+      <div class="preview-wrap"><video id="lessonPreviewVideo" controls></video></div>
+      <label>Tiêu đề</label>
+      <input type="text" id="lvTitleInput" placeholder="Tên video..."/>
+      <div class="modal-actions">
+        <button id="lvCancelBtn" class="btn-outline">Hủy</button>
+        <button id="lvSaveBtn" class="btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Upload Tài liệu bài học -->
+  <div class="modal-overlay" id="lessonDocModal">
+    <div class="modal">
+      <h2>Thêm tài liệu vào bài học</h2>
+      <div class="upload-drop">
+        <div class="upload-icon">☁️</div>
+        <p>Kéo thả file vào đây</p>
+        <div id="lessonDocFileInfo" class="file-info"></div>
+      </div>
+      <label>Tiêu đề</label>
+      <input type="text" id="ldTitleInput" placeholder="Tên tài liệu..."/>
+      <div class="modal-actions">
+        <button id="ldCancelBtn" class="btn-outline">Hủy</button>
+        <button id="ldSaveBtn" class="btn-primary">Tải lên</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js" type="module"></script>
+</body>
+</html>

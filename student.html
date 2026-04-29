@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Học Sinh</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="dashboard-page">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">Học Sinh</div>
+    <nav class="sidebar-nav">
+      <a href="#" class="slink active" data-page="home">🏠 Trang chủ</a>
+      <a href="#" class="slink" data-page="lessons">📚 Bài học</a>
+      <a href="#" class="slink" data-page="profile">👤 Hồ sơ</a>
+    </nav>
+    <a href="login.html" class="slink slink-logout" id="logoutBtn">🚪 Đăng xuất</a>
+  </aside>
+
+  <div class="dash-main">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle">☰</button>
+      <div class="topbar-right">
+        <div class="avatar-info">
+          <div class="avatar">HS</div>
+          <div>
+            <div class="av-name" id="studentName"></div>
+            <div class="av-role">Học sinh</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- TRANG CHỦ -->
+    <section class="page active" id="pageHome">
+      <h1 class="page-title" id="welcomeTitle">Chào mừng!</h1>
+      <div class="overview-grid">
+        <div class="overview-panel">
+          <div class="panel-header"><span>Bài học mới nhất</span><a href="#" class="link-blue" data-goto="lessons">Xem tất cả</a></div>
+          <div id="homeRecentLessons"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BÀI HỌC -->
+    <section class="page" id="pageLessons">
+      <!-- Danh sách bài -->
+      <div id="sLessonListView">
+        <h1 class="page-title">Bài học</h1>
+        <div class="content-list" id="sLessonList"></div>
+        <div class="empty-state" id="sEmptyLessons">Chưa có bài học nào.</div>
+      </div>
+      <!-- Chi tiết bài -->
+      <div id="sLessonDetailView" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title" id="sLessonDetailTitle"></h1>
+          <button class="btn-outline" id="sBackToLessonsBtn">← Quay lại</button>
+        </div>
+        <p class="muted-sm" id="sLessonDetailDesc"></p>
+        <div class="two-col" style="margin-top:1rem">
+          <div>
+            <div class="panel-header" style="margin-bottom:.5rem"><span>🎬 Video</span></div>
+            <div class="video-grid" id="sLessonVideoGrid"></div>
+            <div class="empty-state" id="sEmptyLessonVideos" style="font-size:.85rem">Chưa có video.</div>
+          </div>
+          <div>
+            <div class="panel-header" style="margin-bottom:.5rem"><span>📄 Tài liệu</span></div>
+            <div class="content-list" id="sLessonDocList"></div>
+            <div class="empty-state" id="sEmptyLessonDocs" style="font-size:.85rem">Chưa có tài liệu.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HỒ SƠ -->
+    <section class="page" id="pageProfile">
+      <h1 class="page-title">Hồ sơ</h1>
+      <div class="profile-card">
+        <div class="profile-avatar">HS</div>
+        <div class="profile-info">
+          <div class="profile-name" id="profileName"></div>
+          <div class="profile-role">Học sinh</div>
+          <div class="profile-class" id="profileClass"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- MODAL: Xem video / tài liệu -->
+  <div class="modal-overlay" id="viewerModal">
+    <div class="modal viewer-modal">
+      <button class="modal-close" id="closeViewer">✕</button>
+      <h2 id="viewerTitle"></h2>
+      <div id="viewerBody"></div>
+      <div class="modal-actions" style="margin-top:.75rem">
+        <a id="viewerDownload" class="btn-outline" download>⬇ Tải xuống</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECURITY OVERLAY -->
+  <div id="securityOverlay">
+    <div class="sec-box">
+      <div class="sec-icon">🔒</div>
+      <h2>Cảnh báo bảo mật</h2>
+      <p>Hành vi chụp màn hình hoặc chuyển ứng dụng đã bị phát hiện.<br/>Nội dung bị ẩn để bảo vệ tài liệu.</p>
+      <button id="secDismiss">Tôi hiểu, quay lại học</button>
+    </div>
+  </div>
+
+  <script src="student.js" type="module"></script>
+  <script type="module">
+    import { supabase } from './supabase.js';
+    const overlay = document.getElementById('securityOverlay');
+    let lastLogTime = 0;
+    async function logAlert(reason) {
+      const now = Date.now();
+      if (now - lastLogTime < 3000) return;
+      lastLogTime = now;
+      const username = sessionStorage.getItem('dh_user') || '—';
+      const studentName = sessionStorage.getItem('dh_name') || '—';
+      const { data } = await supabase.from('students').select('class_name').eq('username', username).single();
+      await supabase.from('alerts').insert({ username, student_name: studentName, class_name: data?.class_name || '', reason });
+    }
+    function showOverlay(reason) { logAlert(reason); overlay.classList.add('active'); }
+    document.getElementById('secDismiss').addEventListener('click', () => overlay.classList.remove('active'));
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('keydown', e => {
+      const blocked = e.key === 'PrintScreen' || e.key === 'F13' ||
+        (e.metaKey && e.shiftKey && ['3','4','5','6'].includes(e.key)) ||
+        (e.ctrlKey && e.key === 'p') || (e.ctrlKey && e.shiftKey && e.key === 'S');
+      if (blocked) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        document.body.style.filter = 'brightness(0)';
+        showOverlay('Phím chụp màn hình (PrintScreen)');
+        setTimeout(() => { document.body.style.filter = ''; }, 500);
+      }
+    }, true);
+    document.addEventListener('keyup', e => {
+      if (e.key === 'PrintScreen') { navigator.clipboard?.writeText('').catch(()=>{}); document.body.style.filter = ''; showOverlay('Phím PrintScreen nhả'); }
+    });
+    if (navigator.mediaDevices?.getDisplayMedia) {
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        showOverlay('Phát hiện quay màn hình');
+        document.body.style.filter = 'brightness(0)';
+        setTimeout(() => { document.body.style.filter = ''; }, 1000);
+        throw new DOMException('Không được phép', 'NotAllowedError');
+      };
+    }
+  </script>
+</body>
+</html>
