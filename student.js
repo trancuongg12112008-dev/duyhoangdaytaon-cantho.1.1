@@ -32,7 +32,7 @@ function showPage(pg) {
   currentSection = pg;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.slink').forEach(l => l.classList.remove('active'));
-  const map = { home:'Home', lessons:'Lessons', profile:'Profile' };
+  const map = { home:'Home', lessons:'Lessons', profile:'Profile', guide:'Guide' };
   const el = document.getElementById('page' + (map[pg] || pg.charAt(0).toUpperCase()+pg.slice(1)));
   if (el) el.classList.add('active');
   document.querySelectorAll(`[data-page="${pg}"]`).forEach(l => l.classList.add('active'));
@@ -49,7 +49,7 @@ document.querySelectorAll('[data-goto]').forEach(l => {
 // ---- Trang chủ ----
 async function renderHome() {
   let query = db.from('lessons').select('id,name,class_name').order('created_at',{ascending:false}).limit(4);
-  if (myClass) query = query.or(`class_name.eq.${myClass},class_name.is.null,class_name.eq.`);
+  if (myClass) query = query.eq('class_name', myClass);
   const { data: list } = await query;
   const el = document.getElementById('homeRecentLessons');
   el.innerHTML = '';
@@ -72,7 +72,7 @@ async function renderLessonList() {
   document.getElementById('sLessonListView').style.display = '';
   document.getElementById('sLessonDetailView').style.display = 'none';
   let query = db.from('lessons').select('*').order('created_at',{ascending:false});
-  if (myClass) query = query.or(`class_name.eq.${myClass},class_name.is.null,class_name.eq.`);
+  if (myClass) query = query.eq('class_name', myClass);
   const { data: list } = await query;
   const el = document.getElementById('sLessonList');
   el.innerHTML = '';
@@ -134,9 +134,18 @@ function openViewer(title, url, fileName, fileType) {
   const isVideo = fileType==='video'||(fileType||'').startsWith('video/');
   dl.style.display = isVideo?'none':'';
   dl.href=url; dl.download=fileName||title;
-  if (isVideo)
+  if (isVideo) {
     body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" class="viewer-video"></video>`;
-  else if (fileType==='application/pdf')
+    if (window.innerWidth < 768 && window.innerHeight > window.innerWidth) {
+      const tip = document.createElement('div');
+      tip.id = 'rotateTip';
+      tip.style.cssText = 'background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;text-align:center;';
+      tip.textContent = '📱 Vui lòng chuyển điện thoại sang ngang để có trải nghiệm học tốt nhất';
+      body.insertBefore(tip, body.firstChild);
+      const onOrient = () => { if (window.innerWidth > window.innerHeight) { tip.remove(); window.removeEventListener('resize', onOrient); } };
+      window.addEventListener('resize', onOrient);
+    }
+  } else if (fileType==='application/pdf')
     body.innerHTML=`<iframe src="${url}" class="viewer-iframe"></iframe>`;
   else if ((fileType||'').startsWith('image/'))
     body.innerHTML=`<img src="${url}" class="viewer-img" alt="${title}"/>`;

@@ -19,9 +19,11 @@
       <a href="#" class="slink" data-page="students">👨‍🎓 Danh sách học sinh</a>
       <a href="#" class="slink" data-page="classes">🏫 Lớp học</a>
       <a href="#" class="slink" data-page="security">🚨 Nhật ký cảnh báo <span id="alertNavBadge" class="nav-badge" style="display:none"></span></a>
+      <a href="#" class="slink" data-page="devices">📱 Cảnh báo thiết bị</a>
       <a href="#" class="slink" data-page="profile">👤 Hồ sơ</a>
     </nav>
     <a href="login.html" class="slink slink-logout" id="logoutBtn">🚪 Đăng xuất</a>
+    <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="text-align:left;">🔗 Trang đăng nhập</a>
   </aside>
 
   <!-- MAIN -->
@@ -177,6 +179,19 @@
         </table>
         <div class="empty-state" id="emptyClassStudents">Không có học sinh nào trong lớp này.</div>
       </div>
+    </section>
+
+    <!-- PAGE: CẢNH BÁO THIẾT BỊ -->
+    <section class="page" id="pageDevices">
+      <div class="page-header">
+        <h1 class="page-title">Cảnh báo thiết bị</h1>
+        <button class="btn-outline" id="clearDeviceAlertsBtn">🗑 Xóa tất cả</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="deviceAlertSearch" placeholder="🔍 Tìm theo tên học sinh..."/>
+      </div>
+      <div class="content-list" id="deviceAlertList"></div>
+      <div class="empty-state" id="emptyDeviceAlerts">Chưa có cảnh báo thiết bị nào.</div>
     </section>
 
     <!-- PAGE: NHẬT KÝ CẢNH BÁO -->

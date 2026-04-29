@@ -38,6 +38,7 @@ function showPage(name) {
   if (name === 'create-student') renderMiniStudents();
   if (name === 'lessons')        { populateClassFilters(); renderLessons(); }
   if (name === 'security')       renderAlerts();
+  if (name === 'devices')        renderDeviceAlerts();
   if (name === 'classes')        renderClasses();
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
@@ -489,6 +490,46 @@ document.getElementById('addClassSaveBtn').addEventListener('click', async ()=>{
   if (error) { err.textContent='Tên lớp đã tồn tại.'; return; }
   document.getElementById('addClassModal').classList.remove('open');
   renderClasses(); populateClassFilters();
+});
+
+// ============================================================
+// DEVICE ALERTS
+// ============================================================
+async function renderDeviceAlerts() {
+  const q = (document.getElementById('deviceAlertSearch').value || '').toLowerCase();
+  const { data: list } = await db.from('alerts').select('*')
+    .or(`reason.eq.Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất,reason.eq.Đăng nhập từ thiết bị khác trong vòng 5 phút,reason.eq.Đăng nhập sai mật khẩu 5 lần liên tiếp,reason.like.%Admin%`)
+    .order('created_at', { ascending: false });
+  const filtered = (list||[]).filter(a => !q || (a.student_name||'').toLowerCase().includes(q));
+  const el = document.getElementById('deviceAlertList');
+  el.innerHTML = '';
+  document.getElementById('emptyDeviceAlerts').style.display = filtered.length ? 'none' : 'block';
+  filtered.forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'content-row alert-row';
+    row.innerHTML = `
+      <span class="list-icon">📱</span>
+      <div class="list-info">
+        <div class="list-title">${a.student_name} <span class="muted" style="font-weight:400">— ${a.username}</span></div>
+        <div class="list-meta">
+          ${a.class_name ? `<span class="class-tag">${a.class_name}</span>` : ''}
+          <span class="alert-badge">Đăng nhập thiết bị mới</span>
+          • ${fmtTime(a.created_at)}
+        </div>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+document.getElementById('deviceAlertSearch').addEventListener('input', renderDeviceAlerts);
+document.getElementById('clearDeviceAlertsBtn').addEventListener('click', async () => {
+  if (confirm('Xóa toàn bộ cảnh báo thiết bị?')) {
+    await db.from('alerts').delete().in('reason', [
+      'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất',
+      'Đăng nhập từ thiết bị khác trong vòng 5 phút',
+      'Đăng nhập sai mật khẩu 5 lần liên tiếp'
+    ]);
+    renderDeviceAlerts();
+  }
 });
 
 // ============================================================

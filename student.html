@@ -14,6 +14,7 @@
     <nav class="sidebar-nav">
       <a href="#" class="slink active" data-page="home">🏠 Trang chủ</a>
       <a href="#" class="slink" data-page="lessons">📚 Bài học</a>
+      <a href="#" class="slink" data-page="guide">📖 Hướng dẫn</a>
       <a href="#" class="slink" data-page="profile">👤 Hồ sơ</a>
     </nav>
     <a href="login.html" class="slink slink-logout" id="logoutBtn">🚪 Đăng xuất</a>
@@ -74,6 +75,35 @@
       </div>
     </section>
 
+    <!-- HƯỚNG DẪN -->
+    <section class="page" id="pageGuide">
+      <h1 class="page-title">📖 Hướng dẫn sử dụng</h1>
+      <div class="form-panel" style="max-width:680px">
+
+        <h3>🔐 Đăng nhập</h3>
+        <p>Sử dụng <b>Gmail</b> và <b>Số báo danh</b> do giáo viên cung cấp để đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
+
+        <h3 style="margin-top:1.25rem">📚 Xem bài học</h3>
+        <p>Truy cập mục <b>Bài học</b> → chọn bài học tương ứng để xem video bài giảng và tài liệu đi kèm. Hệ thống chỉ hiển thị nội dung thuộc đúng lớp học mà bạn đã đăng ký.</p>
+
+        <h3 style="margin-top:1.25rem">🎬 Xem video bài giảng</h3>
+        <p>Nhấn vào ảnh đại diện (thumbnail) của bài học để bắt đầu xem video. Đối với điện thoại, nên <b>xoay ngang màn hình</b> để có trải nghiệm học tập tốt nhất. Video được bảo vệ bản quyền và <b>không hỗ trợ tải xuống</b> dưới mọi hình thức.</p>
+
+        <h3 style="margin-top:1.25rem">🚨 Lưu ý bảo mật</h3>
+        <ul style="padding-left:1.25rem;line-height:2">
+          <li>Không chia sẻ tài khoản cho người khác sử dụng dưới bất kỳ hình thức nào.</li>
+          <li>Nghiêm cấm hành vi chụp màn hình, quay video hoặc phát tán nội dung bài giảng.</li>
+          <li>Mọi hoạt động bất thường đều được hệ thống ghi nhận và thông báo trực tiếp đến giáo viên quản lý.</li>
+          <li>Tài khoản vi phạm sẽ bị <b>khóa vĩnh viễn</b> mà không cần báo trước.</li>
+        </ul>
+
+        <h3 style="margin-top:1.25rem">📞 Liên hệ hỗ trợ</h3>
+        <p>Nếu gặp sự cố trong quá trình đăng nhập, lỗi tài khoản, vấn đề kỹ thuật hoặc cần hỗ trợ quản lý học viên, vui lòng liên hệ qua <b>Zalo Tr.Cường</b> để được hỗ trợ nhanh nhất.</p>
+        <p style="margin-top:.5rem">📘 Đối với các thắc mắc về bài giảng, bài toán khó chưa hiểu hoặc cần giải đáp kiến thức chuyên môn, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b> để được hướng dẫn chi tiết.</p>
+        <p style="margin-top:.75rem;font-style:italic">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục mục tiêu đại học. 💪</p>
+      </div>
+    </section>
+
     <!-- HỒ SƠ -->
     <section class="page" id="pageProfile">
       <h1 class="page-title">Hồ sơ</h1>
@@ -86,6 +116,13 @@
         </div>
       </div>
     </section>
+
+    <!-- FOOTER -->
+    <footer style="text-align:center;padding:1.5rem 1rem;font-size:.78rem;color:#aaa;background:#111;border-top:1px solid #333;margin-top:auto;line-height:1.8">
+      <p>© Bản quyền thuộc về <b>Duy Hoàng Dạy Toán</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
+      <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
+      <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
+    </footer>
   </div>
 
   <!-- MODAL: Xem video / tài liệu -->
@@ -112,8 +149,7 @@
     </div>
   </div>
 
-  <script src="student.js"></script>
-  <script>
+  <script src="student.js"></script>  <script>
     const _db = supabase.createClient(
       'https://gojpmogjretoxplydjvg.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
@@ -237,5 +273,6 @@
       @media print { body { display: none !important; } }    `;
     document.head.appendChild(style);
   </script>
+
 </body>
 </html>

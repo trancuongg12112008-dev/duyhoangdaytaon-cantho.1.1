@@ -5,20 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Đăng Nhập</title>
   <link rel="stylesheet" href="style.css"/>
+
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
-<body class="auth-page">
+<body class="auth-page" style="height:auto;min-height:100vh;display:flex;flex-direction:column;">
 
-  <div class="auth-wrap">
-    <div class="auth-left">
-      <div class="brand white" style="cursor:default">📐 Duy Hoàng Dạy Toán</div>
-      <h2>Chào mừng trở lại!</h2>
-      <p>Bứt phá giới hạn – Chạm tới cánh cửa đại học mơ ước.</p>
+  <div class="auth-wrap" style="flex:1">
+    <div class="auth-left" style="background:linear-gradient(160deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-80px;right:-80px;width:300px;height:300px;background:rgba(99,102,241,.15);border-radius:50%;"></div>
+      <div style="position:absolute;bottom:-60px;left:-60px;width:250px;height:250px;background:rgba(139,92,246,.1);border-radius:50%;"></div>
+      <div style="position:relative;z-index:1">
+        <div class="brand white" style="cursor:default;font-size:1.6rem;font-weight:800;letter-spacing:-0.5px;">📐 Duy Hoàng Dạy Toán</div>
+        <h2 style="font-size:2.2rem;font-weight:900;margin-top:2rem;line-height:1.2;">Bứt phá giới hạn</h2>
+        <p style="font-size:1.1rem;opacity:.85;margin-top:.75rem;">Chạm tới cánh cửa đại học mơ ước.</p>
+        <div style="margin-top:2.5rem;display:flex;flex-direction:column;gap:.75rem;">
+          <div style="display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.08);padding:.75rem 1rem;border-radius:12px;">
+            <span style="font-size:1.4rem;">🎬</span>
+            <div><div style="font-weight:600;font-size:.9rem;">Video bài giảng HD</div><div style="font-size:.78rem;opacity:.7;">Học mọi lúc, mọi nơi</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.08);padding:.75rem 1rem;border-radius:12px;">
+            <span style="font-size:1.4rem;">📄</span>
+            <div><div style="font-weight:600;font-size:.9rem;">Tài liệu luyện thi</div><div style="font-size:.78rem;opacity:.7;">Đề thi, bài tập chọn lọc</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.08);padding:.75rem 1rem;border-radius:12px;">
+            <span style="font-size:1.4rem;">🏆</span>
+            <div><div style="font-weight:600;font-size:.9rem;">Lộ trình cá nhân hóa</div><div style="font-size:.78rem;opacity:.7;">Theo từng lớp, từng học sinh</div></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="auth-right">
-      <div class="auth-box">
-        <h2>Đăng nhập</h2>
+    <div class="auth-right" style="background:#f8f9ff;">
+      <div class="auth-box" style="box-shadow:0 20px 60px rgba(0,0,0,.12);border:1px solid rgba(99,102,241,.1);">
+        <div style="text-align:center;margin-bottom:.5rem;">
+          <div style="font-size:2rem;">👋</div>
+          <h2 style="font-size:1.6rem;font-weight:900;color:#1a1a2e;">Chào mừng trở lại!</h2>
+          <p style="font-size:.85rem;color:#888;margin-top:.25rem;">Đăng nhập để tiếp tục học</p>
+        </div>
 
         <div class="tab-row">
           <button class="tab-btn active" id="tabStudent">Học Sinh</button>
@@ -45,7 +68,38 @@
         </form>
 
         <p class="auth-hint">Chưa có tài khoản? Liên hệ trợ lý Trần Cường.</p>
+        <p class="auth-hint" style="margin-top:.25rem"><a href="#" id="showGuideBtn" style="color:#6c63ff">📖 Hướng dẫn sử dụng</a></p>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL HƯỚNG DẪN -->
+  <div id="guideModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:999;overflow-y:auto;">
+    <div style="background:#fff;max-width:600px;margin:2rem auto;border-radius:12px;padding:2rem;position:relative;">
+      <button id="closeGuideBtn" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;">✕</button>
+      <h2 style="margin-bottom:1rem">📖 Hướng dẫn sử dụng</h2>
+
+      <h3>🔐 Đăng nhập</h3>
+      <p>Sử dụng <b>Gmail</b> và <b>Số báo danh</b> do giáo viên cung cấp để đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
+
+      <h3 style="margin-top:1rem">📚 Xem bài học</h3>
+      <p>Truy cập mục <b>Bài học</b> → chọn bài học tương ứng để xem video bài giảng và tài liệu đi kèm. Hệ thống chỉ hiển thị nội dung thuộc đúng lớp học mà bạn đã đăng ký.</p>
+
+      <h3 style="margin-top:1rem">🎬 Xem video bài giảng</h3>
+      <p>Nhấn vào ảnh đại diện (thumbnail) của bài học để bắt đầu xem video. Đối với điện thoại, nên <b>xoay ngang màn hình</b> để có trải nghiệm học tập tốt nhất. Video được bảo vệ bản quyền và <b>không hỗ trợ tải xuống</b> dưới mọi hình thức.</p>
+
+      <h3 style="margin-top:1rem">🚨 Lưu ý bảo mật</h3>
+      <ul style="padding-left:1.25rem;line-height:2">
+        <li>Không chia sẻ tài khoản cho người khác sử dụng dưới bất kỳ hình thức nào.</li>
+        <li>Nghiêm cấm hành vi chụp màn hình, quay video hoặc phát tán nội dung bài giảng.</li>
+        <li>Mọi hoạt động bất thường đều được hệ thống ghi nhận và thông báo trực tiếp đến giáo viên quản lý.</li>
+        <li>Tài khoản vi phạm sẽ bị <b>khóa vĩnh viễn</b> mà không cần báo trước.</li>
+      </ul>
+
+      <h3 style="margin-top:1rem">📞 Liên hệ hỗ trợ</h3>
+      <p>Nếu gặp sự cố trong quá trình đăng nhập, lỗi tài khoản, vấn đề kỹ thuật hoặc cần hỗ trợ quản lý học viên, vui lòng liên hệ qua <b>Zalo Tr.Cường</b> để được hỗ trợ nhanh nhất.</p>
+      <p style="margin-top:.5rem">📘 Đối với các thắc mắc về bài giảng, bài toán khó chưa hiểu hoặc cần giải đáp kiến thức chuyên môn, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b> để được hướng dẫn chi tiết.</p>
+      <p style="margin-top:.75rem;font-style:italic">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục mục tiêu đại học. 💪</p>
     </div>
   </div>
 
@@ -73,6 +127,9 @@
     }
     document.getElementById('tabStudent').onclick = () => setTab('student');
     document.getElementById('tabTeacher').onclick = () => setTab('teacher');
+    document.getElementById('showGuideBtn').onclick = e => { e.preventDefault(); document.getElementById('guideModal').style.display='block'; };
+    document.getElementById('closeGuideBtn').onclick = () => document.getElementById('guideModal').style.display='none';
+    document.getElementById('guideModal').onclick = e => { if(e.target===document.getElementById('guideModal')) document.getElementById('guideModal').style.display='none'; };
 
     document.getElementById('loginForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -83,33 +140,77 @@
       if (role === 'teacher') {
         const t = JSON.parse(localStorage.getItem('dh_teacher'));
         if (u === t.username && p === t.password) {
+          // Reset admin attempts
+          localStorage.removeItem('dh_admin_attempts');
           sessionStorage.setItem('dh_role', 'teacher');
           sessionStorage.setItem('dh_user', u);
           sessionStorage.setItem('dh_name', t.full_name);
           window.location.href = 'admin.html';
-        } else { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; }
-      } else {
-        const { data, error } = await db.from('students').select('*').eq('username', u).eq('password', p).single();
-        if (error || !data) { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
-        if (!data.active) { err.textContent = 'Tài khoản đã bị khóa.'; return; }
-        // Tạo session token mới, ghi đè token cũ (kick thiết bị cũ)
-        const token = Math.random().toString(36).slice(2) + Date.now();
-        await db.from('students').update({ session_token: token }).eq('id', data.id);
-        // Ghi cảnh báo nếu đã có token cũ (đang đăng nhập thiết bị khác)
-        if (data.session_token) {
-          await db.from('alerts').insert({
-            username: u, student_name: data.full_name,
-            class_name: data.class_name || '',
-            reason: 'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất'
-          });
+        } else {
+          // Đếm số lần sai
+          const attempts = (parseInt(localStorage.getItem('dh_admin_attempts') || '0')) + 1;
+          localStorage.setItem('dh_admin_attempts', attempts);
+          err.textContent = `Sai tên đăng nhập hoặc mật khẩu. (${attempts} lần)`;
+          // Ghi cảnh báo sau 3 lần sai
+          if (attempts >= 3) {
+            await db.from('alerts').insert({
+              username: u || '(không rõ)',
+              student_name: 'Không xác định',
+              class_name: '',
+              reason: `Cố đăng nhập tài khoản Admin sai ${attempts} lần — IP có thể bị xâm nhập`
+            });
+          }
         }
+      } else {
+        // Lấy thông tin học sinh (kể cả sai mật khẩu để đếm attempts)
+        const { data: student } = await db.from('students').select('*').eq('username', u).single();
+
+        if (!student) { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
+
+        // Sai mật khẩu
+        if (student.password !== p) {
+          const attempts = (student.login_attempts || 0) + 1;
+          await db.from('students').update({ login_attempts: attempts }).eq('id', student.id);
+          if (attempts >= 5) {
+            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Đăng nhập sai mật khẩu ${attempts} lần liên tiếp` });
+          }
+          err.textContent = `Sai mật khẩu. (${attempts}/5 lần)`; return;
+        }
+
+        if (!student.active) { err.textContent = 'Tài khoản đã bị khóa.'; return; }
+
+        // Phát hiện đăng nhập nhiều thiết bị trong thời gian ngắn (< 5 phút)
+        const now = new Date();
+        if (student.last_login) {
+          const diff = (now - new Date(student.last_login)) / 1000 / 60;
+          if (diff < 5 && student.session_token) {
+            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: 'Đăng nhập từ thiết bị khác trong vòng 5 phút' });
+          }
+        }
+
+        // Reset attempts, cập nhật session token và last_login
+        const token = Math.random().toString(36).slice(2) + Date.now();
+        await db.from('students').update({ session_token: token, login_attempts: 0, last_login: now.toISOString() }).eq('id', student.id);
+
+        // Ghi cảnh báo đổi thiết bị
+        if (student.session_token) {
+          await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: 'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất' });
+        }
+
         sessionStorage.setItem('dh_role', 'student');
         sessionStorage.setItem('dh_user', u);
-        sessionStorage.setItem('dh_name', data.full_name);
+        sessionStorage.setItem('dh_name', student.full_name);
         sessionStorage.setItem('dh_token', token);
         window.location.href = 'student.html';
       }
     });
   </script>
+
+  <!-- FOOTER -->
+  <footer style="text-align:center;padding:1.5rem 1rem;font-size:.78rem;color:#aaa;background:#111;border-top:1px solid #333;margin-top:2rem;line-height:1.8">
+    <p>© Bản quyền thuộc về <b>Duy Hoàng Dạy Toán</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
+    <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
+    <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
+  </footer>
 </body>
 </html>
