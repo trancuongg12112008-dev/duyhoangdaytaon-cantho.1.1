@@ -99,22 +99,44 @@ async function renderHome() {
 async function renderLessonList() {
   document.getElementById('sLessonListView').style.display = '';
   document.getElementById('sLessonDetailView').style.display = 'none';
-  let query = db.from('lessons').select('*').order('created_at',{ascending:false});
+  let query = db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false});
   if (myClass) query = query.eq('class_name', myClass);
   const { data: list } = await query;
   const el = document.getElementById('sLessonList');
   el.innerHTML = '';
   document.getElementById('sEmptyLessons').style.display = (list||[]).length?'none':'block';
-  for (const l of (list||[])) {
-    const [{ count:vc },{ count:dc }] = await Promise.all([
-      db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-      db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-    ]);
-    const row = document.createElement('div');
-    row.className = 'content-row clickable';
-    row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} 🎬 ${vc||0} video • 📄 ${dc||0} tài liệu${l.description?` • ${l.description}`:''}</div></div><span class="btn-sm">👁 Xem</span>`;
-    row.addEventListener('click', () => openLessonDetail(l.id));
-    el.appendChild(row);
+
+  // Gom theo nhóm
+  const groups = {};
+  (list||[]).forEach(l => {
+    const g = l.group_name || '📚 Bài học';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(l);
+  });
+
+  for (const [groupName, lessons] of Object.entries(groups)) {
+    const header = document.createElement('div');
+    header.style.cssText = 'font-weight:700;font-size:.95rem;padding:.6rem .75rem;background:#f1f5f9;border-radius:8px;margin-top:1rem;margin-bottom:.25rem;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:space-between';
+    header.innerHTML = `<span>📂 ${groupName}</span><span style="font-size:.8rem;color:#94a3b8">${lessons.length} bài</span>`;
+    el.appendChild(header);
+
+    const groupEl = document.createElement('div');
+    header.addEventListener('click', () => {
+      groupEl.style.display = groupEl.style.display === 'none' ? '' : 'none';
+    });
+
+    for (const l of lessons) {
+      const [{ count:vc },{ count:dc }] = await Promise.all([
+        db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
+        db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
+      ]);
+      const row = document.createElement('div');
+      row.className = 'content-row clickable';
+      row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">🎬 ${vc||0} video • 📄 ${dc||0} tài liệu${l.description?` • ${l.description}`:''}</div></div><span class="btn-sm">👁 Xem</span>`;
+      row.addEventListener('click', () => openLessonDetail(l.id));
+      groupEl.appendChild(row);
+    }
+    el.appendChild(groupEl);
   }
 }
 

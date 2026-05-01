@@ -33,14 +33,29 @@ create table if not exists students (
 -- alter table students add column if not exists expiry_date date default null;
 -- alter table students add column if not exists notes text default null;
 
--- Bảng bài học
-create table if not exists lessons (
+-- Bảng nhóm bài học
+create table if not exists lesson_groups (
   id         bigint generated always as identity primary key,
-  name       text not null,
+  name       text not null unique,
   class_name text,
-  description text,
   created_at timestamptz default now()
 );
+alter table lesson_groups disable row level security;
+
+-- Bảng bài học
+create table if not exists lessons (
+  id           bigint generated always as identity primary key,
+  name         text not null,
+  class_name   text,
+  description  text,
+  group_name   text default null,
+  created_at   timestamptz default now()
+);
+
+-- Migration nếu bảng đã tồn tại:
+-- alter table lessons add column if not exists group_name text default null;
+-- create table if not exists lesson_groups (id bigint generated always as identity primary key, name text not null unique, class_name text, created_at timestamptz default now());
+-- alter table lesson_groups disable row level security;
 
 -- Bảng video trong bài học
 create table if not exists lesson_videos (

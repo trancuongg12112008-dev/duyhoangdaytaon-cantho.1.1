@@ -58,6 +58,7 @@ function showPage(name) {
   if (name === 'students')       { populateClassFilters(); renderStudents(); }
   if (name === 'create-student') renderMiniStudents();
   if (name === 'lessons')        { populateClassFilters(); renderLessons(); }
+  if (name === 'lesson-groups')  { populateClassFilters(); renderGroups(); }
   if (name === 'security')       renderAlerts();
   if (name === 'devices')        renderDeviceAlerts();
   if (name === 'classes')        renderClasses();
@@ -87,12 +88,74 @@ async function populateClassFilters() {
     const cur = el.value; el.innerHTML = filterOpts; el.value = cur;
   });
   const lcs = document.getElementById('lClassSelect'); if (lcs) { const cur=lcs.value; lcs.innerHTML=modalOpts; lcs.value=cur; }
-  ['addClass','esClass'].forEach(id => {
+  ['addClass','esClass','groupClassSelect'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     const cur = el.value; el.innerHTML = modalOpts; el.value = cur;
   });
 }
 populateClassFilters();
+
+// ---- Populate nhóm bài học vào dropdown ----
+async function populateGroupSelect(selectId, currentVal='') {
+  const { data: groups } = await db.from('lesson_groups').select('name').order('name');
+  const el = document.getElementById(selectId); if (!el) return;
+  el.innerHTML = '<option value="">-- Không có nhóm --</option>' + (groups||[]).map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
+  el.value = currentVal;
+}
+
+// ============================================================
+// NHÓM BÀI HỌC
+// ============================================================
+async function renderGroups() {
+  const { data: list } = await db.from('lesson_groups').select('*').order('name');
+  const el = document.getElementById('groupList');
+  el.innerHTML = '';
+  document.getElementById('emptyGroups').style.display = (list||[]).length?'none':'block';
+  for (const g of (list||[])) {
+    const { count } = await db.from('lessons').select('*',{count:'exact',head:true}).eq('group_name',g.name);
+    const row = document.createElement('div');
+    row.className = 'content-row';
+    row.innerHTML = `<span class="list-icon">📂</span><div class="list-info"><div class="list-title">${g.name}</div><div class="list-meta">${g.class_name?`<span class="class-tag">${g.class_name}</span>`:''} ${count||0} bài học</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
+    row.querySelector('[data-action="edit"]').addEventListener('click', () => openGroupModal(g));
+    row.querySelector('[data-action="delete"]').addEventListener('click', () => {
+      showConfirm(`Xóa nhóm "${g.name}"? Các bài học trong nhóm sẽ không bị xóa.`, async () => {
+        await db.from('lessons').update({group_name:null}).eq('group_name',g.name);
+        await db.from('lesson_groups').delete().eq('id',g.id);
+        renderGroups();
+      });
+    });
+    el.appendChild(row);
+  }
+}
+
+let editingGroupId = null;
+function openGroupModal(g=null) {
+  editingGroupId = g?g.id:null;
+  document.getElementById('groupModalTitle').textContent = g?'Sửa nhóm':'Tạo nhóm';
+  document.getElementById('groupNameInput').value = g?g.name:'';
+  document.getElementById('groupNameInput').dataset.oldName = g?g.name:'';
+  document.getElementById('groupError').textContent = '';
+  populateClassFilters().then(() => { document.getElementById('groupClassSelect').value = g?(g.class_name||''):''; });
+  document.getElementById('groupModal').classList.add('open');
+}
+document.getElementById('openAddGroupBtn').addEventListener('click', () => openGroupModal());
+document.getElementById('groupCancelBtn').addEventListener('click', () => document.getElementById('groupModal').classList.remove('open'));
+document.getElementById('groupSaveBtn').addEventListener('click', async () => {
+  const name = document.getElementById('groupNameInput').value.trim();
+  const oldName = document.getElementById('groupNameInput').dataset.oldName;
+  const cls = document.getElementById('groupClassSelect').value;
+  const err = document.getElementById('groupError');
+  if (!name) { err.textContent='Vui lòng nhập tên nhóm.'; return; }
+  if (editingGroupId) {
+    await db.from('lesson_groups').update({name,class_name:cls||null}).eq('id',editingGroupId);
+    if (oldName && oldName !== name) await db.from('lessons').update({group_name:name}).eq('group_name',oldName);
+  } else {
+    const { error } = await db.from('lesson_groups').insert({name,class_name:cls||null});
+    if (error) { err.textContent='Tên nhóm đã tồn tại.'; return; }
+  }
+  document.getElementById('groupModal').classList.remove('open');
+  renderGroups();
+});
 
 // ============================================================
 // OVERVIEW
@@ -396,24 +459,48 @@ async function renderLessons() {
   document.getElementById('lessonListView').style.display='';
   document.getElementById('lessonDetailView').style.display='none';
   const fc=document.getElementById('lessonFilterClass').value;
-  let query=db.from('lessons').select('*').order('created_at',{ascending:false});
+  let query=db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false});
   if (fc) query=query.eq('class_name',fc);
   const { data: list }=await query;
   const el=document.getElementById('lessonList');
   el.innerHTML='';
   document.getElementById('emptyLessons').style.display=(list||[]).length?'none':'block';
-  for (const l of (list||[])) {
-    const [{ count:vc },{ count:dc }]=await Promise.all([
-      db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-      db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-    ]);
-    const row=document.createElement('div');
-    row.className='content-row clickable';
-    row.innerHTML=`<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} <span>🎬 ${vc||0} video</span> • <span>📄 ${dc||0} tài liệu</span>${l.description?` • ${l.description}`:''}</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
-    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openLessonDetail(l.id); });
-    row.querySelector('[data-action="edit"]').addEventListener('click', e=>{ e.stopPropagation(); openLessonModal(l); });
-    row.querySelector('[data-action="delete"]').addEventListener('click', async e=>{ e.stopPropagation(); showConfirm(`Xóa bài học "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderLessons(); }); });
-    el.appendChild(row);
+
+  // Gom theo nhóm
+  const groups = {};
+  (list||[]).forEach(l => {
+    const g = l.group_name || '📚 Chưa phân nhóm';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(l);
+  });
+
+  for (const [groupName, lessons] of Object.entries(groups)) {
+    // Header nhóm
+    const header = document.createElement('div');
+    header.style.cssText = 'font-weight:700;font-size:.95rem;padding:.6rem .75rem;background:#f1f5f9;border-radius:8px;margin-top:1rem;margin-bottom:.25rem;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:space-between';
+    header.innerHTML = `<span>📂 ${groupName}</span><span style="font-size:.8rem;color:#94a3b8">${lessons.length} bài</span>`;
+    el.appendChild(header);
+
+    const groupEl = document.createElement('div');
+    groupEl.style.cssText = 'margin-bottom:.5rem';
+    header.addEventListener('click', () => {
+      groupEl.style.display = groupEl.style.display === 'none' ? '' : 'none';
+    });
+
+    for (const l of lessons) {
+      const [{ count:vc },{ count:dc }]=await Promise.all([
+        db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
+        db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
+      ]);
+      const row=document.createElement('div');
+      row.className='content-row clickable';
+      row.innerHTML=`<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} <span>🎬 ${vc||0} video</span> • <span>📄 ${dc||0} tài liệu</span>${l.description?` • ${l.description}`:''}</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
+      row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openLessonDetail(l.id); });
+      row.querySelector('[data-action="edit"]').addEventListener('click', e=>{ e.stopPropagation(); openLessonModal(l); });
+      row.querySelector('[data-action="delete"]').addEventListener('click', async e=>{ e.stopPropagation(); showConfirm(`Xóa bài học "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderLessons(); }); });
+      groupEl.appendChild(row);
+    }
+    el.appendChild(groupEl);
   }
 }
 document.getElementById('lessonFilterClass').addEventListener('change', renderLessons);
@@ -426,22 +513,21 @@ function openLessonModal(l=null) {
   document.getElementById('lDescInput').value=l?(l.description||''):'';
   document.getElementById('lError').textContent='';
   populateClassFilters().then(()=>{ document.getElementById('lClassSelect').value=l?(l.class_name||''):''; });
+  populateGroupSelect('lGroupInput', l?(l.group_name||''):'');
   document.getElementById('lessonModal').classList.add('open');
 }
 document.getElementById('openAddLessonBtn').addEventListener('click', ()=>openLessonModal());
 document.getElementById('lCancelBtn').addEventListener('click', ()=>document.getElementById('lessonModal').classList.remove('open'));
 document.getElementById('lSaveBtn').addEventListener('click', async ()=>{
   const name=document.getElementById('lNameInput').value.trim(), err=document.getElementById('lError');
-  console.log('Tạo bài:', name);
   if (!name) { err.textContent='Vui lòng nhập tên bài học.'; return; }
-  const cls=document.getElementById('lClassSelect').value, desc=document.getElementById('lDescInput').value.trim();
-  console.log('cls:', cls, 'desc:', desc);
+  const cls=document.getElementById('lClassSelect').value;
+  const desc=document.getElementById('lDescInput').value.trim();
+  const group=document.getElementById('lGroupInput').value||null;
   if (editingLessonId) {
-    const r = await db.from('lessons').update({name,class_name:cls,description:desc}).eq('id',editingLessonId);
-    console.log('update result:', r);
+    await db.from('lessons').update({name,class_name:cls,description:desc,group_name:group}).eq('id',editingLessonId);
   } else {
-    const r = await db.from('lessons').insert({name,class_name:cls,description:desc});
-    console.log('insert result:', r);
+    await db.from('lessons').insert({name,class_name:cls,description:desc,group_name:group});
   }
   document.getElementById('lessonModal').classList.remove('open');
   await renderLessons();

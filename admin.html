@@ -10,7 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
+  <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body class="dashboard-page">
@@ -21,6 +21,7 @@
     <nav class="sidebar-nav">
       <a href="#" class="slink active" data-page="overview">📊 Tổng quan</a>
       <a href="#" class="slink" data-page="lessons">📚 Bài học</a>
+      <a href="#" class="slink" data-page="lesson-groups">📂 Nhóm bài học</a>
       <a href="#" class="slink" data-page="create-student">➕ Tạo tài khoản học sinh</a>
       <a href="#" class="slink" data-page="students">👨‍🎓 Danh sách học sinh</a>
       <a href="#" class="slink" data-page="classes">🏫 Lớp học</a>
@@ -111,6 +112,17 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- PAGE: TẠO TÀI KHOẢN -->
+    <!-- PAGE: NHÓM BÀI HỌC -->
+    <section class="page" id="pageLessonGroups">
+      <div class="page-header">
+        <h1 class="page-title">Nhóm bài học</h1>
+        <button class="btn-primary" id="openAddGroupBtn">➕ Tạo nhóm</button>
+      </div>
+      <div class="content-list" id="groupList"></div>
+      <div class="empty-state" id="emptyGroups">Chưa có nhóm nào.</div>
     </section>
 
     <!-- PAGE: TẠO TÀI KHOẢN -->
@@ -355,6 +367,8 @@
       <h2 id="lessonModalTitle">Tạo bài học</h2>
       <label>Tên bài học</label>
       <input type="text" id="lNameInput" placeholder="VD: Bài 1 - Phương trình bậc nhất..."/>
+      <label>Nhóm <span class="muted">(tuỳ chọn)</span></label>
+      <select id="lGroupInput"><option value="">-- Không có nhóm --</option></select>
       <label>Lớp</label>
       <select id="lClassSelect"><option value="">-- Tất cả lớp --</option></select>
       <label>Mô tả <span class="muted">(tuỳ chọn)</span></label>
@@ -443,6 +457,22 @@
       <div class="modal-actions" style="justify-content:center;gap:.75rem">
         <button id="confirmCancelBtn" class="btn-outline">Hủy</button>
         <button id="confirmOkBtn" class="btn-primary btn-danger">Xóa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Nhóm bài học -->
+  <div class="modal-overlay" id="groupModal">
+    <div class="modal">
+      <h2 id="groupModalTitle">Tạo nhóm</h2>
+      <label>Tên nhóm</label>
+      <input type="text" id="groupNameInput" placeholder="VD: Chương 1, Đại số, Ôn tập..."/>
+      <label>Lớp <span class="muted">(tuỳ chọn)</span></label>
+      <select id="groupClassSelect"><option value="">-- Tất cả lớp --</option></select>
+      <div id="groupError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button id="groupCancelBtn" class="btn-outline">Hủy</button>
+        <button id="groupSaveBtn" class="btn-primary">Lưu</button>
       </div>
     </div>
   </div>
