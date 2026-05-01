@@ -48,8 +48,12 @@ create table if not exists lesson_videos (
   title      text not null,
   file_name  text,
   storage_path text,
+  video_url  text default null,   -- Link video (YouTube, Drive, MP4...)
   created_at timestamptz default now()
 );
+
+-- Migration nếu bảng đã tồn tại:
+-- alter table lesson_videos add column if not exists video_url text default null;
 
 -- Bảng tài liệu trong bài học
 create table if not exists lesson_docs (

@@ -1,17 +1,18 @@
 const CACHE = 'htql-v2';
+const BASE = '/duyhoangdaytaon-cantho.1.1';
 const STATIC = [
-  '/index.html',
-  '/login.html',
-  '/admin.html',
-  '/student.html',
-  '/style.css',
-  '/app.js',
-  '/admin.js',
-  '/student.js',
-  '/supabase.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  `${BASE}/index.html`,
+  `${BASE}/login.html`,
+  `${BASE}/admin.html`,
+  `${BASE}/student.html`,
+  `${BASE}/style.css`,
+  `${BASE}/app.js`,
+  `${BASE}/admin.js`,
+  `${BASE}/student.js`,
+  `${BASE}/supabase.js`,
+  `${BASE}/manifest.json`,
+  `${BASE}/icons/icon-192.png`,
+  `${BASE}/icons/icon-512.png`
 ];
 
 // Cài đặt: cache các file tĩnh

@@ -118,6 +118,16 @@ async function renderLessonList() {
   }
 }
 
+// Helper: chuyển link thường thành embed URL
+function getEmbedUrl(url) {
+  if (!url) return null;
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
+  return null;
+}
+
 // ---- Chi tiết bài học ----
 async function openLessonDetail(id) {
   const { data:l } = await db.from('lessons').select('*').eq('id',id).single();
@@ -132,11 +142,16 @@ async function openLessonDetail(id) {
   vGrid.innerHTML = '';
   document.getElementById('sEmptyLessonVideos').style.display = (vids||[]).length?'none':'block';
   (vids||[]).forEach(v => {
-    const url = db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const isLink = !!v.video_url;
+    const url = isLink ? v.video_url : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
     const card = document.createElement('div');
     card.className = 'video-card';
-    card.innerHTML = `<div class="video-thumb"><video src="${url}" preload="metadata"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
-    card.querySelector('.video-thumb').addEventListener('click', () => openViewer(v.title,url,v.file_name,'video'));
+    if (isLink && getEmbedUrl(url)) {
+      card.innerHTML = `<div class="video-thumb" style="background:#111;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.25rem"><span style="font-size:2rem">▶️</span><span style="color:#fff;font-size:.75rem">Nhấn để xem</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
+    } else {
+      card.innerHTML = `<div class="video-thumb"><video src="${url}" preload="metadata"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
+    }
+    card.querySelector('.video-thumb').addEventListener('click', () => openViewer(v.title, url, v.file_name, isLink ? 'link' : 'video'));
     vGrid.appendChild(card);
   });
 
@@ -159,14 +174,25 @@ document.getElementById('sBackToLessonsBtn').addEventListener('click', renderLes
 function openViewer(title, url, fileName, fileType) {
   document.getElementById('viewerTitle').textContent = title;
   const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
-  const isVideo = fileType==='video'||(fileType||'').startsWith('video/');
-  dl.style.display = isVideo?'none':'';
   dl.href=url; dl.download=fileName||title;
-  if (isVideo) {
+  const isVideo = fileType==='video'||(fileType||'').startsWith('video/');
+  const isLink = fileType==='link';
+
+  // Ẩn nút tải với video và link
+  dl.style.display = (isVideo || isLink) ? 'none' : '';
+
+  if (isLink) {
+    const embed = getEmbedUrl(url);
+    if (embed) {
+      body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+    } else {
+      // Link MP4 trực tiếp hoặc link khác
+      body.innerHTML=`<video src="${url}" controls controlsList="nodownload" oncontextmenu="return false" class="viewer-video"></video>`;
+    }
+  } else if (isVideo) {
     body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" class="viewer-video"></video>`;
     if (window.innerWidth < 768 && window.innerHeight > window.innerWidth) {
       const tip = document.createElement('div');
-      tip.id = 'rotateTip';
       tip.style.cssText = 'background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;text-align:center;';
       tip.textContent = '📱 Vui lòng chuyển điện thoại sang ngang để có trải nghiệm học tốt nhất';
       body.insertBefore(tip, body.firstChild);

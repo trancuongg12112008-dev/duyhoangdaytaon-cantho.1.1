@@ -291,18 +291,44 @@ document.getElementById('pwSaveBtn').addEventListener('click', () => {
 // ============================================================
 // VIEWER MODAL
 // ============================================================
+// Helper: chuyển link thường thành embed URL
+function getEmbedUrl(url) {
+  if (!url) return null;
+  // YouTube
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  // Google Drive
+  const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
+  return null;
+}
+
 function openViewer(title, url, fileName, fileType) {
   document.getElementById('viewerTitle').textContent=title;
   const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
   dl.href=url; dl.download=fileName||title;
-  if (fileType==='video'||(fileType||'').startsWith('video/'))
-    body.innerHTML=`<video src="${url}" controls class="viewer-video"></video>`;
-  else if (fileType==='application/pdf')
+  if (fileType==='link') {
+    // Link video — nhúng iframe hoặc video tag, ẩn nút tải
+    dl.style.display='none';
+    const embed = getEmbedUrl(url);
+    if (embed) {
+      body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+    } else {
+      body.innerHTML=`<video src="${url}" controls controlsList="nodownload" oncontextmenu="return false" class="viewer-video"></video>`;
+    }
+  } else if (fileType==='video'||(fileType||'').startsWith('video/')) {
+    dl.style.display='none';
+    body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" class="viewer-video"></video>`;
+  } else if (fileType==='application/pdf') {
+    dl.style.display='';
     body.innerHTML=`<iframe src="${url}" class="viewer-iframe"></iframe>`;
-  else if ((fileType||'').startsWith('image/'))
+  } else if ((fileType||'').startsWith('image/')) {
+    dl.style.display='';
     body.innerHTML=`<img src="${url}" class="viewer-img" alt="${title}"/>`;
-  else
+  } else {
+    dl.style.display='';
     body.innerHTML=`<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>`;
+  }
   document.getElementById('viewerModal').classList.add('open');
 }
 document.getElementById('closeViewer').addEventListener('click', closeViewer);
@@ -388,12 +414,22 @@ async function renderLessonVideos(lessonId) {
   grid.innerHTML='';
   document.getElementById('emptyLessonVideos').style.display=(vids||[]).length?'none':'block';
   (vids||[]).forEach(v=>{
-    const url=db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const isLink = !!v.video_url;
+    const url = isLink ? v.video_url : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const embed = isLink ? getEmbedUrl(url) : null;
     const card=document.createElement('div');
     card.className='video-card';
-    card.innerHTML=`<div class="video-thumb"><video src="${url}" preload="metadata"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div><button class="btn-sm btn-danger del-btn">🗑 Xóa</button></div>`;
-    card.querySelector('.video-thumb').addEventListener('click',()=>openViewer(v.title,url,v.file_name,'video'));
-    card.querySelector('.del-btn').addEventListener('click', async ()=>{ await db.storage.from('lessons').remove([v.storage_path]); await db.from('lesson_videos').delete().eq('id',v.id); renderLessonVideos(lessonId); });
+    if (embed) {
+      card.innerHTML=`<div class="video-thumb" style="background:#000;display:flex;align-items:center;justify-content:center"><span style="font-size:2rem">🔗</span><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div><button class="btn-sm btn-danger del-btn">🗑 Xóa</button></div>`;
+    } else {
+      card.innerHTML=`<div class="video-thumb"><video src="${url}" preload="metadata"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div><button class="btn-sm btn-danger del-btn">🗑 Xóa</button></div>`;
+    }
+    card.querySelector('.video-thumb').addEventListener('click',()=>openViewer(v.title, url, v.file_name, isLink ? 'link' : 'video'));
+    card.querySelector('.del-btn').addEventListener('click', async ()=>{
+      if (!isLink && v.storage_path) await db.storage.from('lessons').remove([v.storage_path]);
+      await db.from('lesson_videos').delete().eq('id',v.id);
+      renderLessonVideos(lessonId);
+    });
     grid.appendChild(card);
   });
 }
@@ -414,29 +450,93 @@ async function renderLessonDocs(lessonId) {
   });
 }
 
-document.getElementById('lessonVideoInput').addEventListener('change', e=>{
-  const f=e.target.files[0]; if(!f) return;
-  pendingLessonVideoFile=f;
-  document.getElementById('lessonPreviewVideo').src=URL.createObjectURL(f);
-  document.getElementById('lvTitleInput').value=f.name.replace(/\.[^.]+$/,'');
+document.getElementById('openAddVideoBtn').addEventListener('click', () => {
+  // Reset modal
+  pendingLessonVideoFile = null;
+  document.getElementById('lessonPreviewVideo').src = '';
+  document.getElementById('lessonVideoFileInput').value = '';
+  document.getElementById('lvLinkInput').value = '';
+  document.getElementById('lvLinkPreview').innerHTML = '';
+  document.getElementById('lvTitleInput').value = '';
+  // Default tab: file
+  document.getElementById('videoFileSection').style.display = '';
+  document.getElementById('videoLinkSection').style.display = 'none';
+  document.getElementById('tabVideoFile').classList.add('active');
+  document.getElementById('tabVideoLink').classList.remove('active');
   document.getElementById('lessonVideoModal').classList.add('open');
-  e.target.value='';
 });
-document.getElementById('lvCancelBtn').addEventListener('click',()=>{ document.getElementById('lessonVideoModal').classList.remove('open'); document.getElementById('lessonPreviewVideo').src=''; pendingLessonVideoFile=null; });
-document.getElementById('lvSaveBtn').addEventListener('click', async ()=>{
-  if (!pendingLessonVideoFile) return;
-  const title=document.getElementById('lvTitleInput').value.trim(); if(!title) return;
-  const safeName=`${Date.now()}_${pendingLessonVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
-  const path=`videos/${currentLessonId}/${safeName}`;
-  const btn = document.getElementById('lvSaveBtn');
-  btn.textContent = 'Đang upload...'; btn.disabled = true;
-  const { error:upErr }=await db.storage.from('lessons').upload(path, pendingLessonVideoFile, { cacheControl:'3600', upsert:false });
-  btn.textContent = 'Lưu'; btn.disabled = false;
-  if (upErr) { alert('Lỗi upload: '+upErr.message); return; }
-  await db.from('lesson_videos').insert({lesson_id:currentLessonId,title,file_name:pendingLessonVideoFile.name,storage_path:path});
+
+document.getElementById('tabVideoFile').addEventListener('click', () => {
+  document.getElementById('videoFileSection').style.display = '';
+  document.getElementById('videoLinkSection').style.display = 'none';
+  document.getElementById('tabVideoFile').classList.add('active');
+  document.getElementById('tabVideoLink').classList.remove('active');
+});
+document.getElementById('tabVideoLink').addEventListener('click', () => {
+  document.getElementById('videoFileSection').style.display = 'none';
+  document.getElementById('videoLinkSection').style.display = '';
+  document.getElementById('tabVideoFile').classList.remove('active');
+  document.getElementById('tabVideoLink').classList.add('active');
+});
+
+// Preview khi nhập link
+document.getElementById('lvLinkInput').addEventListener('input', () => {
+  const url = document.getElementById('lvLinkInput').value.trim();
+  const preview = document.getElementById('lvLinkPreview');
+  if (!url) { preview.innerHTML = ''; return; }
+  const embed = getEmbedUrl(url);
+  if (embed) {
+    preview.innerHTML = `<iframe src="${embed}" style="width:100%;height:200px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+  } else if (url.match(/\.(mp4|webm|ogg)(\?|$)/i)) {
+    preview.innerHTML = `<video src="${url}" controls style="width:100%;border-radius:8px;max-height:200px"></video>`;
+  } else {
+    preview.innerHTML = `<p class="muted-sm">🔗 Link sẽ được nhúng khi học viên xem.</p>`;
+  }
+  // Tự điền tiêu đề nếu chưa có
+  if (!document.getElementById('lvTitleInput').value) {
+    try { document.getElementById('lvTitleInput').value = new URL(url).hostname; } catch(e) {}
+  }
+});
+
+document.getElementById('lessonVideoFileInput').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  pendingLessonVideoFile = f;
+  document.getElementById('lessonPreviewVideo').src = URL.createObjectURL(f);
+  document.getElementById('lvTitleInput').value = f.name.replace(/\.[^.]+$/, '');
+});
+
+document.getElementById('lvCancelBtn').addEventListener('click', () => {
   document.getElementById('lessonVideoModal').classList.remove('open');
-  document.getElementById('lessonPreviewVideo').src='';
-  pendingLessonVideoFile=null;
+  document.getElementById('lessonPreviewVideo').src = '';
+  pendingLessonVideoFile = null;
+});
+
+document.getElementById('lvSaveBtn').addEventListener('click', async () => {
+  const title = document.getElementById('lvTitleInput').value.trim();
+  if (!title) { return; }
+  const isLinkTab = document.getElementById('tabVideoLink').classList.contains('active');
+  const btn = document.getElementById('lvSaveBtn');
+  btn.textContent = 'Đang lưu...'; btn.disabled = true;
+
+  if (isLinkTab) {
+    // Lưu link
+    const url = document.getElementById('lvLinkInput').value.trim();
+    if (!url) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
+    await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: url, storage_path: null, file_name: null });
+  } else {
+    // Upload file
+    if (!pendingLessonVideoFile) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
+    const safeName = `${Date.now()}_${pendingLessonVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    const path = `videos/${currentLessonId}/${safeName}`;
+    const { error: upErr } = await db.storage.from('lessons').upload(path, pendingLessonVideoFile, { cacheControl: '3600', upsert: false });
+    if (upErr) { alert('Lỗi upload: ' + upErr.message); btn.textContent = 'Lưu'; btn.disabled = false; return; }
+    await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, file_name: pendingLessonVideoFile.name, storage_path: path, video_url: null });
+  }
+
+  btn.textContent = 'Lưu'; btn.disabled = false;
+  document.getElementById('lessonVideoModal').classList.remove('open');
+  document.getElementById('lessonPreviewVideo').src = '';
+  pendingLessonVideoFile = null;
   renderLessonVideos(currentLessonId);
 });
 
