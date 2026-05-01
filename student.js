@@ -160,11 +160,14 @@ async function openLessonDetail(id) {
   dList.innerHTML = '';
   document.getElementById('sEmptyLessonDocs').style.display = (docs||[]).length?'none':'block';
   (docs||[]).forEach(d => {
-    const url = db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const isLink = d.file_type==='link';
+    const isHandwritten = d.file_type==='handwritten';
+    const url = (isLink||isHandwritten) ? d.doc_url : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
     const row = document.createElement('div');
     row.className = 'content-row clickable';
-    row.innerHTML = `<span class="list-icon">📄</span><div class="list-info"><div class="list-title">${d.title}</div></div><span class="btn-sm">👁 Xem</span>`;
-    row.addEventListener('click', () => openViewer(d.title,url,d.file_name,d.file_type));
+    row.innerHTML = `<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><span class="btn-sm">👁 Xem</span>`;
+    row.addEventListener('click', () => openViewer(d.title, url, d.file_name, (isLink||isHandwritten)?'link':d.file_type));
     dList.appendChild(row);
   });
 }
@@ -186,11 +189,10 @@ function openViewer(title, url, fileName, fileType) {
     if (embed) {
       body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
     } else {
-      // Link MP4 trực tiếp hoặc link khác
-      body.innerHTML=`<video src="${url}" controls controlsList="nodownload" oncontextmenu="return false" class="viewer-video"></video>`;
+      body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
     }
   } else if (isVideo) {
-    body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" class="viewer-video"></video>`;
+    body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" style="width:100%;max-height:70vh;background:#000" playsinline></video>`;
     if (window.innerWidth < 768 && window.innerHeight > window.innerWidth) {
       const tip = document.createElement('div');
       tip.style.cssText = 'background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;text-align:center;';
@@ -212,10 +214,7 @@ document.getElementById('viewerModal').addEventListener('click', e => { if(e.tar
 function closeViewer() { 
   document.getElementById('viewerModal').classList.remove('open'); 
   document.getElementById('viewerBody').innerHTML='';
-  document.querySelector('.viewer-modal').classList.remove('fullscreen');
-  document.getElementById('fullscreenViewer').textContent = '⛶';
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
-  if (screen.orientation?.unlock) screen.orientation.unlock();
 }
 
 // ---- Init ----

@@ -64,8 +64,12 @@ create table if not exists lesson_docs (
   file_name    text,
   file_type    text,
   storage_path text,
+  doc_url      text default null,   -- Link tài liệu (Google Drive, PDF...)
   created_at   timestamptz default now()
 );
+
+-- Migration nếu bảng đã tồn tại:
+-- alter table lesson_docs add column if not exists doc_url text default null;
 
 -- Bảng cảnh báo
 create table if not exists alerts (

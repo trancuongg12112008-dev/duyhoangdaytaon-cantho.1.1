@@ -10,7 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="HTQL"/>
+  <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body class="dashboard-page">
@@ -66,6 +66,8 @@
           <div id="recentAlerts"></div>
         </div>
       </div>
+      <!-- Thông báo lớp hết hạn / sắp hết hạn -->
+      <div id="classExpiryNotices" style="margin-top:1rem"></div>
     </section>
 
     <!-- PAGE: BÀI HỌC -->
@@ -101,9 +103,8 @@
           <div>
             <div class="panel-header" style="margin-bottom:.5rem">
               <span>📄 Tài liệu</span>
-              <label class="btn-sm btn-primary" for="lessonDocInput" style="cursor:pointer">➕ Thêm tài liệu
-                <input type="file" id="lessonDocInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden/>
-              </label>
+              <button class="btn-sm btn-primary" id="openAddDocBtn">➕ Thêm tài liệu</button>
+              <input type="file" id="lessonDocInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" hidden/>
             </div>
             <div class="content-list" id="lessonDocList"></div>
             <div class="empty-state" id="emptyLessonDocs" style="font-size:.85rem">Chưa có tài liệu.</div>
@@ -151,7 +152,10 @@
     <section class="page" id="pageStudents">
       <div class="page-header">
         <h1 class="page-title">Danh sách học sinh</h1>
-        <button class="btn-primary" id="openAddStudentBtn">➕ Thêm học sinh</button>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn-outline" id="exportStudentsBtn">⬇ Tải Excel</button>
+          <button class="btn-primary" id="openAddStudentBtn">➕ Thêm học sinh</button>
+        </div>
       </div>
       <div class="filter-bar">
         <input type="text" id="studentSearch" placeholder="🔍 Tìm kiếm học sinh..."/>
@@ -397,10 +401,29 @@
   <div class="modal-overlay" id="lessonDocModal">
     <div class="modal">
       <h2>Thêm tài liệu vào bài học</h2>
-      <div class="upload-drop">
-        <div class="upload-icon">☁️</div>
-        <p>Kéo thả file vào đây</p>
-        <div id="lessonDocFileInfo" class="file-info"></div>
+      <div class="tab-row" style="margin-bottom:1rem">
+        <button class="tab-btn active" id="tabDocFile">📁 Upload file</button>
+        <button class="tab-btn" id="tabDocLink">🔗 Dán link</button>
+        <button class="tab-btn" id="tabDocHandwritten">✍️ Viết tay</button>
+      </div>
+      <!-- Upload file -->
+      <div id="docFileSection">
+        <div class="upload-drop" id="docUploadDrop" style="cursor:pointer">
+          <div class="upload-icon">☁️</div>
+          <p>Nhấn để chọn file</p>
+          <div id="lessonDocFileInfo" class="file-info"></div>
+        </div>
+      </div>
+      <!-- Dán link -->
+      <div id="docLinkSection" style="display:none">
+        <label>Link tài liệu <span class="muted">(Google Drive, PDF...)</span></label>
+        <input type="text" id="ldLinkInput" placeholder="https://..."/>
+      </div>
+      <!-- Bản viết tay -->
+      <div id="docHandwrittenSection" style="display:none">
+        <label>Link bản viết tay <span class="muted">(ảnh, Google Drive...)</span></label>
+        <input type="text" id="ldHandwrittenInput" placeholder="https://..."/>
+        <p class="muted-sm" style="margin-top:.4rem">Dán link ảnh chụp bản viết tay hoặc link Google Drive chứa ảnh.</p>
       </div>
       <label>Tiêu đề</label>
       <input type="text" id="ldTitleInput" placeholder="Tên tài liệu..."/>

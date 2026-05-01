@@ -120,6 +120,23 @@ async function renderOverview() {
   ra.innerHTML = (recentAlerts||[]).map(a =>
     `<div class="list-row"><span class="list-icon">🚨</span><div class="list-info"><div class="list-title">${a.student_name}</div><div class="list-meta">${a.reason} • ${fmtTime(a.created_at)}</div></div></div>`
   ).join('') || '<p class="muted-sm">Chưa có cảnh báo.</p>';
+
+  // Thông báo lớp hết hạn / sắp hết hạn
+  const { data: allCls } = await db.from('classes').select('name,end_date');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const WARN = 7;
+  const notices = [];
+  (allCls||[]).forEach(c => {
+    if (!c.end_date) return;
+    const end = new Date(c.end_date); end.setHours(0,0,0,0);
+    const days = Math.round((end - today) / 86400000);
+    if (days < 0) {
+      notices.push(`<div style="background:#fee2e2;border-left:4px solid #ef4444;padding:.75rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.88rem">🔴 Lớp <b>${c.name}</b> đã kết thúc vào ngày <b>${fmtDate(c.end_date)}</b>. Học sinh lớp này đã bị khóa tự động.</div>`);
+    } else if (days <= WARN) {
+      notices.push(`<div style="background:#fff3cd;border-left:4px solid #f59e0b;padding:.75rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.88rem">⚠️ Lớp <b>${c.name}</b> sẽ kết thúc vào ngày <b>${fmtDate(c.end_date)}</b> (còn <b>${days} ngày</b>).</div>`);
+    }
+  });
+  document.getElementById('classExpiryNotices').innerHTML = notices.join('');
 }
 
 // ============================================================
@@ -224,6 +241,33 @@ async function renderStudents() {
 document.getElementById('studentSearch').addEventListener('input', renderStudents);
 document.getElementById('studentFilterClass').addEventListener('change', renderStudents);
 
+document.getElementById('exportStudentsBtn').addEventListener('click', async () => {
+  const cls = document.getElementById('studentFilterClass').value;
+  let query = db.from('students').select('*').order('full_name');
+  if (cls) query = query.eq('class_name', cls);
+  const { data: list } = await query;
+  if (!list || !list.length) { alert('Chưa có học sinh nào.'); return; }
+  const rows = [['Mã HV','Họ tên','SĐT','Gmail','Lớp','Ngày tạo','Trạng thái','Ghi chú']];
+  list.forEach(s => rows.push([
+    s.student_code||'',
+    s.full_name||'',
+    s.phone||'',
+    s.username||'',
+    s.class_name||'',
+    s.created_at ? fmtDate(s.created_at.split('T')[0]) : '',
+    s.active ? 'Hoạt động' : 'Khóa',
+    s.notes||''
+  ]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `danh_sach_hoc_sinh${cls?'_'+cls:''}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
 document.getElementById('openAddStudentBtn').addEventListener('click', () => {
   ['addCode','addName','addPhone','addUsername','addPassword'].forEach(id => document.getElementById(id).value='');
   document.getElementById('addStudentError').textContent='';
@@ -316,13 +360,13 @@ function openViewer(title, url, fileName, fileType) {
   const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
   dl.href=url; dl.download=fileName||title;
   if (fileType==='link') {
-    // Link video — nhúng iframe hoặc video tag, ẩn nút tải
     dl.style.display='none';
     const embed = getEmbedUrl(url);
     if (embed) {
       body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
     } else {
-      body.innerHTML=`<video src="${url}" controls controlsList="nodownload" oncontextmenu="return false" class="viewer-video"></video>`;
+      // Link tài liệu hoặc video trực tiếp
+      body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
     }
   } else if (fileType==='video'||(fileType||'').startsWith('video/')) {
     dl.style.display='none';
@@ -448,12 +492,20 @@ async function renderLessonDocs(lessonId) {
   el.innerHTML='';
   document.getElementById('emptyLessonDocs').style.display=(docs||[]).length?'none':'block';
   (docs||[]).forEach(d=>{
-    const url=db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const isLink = d.file_type==='link';
+    const isHandwritten = d.file_type==='handwritten';
+    const url = (isLink||isHandwritten) ? d.doc_url : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
     const row=document.createElement('div');
     row.className='content-row clickable';
-    row.innerHTML=`<span class="list-icon">📄</span><div class="list-info"><div class="list-title">${d.title}</div></div><div class="row-actions"><button class="btn-sm btn-danger">🗑</button></div>`;
-    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openViewer(d.title,url,d.file_name,d.file_type); });
-    row.querySelector('.btn-danger').addEventListener('click', async e=>{ e.stopPropagation(); await db.storage.from('lessons').remove([d.storage_path]); await db.from('lesson_docs').delete().eq('id',d.id); renderLessonDocs(lessonId); });
+    const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
+    row.innerHTML=`<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><div class="row-actions"><button class="btn-sm btn-danger">🗑</button></div>`;
+    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openViewer(d.title,url,d.file_name, (isLink||isHandwritten)?'link':d.file_type); });
+    row.querySelector('.btn-danger').addEventListener('click', async e=>{
+      e.stopPropagation();
+      if (!isLink && !isHandwritten && d.storage_path) await db.storage.from('lessons').remove([d.storage_path]);
+      await db.from('lesson_docs').delete().eq('id',d.id);
+      renderLessonDocs(lessonId);
+    });
     el.appendChild(row);
   });
 }
@@ -548,24 +600,91 @@ document.getElementById('lvSaveBtn').addEventListener('click', async () => {
   renderLessonVideos(currentLessonId);
 });
 
+document.getElementById('openAddDocBtn').addEventListener('click', () => {
+  pendingLessonDocFile = null;
+  document.getElementById('lessonDocFileInfo').textContent = '';
+  document.getElementById('ldTitleInput').value = '';
+  document.getElementById('ldLinkInput').value = '';
+  document.getElementById('ldHandwrittenInput').value = '';
+  document.getElementById('docFileSection').style.display = '';
+  document.getElementById('docLinkSection').style.display = 'none';
+  document.getElementById('docHandwrittenSection').style.display = 'none';
+  document.getElementById('tabDocFile').classList.add('active');
+  document.getElementById('tabDocLink').classList.remove('active');
+  document.getElementById('tabDocHandwritten').classList.remove('active');
+  document.getElementById('lessonDocModal').classList.add('open');
+});
+
+document.getElementById('docUploadDrop').addEventListener('click', () => {
+  document.getElementById('lessonDocInput').click();
+});
+
 document.getElementById('lessonDocInput').addEventListener('change', e=>{
   const f=e.target.files[0]; if(!f) return;
   pendingLessonDocFile=f;
   document.getElementById('lessonDocFileInfo').textContent=`📎 ${f.name}`;
   document.getElementById('ldTitleInput').value=f.name.replace(/\.[^.]+$/,'');
-  document.getElementById('lessonDocModal').classList.add('open');
   e.target.value='';
 });
+
+document.getElementById('tabDocFile').addEventListener('click', () => {
+  document.getElementById('docFileSection').style.display='';
+  document.getElementById('docLinkSection').style.display='none';
+  document.getElementById('docHandwrittenSection').style.display='none';
+  document.getElementById('tabDocFile').classList.add('active');
+  document.getElementById('tabDocLink').classList.remove('active');
+  document.getElementById('tabDocHandwritten').classList.remove('active');
+});
+document.getElementById('tabDocLink').addEventListener('click', () => {
+  document.getElementById('docFileSection').style.display='none';
+  document.getElementById('docLinkSection').style.display='';
+  document.getElementById('docHandwrittenSection').style.display='none';
+  document.getElementById('tabDocFile').classList.remove('active');
+  document.getElementById('tabDocLink').classList.add('active');
+  document.getElementById('tabDocHandwritten').classList.remove('active');
+});
+document.getElementById('tabDocHandwritten').addEventListener('click', () => {
+  document.getElementById('docFileSection').style.display='none';
+  document.getElementById('docLinkSection').style.display='none';
+  document.getElementById('docHandwrittenSection').style.display='';
+  document.getElementById('tabDocFile').classList.remove('active');
+  document.getElementById('tabDocLink').classList.remove('active');
+  document.getElementById('tabDocHandwritten').classList.add('active');
+});
+
 document.getElementById('ldCancelBtn').addEventListener('click',()=>{ document.getElementById('lessonDocModal').classList.remove('open'); pendingLessonDocFile=null; });
 document.getElementById('ldSaveBtn').addEventListener('click', async ()=>{
-  if (!pendingLessonDocFile) return;
   const title=document.getElementById('ldTitleInput').value.trim(); if(!title) return;
-  const safeName=`${Date.now()}_${pendingLessonDocFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
-  const path=`docs/${currentLessonId}/${safeName}`;
-  const { error:upErr }=await db.storage.from('lessons').upload(path,pendingLessonDocFile);
-  if (upErr) { alert('Lỗi upload: '+upErr.message); return; }
-  await db.from('lesson_docs').insert({lesson_id:currentLessonId,title,file_name:pendingLessonDocFile.name,file_type:pendingLessonDocFile.type,storage_path:path});
+  const isLinkTab = document.getElementById('tabDocLink').classList.contains('active');
+  const isHandwrittenTab = document.getElementById('tabDocHandwritten').classList.contains('active');
+  const btn = document.getElementById('ldSaveBtn');
+  btn.textContent='Đang lưu...'; btn.disabled=true;
+
+  if (isHandwrittenTab) {
+    const url = document.getElementById('ldHandwrittenInput').value.trim();
+    if (!url) { btn.textContent='Tải lên'; btn.disabled=false; return; }
+    const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+    await db.from('lesson_docs').insert({lesson_id:currentLessonId, title, file_name:null, file_type:'handwritten', storage_path:null, doc_url:docUrl});
+  } else if (isLinkTab) {
+    const url = document.getElementById('ldLinkInput').value.trim();
+    if (!url) { btn.textContent='Tải lên'; btn.disabled=false; return; }
+    const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+    await db.from('lesson_docs').insert({lesson_id:currentLessonId, title, file_name:null, file_type:'link', storage_path:null, doc_url:docUrl});
+  } else {
+    if (!pendingLessonDocFile) { btn.textContent='Tải lên'; btn.disabled=false; return; }
+    const safeName=`${Date.now()}_${pendingLessonDocFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+    const path=`docs/${currentLessonId}/${safeName}`;
+    const { error:upErr }=await db.storage.from('lessons').upload(path,pendingLessonDocFile);
+    if (upErr) { alert('Lỗi upload: '+upErr.message); btn.textContent='Tải lên'; btn.disabled=false; return; }
+    await db.from('lesson_docs').insert({lesson_id:currentLessonId,title,file_name:pendingLessonDocFile.name,file_type:pendingLessonDocFile.type,storage_path:path,doc_url:null});
+  }
+
+  btn.textContent='Tải lên'; btn.disabled=false;
   document.getElementById('lessonDocModal').classList.remove('open');
+  document.getElementById('ldLinkInput').value='';
+  document.getElementById('ldHandwrittenInput').value='';
   pendingLessonDocFile=null;
   renderLessonDocs(currentLessonId);
 });
