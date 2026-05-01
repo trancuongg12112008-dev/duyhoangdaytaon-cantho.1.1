@@ -150,6 +150,14 @@ function getEmbedUrl(url) {
   return null;
 }
 
+// Helper: lấy link download từ Google Drive
+function getDownloadUrl(url) {
+  if (!url) return null;
+  const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+  if (gd) return `https://drive.google.com/uc?export=download&id=${gd[1]}`;
+  return null;
+}
+
 // ---- Chi tiết bài học ----
 async function openLessonDetail(id) {
   const { data:l } = await db.from('lessons').select('*').eq('id',id).single();
@@ -203,17 +211,25 @@ function openViewer(title, url, fileName, fileType) {
   const isVideo = fileType==='video'||(fileType||'').startsWith('video/');
   const isLink = fileType==='link';
 
-  // Ẩn nút tải với video và link
-  dl.style.display = (isVideo || isLink) ? 'none' : '';
-
   if (isLink) {
     const embed = getEmbedUrl(url);
+    const dlUrl = getDownloadUrl(url);
+    // Tài liệu Drive: hiện nút tải. YouTube/video link: ẩn
+    if (dlUrl && !embed?.includes('youtube') && !embed?.includes('youtu')) {
+      dl.style.display = '';
+      dl.href = dlUrl;
+      dl.removeAttribute('download');
+      dl.target = '_blank';
+    } else {
+      dl.style.display = 'none';
+    }
     if (embed) {
       body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
     } else {
       body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
     }
   } else if (isVideo) {
+    dl.style.display = 'none';
     body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" style="width:100%;max-height:70vh;background:#000" playsinline></video>`;
     if (window.innerWidth < 768 && window.innerHeight > window.innerWidth) {
       const tip = document.createElement('div');
@@ -223,12 +239,16 @@ function openViewer(title, url, fileName, fileType) {
       const onOrient = () => { if (window.innerWidth > window.innerHeight) { tip.remove(); window.removeEventListener('resize', onOrient); } };
       window.addEventListener('resize', onOrient);
     }
-  } else if (fileType==='application/pdf')
+  } else if (fileType==='application/pdf') {
+    dl.style.display = '';
     body.innerHTML=`<iframe src="${url}" class="viewer-iframe"></iframe>`;
-  else if ((fileType||'').startsWith('image/'))
+  } else if ((fileType||'').startsWith('image/')) {
+    dl.style.display = '';
     body.innerHTML=`<img src="${url}" class="viewer-img" alt="${title}"/>`;
-  else
+  } else {
+    dl.style.display = '';
     body.innerHTML=`<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>`;
+  }
   document.getElementById('viewerModal').classList.add('open');
 }
 document.getElementById('closeViewer').addEventListener('click', closeViewer);

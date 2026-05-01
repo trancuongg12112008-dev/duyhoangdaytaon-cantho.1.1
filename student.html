@@ -10,7 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
+  <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body class="dashboard-page">
@@ -184,7 +184,7 @@
     <div class="sec-box">
       <div class="sec-icon">🔒</div>
       <h2>Cảnh báo bảo mật</h2>
-      <p>Hành vi chụp màn hình hoặc chuyển ứng dụng đã bị phát hiện.<br/>Nội dung bị ẩn để bảo vệ tài liệu.</p>
+      <p>Hành vi vi phạm đã bị ghi nhận và báo cáo đến giáo viên.<br/>Nội dung bị ẩn để bảo vệ tài liệu.</p>
       <button id="secDismiss">Tôi hiểu, quay lại học</button>
     </div>
   </div>
@@ -205,6 +205,7 @@
     );
     const overlay = document.getElementById('securityOverlay');
     let lastLogTime = 0;
+
     async function logAlert(reason) {
       const now = Date.now();
       if (now - lastLogTime < 3000) return;
@@ -214,34 +215,93 @@
       const { data } = await _db.from('students').select('class_name').eq('username', username).single();
       await _db.from('alerts').insert({ username, student_name: studentName, class_name: data?.class_name || '', reason });
     }
-    function showOverlay(reason) { logAlert(reason); overlay.classList.add('active'); }
+
+    function blackout(ms=800) {
+      document.body.style.filter = 'brightness(0)';
+      setTimeout(() => { document.body.style.filter = ''; }, ms);
+    }
+
+    function showOverlay(reason) {
+      logAlert(reason);
+      blackout(1000);
+      overlay.classList.add('active');
+    }
+
     document.getElementById('secDismiss').addEventListener('click', () => overlay.classList.remove('active'));
+
+    // Chặn chuột phải
     document.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Chặn drag (kéo nội dung)
+    document.addEventListener('dragstart', e => e.preventDefault());
+
+    // Chặn copy
+    document.addEventListener('copy', e => { e.preventDefault(); e.clipboardData?.setData('text/plain',''); });
+    document.addEventListener('cut',  e => { e.preventDefault(); });
+
+    // Ẩn màn hình khi chuyển tab/app
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) showOverlay('Chuyển tab / ẩn cửa sổ');
+      if (document.hidden) {
+        blackout(99999);
+        showOverlay('Chuyển tab / ẩn cửa sổ khi đang học');
+      } else {
+        document.body.style.filter = '';
+      }
     });
+
+    // Phát hiện DevTools mở (thay đổi kích thước cửa sổ bất thường)
+    let devtoolsOpen = false;
+    setInterval(() => {
+      const threshold = 160;
+      const widthDiff  = window.outerWidth  - window.innerWidth;
+      const heightDiff = window.outerHeight - window.innerHeight;
+      if ((widthDiff > threshold || heightDiff > threshold) && !devtoolsOpen) {
+        devtoolsOpen = true;
+        showOverlay('Phát hiện DevTools đang mở');
+      } else if (widthDiff <= threshold && heightDiff <= threshold) {
+        devtoolsOpen = false;
+      }
+    }, 1000);
+
     document.addEventListener('keydown', e => {
-      const blocked = e.key === 'PrintScreen' || e.key === 'F13' ||
+      const blocked =
+        e.key === 'PrintScreen' || e.key === 'F13' ||
         (e.metaKey && e.shiftKey && ['3','4','5','6'].includes(e.key)) ||
-        (e.ctrlKey && e.key === 'p') || (e.ctrlKey && e.shiftKey && e.key === 'S');
+        (e.ctrlKey && e.key === 'p') ||
+        (e.ctrlKey && e.shiftKey && ['S','s','I','i','J','j','C','c'].includes(e.key)) ||
+        e.key === 'F12' ||
+        (e.ctrlKey && e.key === 'u') || (e.ctrlKey && e.key === 'U') || // view source
+        (e.ctrlKey && e.key === 's') || (e.ctrlKey && e.key === 'S');   // save page
       if (blocked) {
         e.preventDefault(); e.stopImmediatePropagation();
-        document.body.style.filter = 'brightness(0)';
-        showOverlay('Phím chụp màn hình (PrintScreen)');
-        setTimeout(() => { document.body.style.filter = ''; }, 500);
+        blackout(800);
+        showOverlay('Phím bị chặn: ' + (e.key==='PrintScreen'?'Chụp màn hình':'DevTools/Lưu trang'));
       }
     }, true);
+
     document.addEventListener('keyup', e => {
-      if (e.key === 'PrintScreen') { navigator.clipboard?.writeText('').catch(()=>{}); document.body.style.filter = ''; showOverlay('Phím PrintScreen nhả'); }
+      if (e.key === 'PrintScreen') {
+        navigator.clipboard?.writeText('').catch(()=>{});
+        blackout(800);
+        showOverlay('PrintScreen — ảnh chụp đã bị xóa');
+      }
     });
+
+    // Chặn quay màn hình
     if (navigator.mediaDevices?.getDisplayMedia) {
       navigator.mediaDevices.getDisplayMedia = async () => {
-        showOverlay('Phát hiện quay màn hình');
-        document.body.style.filter = 'brightness(0)';
-        setTimeout(() => { document.body.style.filter = ''; }, 1000);
+        blackout(2000);
+        showOverlay('Phát hiện cố gắng quay màn hình');
         throw new DOMException('Không được phép', 'NotAllowedError');
       };
     }
+
+    // Chặn in trang
+    window.addEventListener('beforeprint', () => {
+      blackout(99999);
+      showOverlay('Phát hiện cố gắng in trang');
+      setTimeout(() => { document.body.style.filter = ''; }, 3000);
+    });
 
     // Watermark - chéo dày khắp màn hình
     const wmName = sessionStorage.getItem('dh_name') || '';
