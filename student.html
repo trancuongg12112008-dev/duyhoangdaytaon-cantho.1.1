@@ -160,7 +160,16 @@
     </div>
   </div>
 
-  <script src="student.js"></script>  <script>
+  <script src="student.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data?.type === 'SW_UPDATED') window.location.reload();
+      });
+    }
+  </script>
+  <script>
     const _db = supabase.createClient(
       'https://gojpmogjretoxplydjvg.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
@@ -200,7 +209,6 @@
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) showOverlay('Chuyển tab / ẩn cửa sổ');
     });
-    window.addEventListener('blur', () => showOverlay('Mất focus — có thể đang quay màn hình'));
     document.addEventListener('keydown', e => {
       const blocked = e.key === 'PrintScreen' || e.key === 'F13' ||
         (e.metaKey && e.shiftKey && ['3','4','5','6'].includes(e.key)) ||

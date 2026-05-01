@@ -186,7 +186,7 @@ async function renderStudents() {
   const today = new Date(); today.setHours(0,0,0,0);
   const { data: allClasses } = await db.from('classes').select('name,end_date');
   const expiredClasses = new Set((allClasses||[]).filter(c => c.end_date && new Date(c.end_date) < today).map(c => c.name));
-  const expired = (list||[]).filter(s => s.active && (
+  const expired = (list||[]).filter(s => s.active && !s.manually_unlocked && (
     (s.expiry_date && new Date(s.expiry_date) < today) ||
     (s.class_name && expiredClasses.has(s.class_name))
   ));
@@ -204,7 +204,15 @@ async function renderStudents() {
     const actions = `<button class="btn-sm" data-action="edit" title="${s.notes?'📝 '+s.notes:''}">✏️ Sửa</button> <button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button> <button class="btn-sm btn-danger" data-action="delete">🗑</button>`;
     tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${actions}</td>`;
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
-    tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => { await db.from('students').update({ active:!s.active }).eq('id',s.id); renderStudents(); });
+    tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
+      const newActive = !s.active;
+      // Nếu admin mở lại thủ công → đánh dấu manually_unlocked để bỏ qua kiểm tra lớp
+      const updates = { active: newActive };
+      if (newActive) updates.manually_unlocked = true;
+      else updates.manually_unlocked = false;
+      await db.from('students').update(updates).eq('id', s.id);
+      renderStudents();
+    });
     tr.querySelector('[data-action="delete"]').addEventListener('click', async () => {
       showConfirm(`Xóa học sinh "${s.full_name}"?`, async () => {
         await db.from('students').delete().eq('id',s.id); renderStudents(); renderMiniStudents(); populateClassFilters();

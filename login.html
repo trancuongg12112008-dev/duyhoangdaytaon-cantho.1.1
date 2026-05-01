@@ -93,6 +93,11 @@
     // Đăng ký Service Worker (PWA)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
+
+      // Tự động reload khi có bản cập nhật mới
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data?.type === 'SW_UPDATED') window.location.reload();
+      });
     }
 
     localStorage.setItem('dh_teacher', JSON.stringify({ username: 'admin124532Dh', password: 'admindH89065', full_name: 'Admin' }));
@@ -174,8 +179,8 @@
           }
         }
 
-        // Kiểm tra lớp học đã kết thúc
-        if (data.class_name) {
+        // Kiểm tra lớp học đã kết thúc (bỏ qua nếu admin đã mở thủ công)
+        if (data.class_name && !data.manually_unlocked) {
           const { data: cls } = await supabase.from('classes').select('end_date').eq('name', data.class_name).single();
           if (cls && cls.end_date) {
             const today = new Date(); today.setHours(0,0,0,0);

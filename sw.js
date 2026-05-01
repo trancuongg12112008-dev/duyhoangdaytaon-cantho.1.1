@@ -1,4 +1,4 @@
-const CACHE = 'htql-v2';
+const CACHE = 'htql-v4';
 const BASE = '/duyhoangdaytaon-cantho.1.1';
 const STATIC = [
   `${BASE}/index.html`,
@@ -15,31 +15,35 @@ const STATIC = [
   `${BASE}/icons/icon-512.png`
 ];
 
-// Cài đặt: cache các file tĩnh
+// Cài đặt: cache file tĩnh + skipWaiting để kích hoạt ngay
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(STATIC)).then(() => self.skipWaiting())
   );
 });
 
-// Kích hoạt: xóa cache cũ
+// Kích hoạt: xóa cache cũ + claim clients ngay lập tức
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Thông báo tất cả tab đang mở để reload
+        self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
+        });
+      })
   );
 });
 
 // Fetch: ưu tiên mạng, fallback cache
 self.addEventListener('fetch', e => {
-  // Bỏ qua request đến Supabase (luôn cần mạng thật)
   if (e.request.url.includes('supabase.co')) return;
 
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        // Cache lại response mới nhất cho file tĩnh
         if (res.ok && e.request.method === 'GET') {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
