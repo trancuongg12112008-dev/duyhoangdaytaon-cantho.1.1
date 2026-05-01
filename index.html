@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Đăng Nhập</title>
   <link rel="stylesheet" href="style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#4f46e5"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="HTQL"/>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
@@ -80,7 +86,7 @@
       <h2 style="margin-bottom:1rem">📖 Hướng dẫn sử dụng</h2>
 
       <h3>🔐 Đăng nhập</h3>
-      <p>Sử dụng <b>Gmail</b> và <b>Số báo danh</b> do giáo viên cung cấp để đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
+      <p>Học viên vui lòng nhắn <b>Trợ Lý - Trần Cường</b> và cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
 
       <h3 style="margin-top:1rem">📚 Xem bài học</h3>
       <p>Truy cập mục <b>Bài học</b> → chọn bài học tương ứng để xem video bài giảng và tài liệu đi kèm. Hệ thống chỉ hiển thị nội dung thuộc đúng lớp học mà bạn đã đăng ký.</p>
@@ -97,8 +103,10 @@
       </ul>
 
       <h3 style="margin-top:1rem">📞 Liên hệ hỗ trợ</h3>
-      <p>Nếu gặp sự cố trong quá trình đăng nhập, lỗi tài khoản, vấn đề kỹ thuật hoặc cần hỗ trợ quản lý học viên, vui lòng liên hệ qua <b>Zalo Tr.Cường</b> để được hỗ trợ nhanh nhất.</p>
-      <p style="margin-top:.5rem">📘 Đối với các thắc mắc về bài giảng, bài toán khó chưa hiểu hoặc cần giải đáp kiến thức chuyên môn, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b> để được hướng dẫn chi tiết.</p>
+      <ul style="padding-left:1.25rem;line-height:2">
+        <li>Hỗ trợ kỹ thuật &amp; Tài khoản: Vui lòng liên hệ <b>Trợ lý - Trần Cường</b> và cung cấp Gmail, SĐT và Số báo danh (SBD) để được xử lý nhanh nhất.</li>
+        <li>Thắc mắc chuyên môn: Đối với các bài giảng hoặc bài toán khó chưa hiểu, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b>.</li>
+      </ul>
       <p style="margin-top:.75rem;font-style:italic">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục mục tiêu đại học. 💪</p>
     </div>
   </div>
@@ -109,6 +117,11 @@
       'https://gojpmogjretoxplydjvg.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
     );
+
+    // Đăng ký Service Worker (PWA)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
 
     localStorage.setItem('dh_teacher', JSON.stringify({ username: 'admin124532Dh', password: 'admindH89065', full_name: 'Admin' }));
 
@@ -177,7 +190,52 @@
           err.textContent = `Sai mật khẩu. (${attempts}/5 lần)`; return;
         }
 
-        if (!student.active) { err.textContent = 'Tài khoản đã bị khóa.'; return; }
+        if (!student.active) {
+          // Kiểm tra lý do bị khóa để hiện thông báo rõ hơn
+          if (student.class_name) {
+            const { data: cls } = await db.from('classes').select('end_date').eq('name', student.class_name).single();
+            if (cls?.end_date) {
+              const endDate = new Date(cls.end_date); endDate.setHours(0,0,0,0);
+              const today = new Date(); today.setHours(0,0,0,0);
+              if (today > endDate) {
+                err.textContent = `Khóa học "${student.class_name}" đã kết thúc vào ngày ${endDate.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để được hỗ trợ.`;
+                return;
+              }
+            }
+          }
+          if (student.expiry_date) {
+            const expiry = new Date(student.expiry_date);
+            err.textContent = `Tài khoản đã hết hạn vào ngày ${expiry.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để gia hạn.`;
+            return;
+          }
+          err.textContent = 'Tài khoản đã bị khóa. Vui lòng liên hệ trợ lý để được hỗ trợ.';
+          return;
+        }
+
+        // Kiểm tra hết hạn tài khoản cá nhân
+        if (student.expiry_date) {
+          const today = new Date(); today.setHours(0,0,0,0);
+          const expiry = new Date(student.expiry_date); expiry.setHours(0,0,0,0);
+          if (today > expiry) {
+            if (student.active) await db.from('students').update({ active: false }).eq('id', student.id);
+            err.textContent = `Tài khoản đã hết hạn vào ngày ${expiry.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để gia hạn.`;
+            return;
+          }
+        }
+
+        // Kiểm tra lớp học đã kết thúc
+        if (student.class_name) {
+          const { data: cls } = await db.from('classes').select('end_date').eq('name', student.class_name).single();
+          if (cls && cls.end_date) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const endDate = new Date(cls.end_date); endDate.setHours(0,0,0,0);
+            if (today > endDate) {
+              if (student.active) await db.from('students').update({ active: false }).eq('id', student.id);
+              err.textContent = `Khóa học "${student.class_name}" đã kết thúc vào ngày ${endDate.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để được hỗ trợ.`;
+              return;
+            }
+          }
+        }
 
         // Phát hiện đăng nhập nhiều thiết bị trong thời gian ngắn (< 5 phút)
         const now = new Date();

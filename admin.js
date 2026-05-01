@@ -4,6 +4,27 @@ const db = supabase.createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
 );
 
+// ---- Custom confirm popup ----
+function showConfirm(message, onOk, { title='Xác nhận xóa', icon='🗑', okText='Xóa' } = {}) {
+  document.getElementById('confirmIcon').textContent = icon;
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMessage').textContent = message;
+  document.getElementById('confirmOkBtn').textContent = okText;
+  document.getElementById('confirmModal').classList.add('open');
+  const ok = document.getElementById('confirmOkBtn');
+  const cancel = document.getElementById('confirmCancelBtn');
+  const close = () => {
+    document.getElementById('confirmModal').classList.remove('open');
+    ok.replaceWith(ok.cloneNode(true));
+    cancel.replaceWith(cancel.cloneNode(true));
+    // re-bind cancel on new node
+    document.getElementById('confirmCancelBtn').addEventListener('click', () => document.getElementById('confirmModal').classList.remove('open'));
+  };
+  ok.addEventListener('click', () => { close(); onOk(); }, { once: true });
+  cancel.addEventListener('click', close, { once: true });
+}
+document.getElementById('confirmCancelBtn').addEventListener('click', () => document.getElementById('confirmModal').classList.remove('open'));
+
 // Auth guard
 const _role = sessionStorage.getItem('dh_role');
 if (_role !== 'teacher' && _role !== 'assistant') location.href = 'index.html';
@@ -107,16 +128,22 @@ async function renderOverview() {
 document.getElementById('csSaveBtn').addEventListener('click', async () => {
   const name=document.getElementById('csName').value.trim(), username=document.getElementById('csUsername').value.trim();
   const password=document.getElementById('csPassword').value, cls=document.getElementById('csClass').value.trim();
+  const expiry=document.getElementById('csExpiry').value || null;
+  const notes=document.getElementById('csNotes').value.trim() || null;
   const err=document.getElementById('csError');
   err.textContent = '';
   if (!name||!username||!password) { err.textContent='Vui lòng điền đầy đủ thông tin.'; return; }
-  const { error } = await db.from('students').insert({ full_name:name, username, password, class_name:cls, active:true });
+  const { error } = await db.from('students').insert({ full_name:name, username, password, class_name:cls, active:true, expiry_date:expiry, notes });
   if (error) { err.textContent = error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   ['csName','csUsername','csPassword','csClass'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('csExpiry').value='';
+  document.getElementById('csNotes').value='';
   renderMiniStudents(); populateClassFilters();
 });
 document.getElementById('csResetBtn').addEventListener('click', () => {
   ['csName','csUsername','csPassword','csClass'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('csExpiry').value='';
+  document.getElementById('csNotes').value='';
   document.getElementById('csError').textContent='';
 });
 
@@ -154,17 +181,35 @@ async function renderStudents() {
   let query = db.from('students').select('*').order('full_name');
   if (cls) query = query.eq('class_name', cls);
   const { data: list } = await query;
+
+  // Tự động khóa tài khoản hết hạn (cá nhân + lớp học)
+  const today = new Date(); today.setHours(0,0,0,0);
+  const { data: allClasses } = await db.from('classes').select('name,end_date');
+  const expiredClasses = new Set((allClasses||[]).filter(c => c.end_date && new Date(c.end_date) < today).map(c => c.name));
+  const expired = (list||[]).filter(s => s.active && (
+    (s.expiry_date && new Date(s.expiry_date) < today) ||
+    (s.class_name && expiredClasses.has(s.class_name))
+  ));
+  if (expired.length) {
+    await Promise.all(expired.map(s => db.from('students').update({ active: false }).eq('id', s.id)));
+    expired.forEach(s => { s.active = false; });
+  }
+
   const filtered = (list||[]).filter(s => !q || s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q));
   const tbody = document.getElementById('studentBody');
   tbody.innerHTML = '';
   document.getElementById('emptyStudents').style.display = filtered.length?'none':'block';
   filtered.forEach(s => {
     const tr = document.createElement('tr');
-    const actions = `<button class="btn-sm" data-action="edit">✏️ Sửa</button> <button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button> <button class="btn-sm btn-danger" data-action="delete">🗑</button>`;
-    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${actions}</td>`;
+    const actions = `<button class="btn-sm" data-action="edit" title="${s.notes?'📝 '+s.notes:''}">✏️ Sửa</button> <button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button> <button class="btn-sm btn-danger" data-action="delete">🗑</button>`;
+    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${actions}</td>`;
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
     tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => { await db.from('students').update({ active:!s.active }).eq('id',s.id); renderStudents(); });
-    tr.querySelector('[data-action="delete"]').addEventListener('click', async () => { if(confirm(`Xóa "${s.full_name}"?`)) { await db.from('students').delete().eq('id',s.id); renderStudents(); renderMiniStudents(); populateClassFilters(); } });
+    tr.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+      showConfirm(`Xóa học sinh "${s.full_name}"?`, async () => {
+        await db.from('students').delete().eq('id',s.id); renderStudents(); renderMiniStudents(); populateClassFilters();
+      });
+    });
     tbody.appendChild(tr);
   });
 }
@@ -187,10 +232,12 @@ document.getElementById('addStudentSaveBtn').addEventListener('click', async () 
   const name=document.getElementById('addName').value.trim(), phone=document.getElementById('addPhone').value.trim();
   const username=document.getElementById('addUsername').value.trim(), password=document.getElementById('addPassword').value.trim();
   const cls=document.getElementById('addClass').value.trim(), code=document.getElementById('addCode').value.trim();
+  const expiry=document.getElementById('addExpiry').value || null;
+  const notes=document.getElementById('addNotes').value.trim() || null;
   const err=document.getElementById('addStudentError');
   err.textContent='';
   if (!name||!username||!password) { err.textContent='Vui lòng điền đầy đủ họ tên, Gmail và số báo danh.'; return; }
-  const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password, class_name:cls, active:true });
+  const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password, class_name:cls, active:true, expiry_date:expiry, notes });
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('addStudentModal').classList.remove('open');
   renderStudents(); populateClassFilters();
@@ -203,6 +250,8 @@ function openEditStudent(s) {
   document.getElementById('esName').value=s.full_name;
   document.getElementById('esUsername').value=s.username;
   document.getElementById('esPassword').value='';
+  document.getElementById('esExpiry').value=s.expiry_date||'';
+  document.getElementById('esNotes').value=s.notes||'';
   document.getElementById('esError').textContent='';
   populateClassFilters().then(() => { document.getElementById('esClass').value=s.class_name||''; });
   document.getElementById('editStudentModal').classList.add('open');
@@ -212,8 +261,10 @@ document.getElementById('esSaveBtn').addEventListener('click', async () => {
   const name=document.getElementById('esName').value.trim(), username=document.getElementById('esUsername').value.trim();
   const password=document.getElementById('esPassword').value, cls=document.getElementById('esClass').value.trim();
   const code=document.getElementById('esCode').value.trim(), err=document.getElementById('esError');
+  const expiry=document.getElementById('esExpiry').value || null;
+  const notes=document.getElementById('esNotes').value.trim() || null;
   if (!name||!username) { err.textContent='Vui lòng điền đầy đủ.'; return; }
-  const updates={ student_code:code, full_name:name, username, class_name:cls };
+  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes };
   if (password) updates.password=password;
   const { error } = await db.from('students').update(updates).eq('id',editingStudentId);
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
@@ -283,7 +334,7 @@ async function renderLessons() {
     row.innerHTML=`<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} <span>🎬 ${vc||0} video</span> • <span>📄 ${dc||0} tài liệu</span>${l.description?` • ${l.description}`:''}</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
     row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openLessonDetail(l.id); });
     row.querySelector('[data-action="edit"]').addEventListener('click', e=>{ e.stopPropagation(); openLessonModal(l); });
-    row.querySelector('[data-action="delete"]').addEventListener('click', async e=>{ e.stopPropagation(); if(confirm(`Xóa bài "${l.name}"?`)){ await db.from('lessons').delete().eq('id',l.id); renderLessons(); } });
+    row.querySelector('[data-action="delete"]').addEventListener('click', async e=>{ e.stopPropagation(); showConfirm(`Xóa bài học "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderLessons(); }); });
     el.appendChild(row);
   }
 }
@@ -419,24 +470,30 @@ async function renderClasses() {
   document.getElementById('classDetailView').style.display='none';
   const allNames=await getClasses();
   const { data:allStudents }=await db.from('students').select('class_name');
+  const { data:clsData }=await db.from('classes').select('name,start_date,end_date');
+  const clsMap=Object.fromEntries((clsData||[]).map(c=>[c.name,c]));
   const grid=document.getElementById('classGrid');
   grid.innerHTML='';
   document.getElementById('emptyClasses').style.display=allNames.length?'none':'block';
   allNames.forEach(cls=>{
     const count=(allStudents||[]).filter(s=>s.class_name===cls).length;
+    const info=clsMap[cls]||{};
+    const dateInfo = (info.start_date||info.end_date)
+      ? `<div style="font-size:.75rem;color:#888;margin-top:.25rem">${info.start_date?'📅 '+fmtDate(info.start_date):''}${info.start_date&&info.end_date?' → ':''}${info.end_date?fmtDate(info.end_date):''}</div>`
+      : '';
     const card=document.createElement('div');
     card.className='stat-card blue clickable';
     card.style.cursor='pointer';
-    card.innerHTML=`<div class="stat-icon">🏫</div><div style="flex:1"><div class="stat-num">${count}</div><div class="stat-label">${cls}</div></div><div style="display:flex;flex-direction:column;gap:.25rem;align-self:flex-start"><button class="btn-sm" data-edit="${cls}">✏️</button><button class="btn-sm btn-danger" data-del="${cls}">🗑</button></div>`;
+    card.innerHTML=`<div class="stat-icon">🏫</div><div style="flex:1"><div class="stat-num">${count}</div><div class="stat-label">${cls}</div>${dateInfo}</div><div style="display:flex;flex-direction:column;gap:.25rem;align-self:flex-start"><button class="btn-sm" data-edit="${cls}">✏️</button><button class="btn-sm btn-danger" data-del="${cls}">🗑</button></div>`;
     card.addEventListener('click', e=>{ if(!e.target.closest('[data-edit],[data-del]')) openClassDetail(cls); });
-    card.querySelector('[data-edit]').addEventListener('click', e=>{ e.stopPropagation(); openEditClassModal(cls); });
+    card.querySelector('[data-edit]').addEventListener('click', e=>{ e.stopPropagation(); openEditClassModal(cls, info); });
     card.querySelector('[data-del]').addEventListener('click', async e=>{
       e.stopPropagation();
-      if (confirm(`Xóa lớp "${cls}"?`)) {
+      showConfirm(`Xóa lớp "${cls}"? Học sinh trong lớp sẽ không bị xóa.`, async () => {
         await db.from('classes').delete().eq('name',cls);
         await db.from('students').update({class_name:''}).eq('class_name',cls);
         renderClasses(); populateClassFilters();
-      }
+      });
     });
     grid.appendChild(card);
   });
@@ -459,9 +516,11 @@ async function openClassDetail(cls) {
 document.getElementById('backToClassesBtn').addEventListener('click', renderClasses);
 
 let editingClassName=null;
-function openEditClassModal(cls) {
+function openEditClassModal(cls, clsData={}) {
   editingClassName=cls;
   document.getElementById('editClassName').value=cls;
+  document.getElementById('editClassStart').value=clsData.start_date||'';
+  document.getElementById('editClassEnd').value=clsData.end_date||'';
   document.getElementById('editClassError').textContent='';
   document.getElementById('editClassModal').classList.add('open');
 }
@@ -469,16 +528,23 @@ document.getElementById('editClassCancelBtn').addEventListener('click',()=>docum
 document.getElementById('editClassSaveBtn').addEventListener('click', async ()=>{
   const newName=document.getElementById('editClassName').value.trim(), err=document.getElementById('editClassError');
   if (!newName) { err.textContent='Vui lòng nhập tên lớp.'; return; }
-  if (newName===editingClassName) { document.getElementById('editClassModal').classList.remove('open'); return; }
-  await db.from('classes').upsert({name:newName});
-  await db.from('classes').delete().eq('name',editingClassName);
-  await db.from('students').update({class_name:newName}).eq('class_name',editingClassName);
+  const start=document.getElementById('editClassStart').value||null;
+  const end=document.getElementById('editClassEnd').value||null;
+  if (newName===editingClassName) {
+    await db.from('classes').update({start_date:start, end_date:end}).eq('name',editingClassName);
+  } else {
+    await db.from('classes').upsert({name:newName, start_date:start, end_date:end});
+    await db.from('classes').delete().eq('name',editingClassName);
+    await db.from('students').update({class_name:newName}).eq('class_name',editingClassName);
+  }
   document.getElementById('editClassModal').classList.remove('open');
   renderClasses(); populateClassFilters();
 });
 
 document.getElementById('openAddClassBtn').addEventListener('click',()=>{
   document.getElementById('addClassName').value='';
+  document.getElementById('addClassStart').value='';
+  document.getElementById('addClassEnd').value='';
   document.getElementById('addClassError').textContent='';
   document.getElementById('addClassModal').classList.add('open');
 });
@@ -486,7 +552,9 @@ document.getElementById('addClassCancelBtn').addEventListener('click',()=>docume
 document.getElementById('addClassSaveBtn').addEventListener('click', async ()=>{
   const name=document.getElementById('addClassName').value.trim(), err=document.getElementById('addClassError');
   if (!name) { err.textContent='Vui lòng nhập tên lớp.'; return; }
-  const { error }=await db.from('classes').insert({name});
+  const start=document.getElementById('addClassStart').value||null;
+  const end=document.getElementById('addClassEnd').value||null;
+  const { error }=await db.from('classes').insert({name, start_date:start, end_date:end});
   if (error) { err.textContent='Tên lớp đã tồn tại.'; return; }
   document.getElementById('addClassModal').classList.remove('open');
   renderClasses(); populateClassFilters();
@@ -522,14 +590,14 @@ async function renderDeviceAlerts() {
 }
 document.getElementById('deviceAlertSearch').addEventListener('input', renderDeviceAlerts);
 document.getElementById('clearDeviceAlertsBtn').addEventListener('click', async () => {
-  if (confirm('Xóa toàn bộ cảnh báo thiết bị?')) {
+  showConfirm('Xóa toàn bộ cảnh báo thiết bị?', async () => {
     await db.from('alerts').delete().in('reason', [
       'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất',
       'Đăng nhập từ thiết bị khác trong vòng 5 phút',
       'Đăng nhập sai mật khẩu 5 lần liên tiếp'
     ]);
     renderDeviceAlerts();
-  }
+  }, { title: 'Xóa cảnh báo', icon: '📱' });
 });
 
 // ============================================================
@@ -563,10 +631,10 @@ document.getElementById('exportAlertsBtn').addEventListener('click', async () =>
   a.click(); URL.revokeObjectURL(url);
 });
 document.getElementById('clearAlertsBtn').addEventListener('click', async ()=>{
-  if (confirm('Xóa toàn bộ nhật ký cảnh báo?')) {
+  showConfirm('Xóa toàn bộ nhật ký cảnh báo?', async () => {
     await db.from('alerts').delete().neq('id',0);
     renderAlerts(); renderOverview();
-  }
+  }, { title: 'Xóa nhật ký', icon: '🚨' });
 });
 
 // ---- Init ----

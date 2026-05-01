@@ -4,8 +4,14 @@
 create table if not exists classes (
   id         bigint generated always as identity primary key,
   name       text not null unique,
+  start_date date default null,   -- Ngày khai giảng
+  end_date   date default null,   -- Ngày kết thúc
   created_at timestamptz default now()
 );
+
+-- Chạy lệnh này nếu bảng đã tồn tại (migration):
+-- alter table classes add column if not exists start_date date default null;
+-- alter table classes add column if not exists end_date date default null;
 
 -- Bảng học sinh
 create table if not exists students (
@@ -17,8 +23,14 @@ create table if not exists students (
   password     text not null,
   class_name   text,
   active       boolean default true,
+  expiry_date  date default null,        -- Ngày hết hạn tài khoản (null = không giới hạn)
+  notes        text default null,        -- Ghi chú riêng cho học viên
   created_at   timestamptz default now()
 );
+
+-- Chạy lệnh này nếu bảng đã tồn tại (migration):
+-- alter table students add column if not exists expiry_date date default null;
+-- alter table students add column if not exists notes text default null;
 
 -- Bảng bài học
 create table if not exists lessons (

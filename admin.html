@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Giáo Viên</title>
   <link rel="stylesheet" href="style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#4f46e5"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="HTQL"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body class="dashboard-page">
@@ -122,6 +128,10 @@
           <input type="password" id="csPassword" placeholder="Nhập số báo danh..."/>
           <label>Lớp</label>
           <input type="text" id="csClass" placeholder="VD: Lớp 9A"/>
+          <label>Ngày hết hạn <span class="muted">(để trống = không giới hạn)</span></label>
+          <input type="date" id="csExpiry"/>
+          <label>Ghi chú <span class="muted">(tuỳ chọn)</span></label>
+          <textarea id="csNotes" placeholder="Ghi chú riêng cho học viên..." rows="2" style="resize:vertical"></textarea>
           <div id="csError" class="error-msg"></div>
           <div class="form-actions">
             <button class="btn-outline" id="csResetBtn">Hủy</button>
@@ -150,7 +160,7 @@
         <select id="studentFilterClass"><option value="">Tất cả lớp</option></select>
       </div>
       <table class="data-table">
-        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
+        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Ngày tạo</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
         <tbody id="studentBody"></tbody>
       </table>
       <div class="empty-state" id="emptyStudents">Chưa có học sinh nào.</div>
@@ -249,6 +259,10 @@
       <input type="password" id="esPassword" placeholder="Số báo danh mới..."/>
       <label>Lớp</label>
       <select id="esClass"><option value="">-- Chọn lớp --</option></select>
+      <label>Ngày hết hạn <span class="muted">(để trống = không giới hạn)</span></label>
+      <input type="date" id="esExpiry"/>
+      <label>Ghi chú <span class="muted">(tuỳ chọn)</span></label>
+      <textarea id="esNotes" placeholder="Ghi chú riêng cho học viên..." rows="2" style="resize:vertical"></textarea>
       <div id="esError" class="error-msg"></div>
       <div class="modal-actions">
         <button id="esCancelBtn" class="btn-outline">Hủy</button>
@@ -285,6 +299,10 @@
       <input type="text" id="addPassword" placeholder="Nhập số báo danh..."/>
       <label>Lớp</label>
       <select id="addClass"><option value="">-- Chọn lớp --</option></select>
+      <label>Ngày hết hạn <span class="muted">(để trống = không giới hạn)</span></label>
+      <input type="date" id="addExpiry"/>
+      <label>Ghi chú <span class="muted">(tuỳ chọn)</span></label>
+      <textarea id="addNotes" placeholder="Ghi chú riêng cho học viên..." rows="2" style="resize:vertical"></textarea>
       <div id="addStudentError" class="error-msg"></div>
       <div class="modal-actions">
         <button id="addStudentCancelBtn" class="btn-outline">Hủy</button>
@@ -299,6 +317,10 @@
       <h2>Tạo lớp mới</h2>
       <label>Tên lớp</label>
       <input type="text" id="addClassName" placeholder="VD: Lớp 9A..."/>
+      <label>Ngày khai giảng <span class="muted">(tuỳ chọn)</span></label>
+      <input type="date" id="addClassStart"/>
+      <label>Ngày kết thúc <span class="muted">(tuỳ chọn)</span></label>
+      <input type="date" id="addClassEnd"/>
       <div id="addClassError" class="error-msg"></div>
       <div class="modal-actions">
         <button id="addClassCancelBtn" class="btn-outline">Hủy</button>
@@ -310,9 +332,13 @@
   <!-- MODAL: Sửa lớp -->
   <div class="modal-overlay" id="editClassModal">
     <div class="modal">
-      <h2>Sửa tên lớp</h2>
+      <h2>Sửa lớp</h2>
       <label>Tên lớp</label>
       <input type="text" id="editClassName" placeholder="Tên lớp..."/>
+      <label>Ngày khai giảng <span class="muted">(tuỳ chọn)</span></label>
+      <input type="date" id="editClassStart"/>
+      <label>Ngày kết thúc <span class="muted">(tuỳ chọn)</span></label>
+      <input type="date" id="editClassEnd"/>
       <div id="editClassError" class="error-msg"></div>
       <div class="modal-actions">
         <button id="editClassCancelBtn" class="btn-outline">Hủy</button>
@@ -367,6 +393,19 @@
       <div class="modal-actions">
         <button id="ldCancelBtn" class="btn-outline">Hủy</button>
         <button id="ldSaveBtn" class="btn-primary">Tải lên</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Xác nhận -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div style="font-size:2rem;margin-bottom:.5rem" id="confirmIcon">🗑</div>
+      <h2 id="confirmTitle" style="margin-bottom:.5rem">Xác nhận</h2>
+      <p id="confirmMessage" style="color:#666;margin-bottom:1.25rem;font-size:.95rem"></p>
+      <div class="modal-actions" style="justify-content:center;gap:.75rem">
+        <button id="confirmCancelBtn" class="btn-outline">Hủy</button>
+        <button id="confirmOkBtn" class="btn-primary btn-danger">Xóa</button>
       </div>
     </div>
   </div>

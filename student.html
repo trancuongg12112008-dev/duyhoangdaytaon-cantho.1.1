@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Học Sinh</title>
   <link rel="stylesheet" href="style.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#4f46e5"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="HTQL"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body class="dashboard-page">
@@ -33,6 +39,9 @@
         </div>
       </div>
     </header>
+
+    <!-- BANNER CẢNH BÁO HẾT HẠN -->
+    <div id="expiryBanner" style="display:none;background:#fff3cd;border-left:4px solid #f59e0b;padding:.75rem 1.25rem;font-size:.9rem;color:#92400e;margin:.75rem 1rem;border-radius:8px;"></div>
 
     <!-- TRANG CHỦ -->
     <section class="page active" id="pageHome">
@@ -81,7 +90,7 @@
       <div class="form-panel" style="max-width:680px">
 
         <h3>🔐 Đăng nhập</h3>
-        <p>Sử dụng <b>Gmail</b> và <b>Số báo danh</b> do giáo viên cung cấp để đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
+        <p>Học viên vui lòng nhắn <b>Trợ Lý - Trần Cường</b> và cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
 
         <h3 style="margin-top:1.25rem">📚 Xem bài học</h3>
         <p>Truy cập mục <b>Bài học</b> → chọn bài học tương ứng để xem video bài giảng và tài liệu đi kèm. Hệ thống chỉ hiển thị nội dung thuộc đúng lớp học mà bạn đã đăng ký.</p>
@@ -98,8 +107,10 @@
         </ul>
 
         <h3 style="margin-top:1.25rem">📞 Liên hệ hỗ trợ</h3>
-        <p>Nếu gặp sự cố trong quá trình đăng nhập, lỗi tài khoản, vấn đề kỹ thuật hoặc cần hỗ trợ quản lý học viên, vui lòng liên hệ qua <b>Zalo Tr.Cường</b> để được hỗ trợ nhanh nhất.</p>
-        <p style="margin-top:.5rem">📘 Đối với các thắc mắc về bài giảng, bài toán khó chưa hiểu hoặc cần giải đáp kiến thức chuyên môn, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b> để được hướng dẫn chi tiết.</p>
+        <ul style="padding-left:1.25rem;line-height:2">
+          <li>Hỗ trợ kỹ thuật &amp; Tài khoản: Vui lòng liên hệ <b>Trợ lý - Trần Cường</b> và cung cấp Gmail, SĐT và Số báo danh (SBD) để được xử lý nhanh nhất.</li>
+          <li>Thắc mắc chuyên môn: Đối với các bài giảng hoặc bài toán khó chưa hiểu, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b>.</li>
+        </ul>
         <p style="margin-top:.75rem;font-style:italic">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục mục tiêu đại học. 💪</p>
       </div>
     </section>

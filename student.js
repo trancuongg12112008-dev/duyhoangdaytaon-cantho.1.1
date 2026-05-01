@@ -17,10 +17,38 @@ document.getElementById('profileName').textContent  = currentName;
 let myClass = '';
 
 async function loadMe() {
-  const { data } = await db.from('students').select('class_name, student_code').eq('username', currentUser).single();
+  const { data } = await db.from('students').select('class_name, student_code, expiry_date').eq('username', currentUser).single();
   myClass = data?.class_name || '';
   document.getElementById('profileClass').textContent = myClass ? `Lớp: ${myClass}` : '';
   sessionStorage.setItem('dh_code', data?.student_code || '');
+
+  const banner = document.getElementById('expiryBanner');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const WARN_DAYS = 7;
+
+  // Kiểm tra hết hạn tài khoản cá nhân
+  if (data?.expiry_date) {
+    const exp = new Date(data.expiry_date); exp.setHours(0,0,0,0);
+    const daysLeft = Math.round((exp - today) / 86400000);
+    if (daysLeft >= 0 && daysLeft <= WARN_DAYS) {
+      banner.style.display = 'block';
+      banner.innerHTML = `⚠️ Tài khoản của bạn sẽ hết hạn vào ngày <b>${exp.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Vui lòng liên hệ trợ lý để gia hạn.`;
+      return;
+    }
+  }
+
+  // Kiểm tra ngày kết thúc lớp học
+  if (myClass) {
+    const { data: cls } = await db.from('classes').select('end_date').eq('name', myClass).single();
+    if (cls?.end_date) {
+      const end = new Date(cls.end_date); end.setHours(0,0,0,0);
+      const daysLeft = Math.round((end - today) / 86400000);
+      if (daysLeft >= 0 && daysLeft <= WARN_DAYS) {
+        banner.style.display = 'block';
+        banner.innerHTML = `⚠️ Khóa học <b>${myClass}</b> sẽ kết thúc vào ngày <b>${end.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Vui lòng liên hệ trợ lý để được hỗ trợ.`;
+      }
+    }
+  }
 }
 
 document.getElementById('logoutBtn').addEventListener('click', e => { e.preventDefault(); sessionStorage.clear(); location.href = 'index.html'; });
