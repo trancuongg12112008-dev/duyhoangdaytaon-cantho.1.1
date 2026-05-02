@@ -214,8 +214,10 @@ function openViewer(title, url, fileName, fileType) {
   if (isLink) {
     const embed = getEmbedUrl(url);
     const dlUrl = getDownloadUrl(url);
-    // Tài liệu Drive: hiện nút tải. YouTube/video link: ẩn
-    if (dlUrl && !embed?.includes('youtube') && !embed?.includes('youtu')) {
+    // Chỉ hiện nút tải cho tài liệu Drive (không phải video YouTube/Drive video)
+    const isVideoEmbed = embed?.includes('youtube') || embed?.includes('youtu') || embed?.includes('youtube.com/embed');
+    const isVideoUrl = url.match(/\.(mp4|webm|ogg|mov|avi)(\?|$)/i);
+    if (dlUrl && !isVideoEmbed && !isVideoUrl) {
       dl.style.display = '';
       dl.href = dlUrl;
       dl.removeAttribute('download');
