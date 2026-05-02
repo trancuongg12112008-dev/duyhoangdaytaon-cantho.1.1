@@ -197,7 +197,7 @@ async function openLessonDetail(id) {
     const row = document.createElement('div');
     row.className = 'content-row clickable';
     row.innerHTML = `<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><span class="btn-sm">👁 Xem</span>`;
-    row.addEventListener('click', () => openViewer(d.title, url, d.file_name, (isLink||isHandwritten)?'doc-link':d.file_type));
+    row.addEventListener('click', () => openViewer(d.title, url, d.file_name, isHandwritten?'handwritten-link':isLink?'doc-link':d.file_type));
     dList.appendChild(row);
   });
 }
@@ -205,15 +205,22 @@ document.getElementById('sBackToLessonsBtn').addEventListener('click', renderLes
 
 // ---- Viewer ----
 function openViewer(title, url, fileName, fileType) {
-  document.getElementById('viewerTitle').textContent = title;
-  const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
-  dl.href=url; dl.download=fileName||title;
   const isVideo = fileType==='video'||(fileType||'').startsWith('video/');
   const isLink = fileType==='link';
   const isDocLink = fileType==='doc-link';
+  const isHandwrittenLink = fileType==='handwritten-link';
 
-  if (isDocLink) {
-    // Tài liệu link Drive — hiện nút tải
+  // Tự động tiêu đề theo loại
+  let displayTitle = title;
+  if (isVideo || isLink) displayTitle = 'Video bài học';
+  else if (isHandwrittenLink) displayTitle = 'Bản viết tay';
+  else if (isDocLink || fileType==='application/pdf' || (fileType||'').startsWith('image/')) displayTitle = 'Tài liệu';
+
+  document.getElementById('viewerTitle').textContent = displayTitle;
+  const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
+  dl.href=url; dl.download=fileName||title;
+
+  if (isDocLink || isHandwrittenLink) {
     const dlUrl = getDownloadUrl(url);
     if (dlUrl) { dl.style.display=''; dl.href=dlUrl; dl.removeAttribute('download'); dl.target='_blank'; }
     else { dl.style.display='none'; }

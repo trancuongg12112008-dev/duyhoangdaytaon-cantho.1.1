@@ -419,7 +419,13 @@ function getEmbedUrl(url) {
 }
 
 function openViewer(title, url, fileName, fileType) {
-  document.getElementById('viewerTitle').textContent=title;
+  // Tự động tiêu đề theo loại
+  const isVideoType = fileType==='video'||(fileType||'').startsWith('video/');
+  const isLinkType = fileType==='link';
+  let displayTitle = title;
+  if (isVideoType || isLinkType) displayTitle = 'Video bài học';
+  else displayTitle = 'Tài liệu';
+  document.getElementById('viewerTitle').textContent = displayTitle;
   const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
   dl.href=url; dl.download=fileName||title;
   if (fileType==='link') {
@@ -585,7 +591,7 @@ async function renderLessonDocs(lessonId) {
     row.className='content-row clickable';
     const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
     row.innerHTML=`<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><div class="row-actions"><button class="btn-sm btn-danger">🗑</button></div>`;
-    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openViewer(d.title,url,d.file_name, (isLink||isHandwritten)?'link':d.file_type); });
+    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openViewer(isHandwritten?'Bản viết tay':d.title, url, d.file_name, (isLink||isHandwritten)?'link':d.file_type); });
     row.querySelector('.btn-danger').addEventListener('click', async e=>{
       e.stopPropagation();
       if (!isLink && !isHandwritten && d.storage_path) await db.storage.from('lessons').remove([d.storage_path]);
@@ -597,14 +603,11 @@ async function renderLessonDocs(lessonId) {
 }
 
 document.getElementById('openAddVideoBtn').addEventListener('click', () => {
-  // Reset modal
   pendingLessonVideoFile = null;
   document.getElementById('lessonPreviewVideo').src = '';
   document.getElementById('lessonVideoFileInput').value = '';
   document.getElementById('lvLinkInput').value = '';
   document.getElementById('lvLinkPreview').innerHTML = '';
-  document.getElementById('lvTitleInput').value = '';
-  // Default tab: file
   document.getElementById('videoFileSection').style.display = '';
   document.getElementById('videoLinkSection').style.display = 'none';
   document.getElementById('tabVideoFile').classList.add('active');
@@ -658,19 +661,16 @@ document.getElementById('lvCancelBtn').addEventListener('click', () => {
 });
 
 document.getElementById('lvSaveBtn').addEventListener('click', async () => {
-  const title = document.getElementById('lvTitleInput').value.trim();
-  if (!title) { return; }
   const isLinkTab = document.getElementById('tabVideoLink').classList.contains('active');
+  const title = 'Video bài học';
   const btn = document.getElementById('lvSaveBtn');
   btn.textContent = 'Đang lưu...'; btn.disabled = true;
 
   if (isLinkTab) {
-    // Lưu link
     const url = document.getElementById('lvLinkInput').value.trim();
     if (!url) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
     await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: url, storage_path: null, file_name: null });
   } else {
-    // Upload file
     if (!pendingLessonVideoFile) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
     const safeName = `${Date.now()}_${pendingLessonVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
     const path = `videos/${currentLessonId}/${safeName}`;
@@ -689,7 +689,6 @@ document.getElementById('lvSaveBtn').addEventListener('click', async () => {
 document.getElementById('openAddDocBtn').addEventListener('click', () => {
   pendingLessonDocFile = null;
   document.getElementById('lessonDocFileInfo').textContent = '';
-  document.getElementById('ldTitleInput').value = '';
   document.getElementById('ldLinkInput').value = '';
   document.getElementById('ldHandwrittenInput').value = '';
   document.getElementById('docFileSection').style.display = '';
@@ -740,9 +739,10 @@ document.getElementById('tabDocHandwritten').addEventListener('click', () => {
 
 document.getElementById('ldCancelBtn').addEventListener('click',()=>{ document.getElementById('lessonDocModal').classList.remove('open'); pendingLessonDocFile=null; });
 document.getElementById('ldSaveBtn').addEventListener('click', async ()=>{
-  const title=document.getElementById('ldTitleInput').value.trim(); if(!title) return;
   const isLinkTab = document.getElementById('tabDocLink').classList.contains('active');
   const isHandwrittenTab = document.getElementById('tabDocHandwritten').classList.contains('active');
+  // Tự động tiêu đề theo loại
+  const title = isHandwrittenTab ? 'Bản viết tay' : isLinkTab ? 'Tài liệu' : (pendingLessonDocFile?.name.replace(/\.[^.]+$/,'') || 'Tài liệu');
   const btn = document.getElementById('ldSaveBtn');
   btn.textContent='Đang lưu...'; btn.disabled=true;
 
