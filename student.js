@@ -197,7 +197,7 @@ async function openLessonDetail(id) {
     const row = document.createElement('div');
     row.className = 'content-row clickable';
     row.innerHTML = `<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><span class="btn-sm">👁 Xem</span>`;
-    row.addEventListener('click', () => openViewer(d.title, url, d.file_name, (isLink||isHandwritten)?'link':d.file_type));
+    row.addEventListener('click', () => openViewer(d.title, url, d.file_name, (isLink||isHandwritten)?'doc-link':d.file_type));
     dList.appendChild(row);
   });
 }
@@ -210,21 +210,25 @@ function openViewer(title, url, fileName, fileType) {
   dl.href=url; dl.download=fileName||title;
   const isVideo = fileType==='video'||(fileType||'').startsWith('video/');
   const isLink = fileType==='link';
+  const isDocLink = fileType==='doc-link';
 
-  if (isLink) {
+  if (isDocLink) {
+    // Tài liệu link Drive — hiện nút tải
+    const dlUrl = getDownloadUrl(url);
+    if (dlUrl) { dl.style.display=''; dl.href=dlUrl; dl.removeAttribute('download'); dl.target='_blank'; }
+    else { dl.style.display='none'; }
+    const embed = getEmbedUrl(url);
+    if (embed) body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+    else body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
+  } else if (isLink) {
     const embed = getEmbedUrl(url);
     const dlUrl = getDownloadUrl(url);
-    // Chỉ hiện nút tải cho tài liệu Drive (không phải video YouTube/Drive video)
-    const isVideoEmbed = embed?.includes('youtube') || embed?.includes('youtu') || embed?.includes('youtube.com/embed');
-    const isVideoUrl = url.match(/\.(mp4|webm|ogg|mov|avi)(\?|$)/i);
-    if (dlUrl && !isVideoEmbed && !isVideoUrl) {
-      dl.style.display = '';
-      dl.href = dlUrl;
-      dl.removeAttribute('download');
-      dl.target = '_blank';
-    } else {
-      dl.style.display = 'none';
-    }
+    // Chỉ hiện nút tải cho tài liệu Drive — KHÔNG hiện cho video
+    // fileType 'link' từ video sẽ không có dlUrl hiện
+    // Phân biệt: video link được gọi với fileType='link' từ video card
+    // Tài liệu link được gọi với fileType='link' từ doc list
+    // Dùng tham số thứ 5 để phân biệt
+    dl.style.display = 'none'; // Mặc định ẩn cho link
     if (embed) {
       body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
     } else {
