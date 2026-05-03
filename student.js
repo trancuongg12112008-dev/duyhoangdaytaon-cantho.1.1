@@ -160,10 +160,35 @@ async function renderHome() {
   const code = sessionStorage.getItem('dh_code');
   if (codeEl)   codeEl.textContent   = code ? `Mã HV: ${code}` : '';
 
+  // Load thông báo + bài học song song
+  const [{ data: list }, { data: anns }] = await Promise.all([
+    (() => {
+      let q = db.from('lessons').select('id,name,class_name').order('created_at',{ascending:false}).limit(4);
+      if (myClass) q = q.eq('class_name', myClass);
+      return q;
+    })(),
+    db.from('announcements').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false})
+  ]);
+
+  // Thông báo
+  const annSection = document.getElementById('announcementSection');
+  const annList    = document.getElementById('announcementList');
+  if (annSection && annList) {
+    const myAnns = (anns||[]).filter(a => !a.class_name || a.class_name === myClass);
+    if (myAnns.length) {
+      annSection.style.display = '';
+      annList.innerHTML = myAnns.map(a => `
+        <div style="padding:.65rem .75rem;background:${a.pinned?'#fef9c3':'#fff'};border-radius:10px;border-left:3px solid ${a.pinned?'#f59e0b':'#e2e8f0'}">
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:.2rem">${a.pinned?'📌 ':''}${a.title}${a.class_name?` <span class="class-tag">${a.class_name}</span>`:''}</div>
+          <div style="font-size:.82rem;color:var(--muted);line-height:1.6">${a.content}</div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem">${new Date(a.created_at).toLocaleDateString('vi-VN')}</div>
+        </div>`).join('');
+    } else {
+      annSection.style.display = 'none';
+    }
+  }
+
   // Bài học mới nhất
-  let query = db.from('lessons').select('id,name,class_name').order('created_at',{ascending:false}).limit(4);
-  if (myClass) query = query.eq('class_name', myClass);
-  const { data: list } = await query;
   const el = document.getElementById('homeRecentLessons');
   el.innerHTML = '';
   if (!(list||[]).length) { el.innerHTML = '<p class="muted-sm">Chưa có bài học nào.</p>'; return; }
@@ -195,10 +220,15 @@ async function renderLessonList() {
   const { data: list } = await query;
   const el = document.getElementById('sLessonList');
   el.innerHTML = '';
-  document.getElementById('sEmptyLessons').style.display = (list||[]).length?'none':'block';
-  if (!(list||[]).length) return;
 
-  const lessonIds = list.map(l => l.id);
+  // Lọc theo search
+  const q = (document.getElementById('sLessonSearch')?.value||'').toLowerCase().trim();
+  const filtered = q ? (list||[]).filter(l => l.name.toLowerCase().includes(q) || (l.description||'').toLowerCase().includes(q)) : (list||[]);
+
+  document.getElementById('sEmptyLessons').style.display = filtered.length?'none':'block';
+  if (!filtered.length) return;
+
+  const lessonIds = filtered.map(l => l.id);
   const [{ data: allVids }, { data: allDocs }] = await Promise.all([
     db.from('lesson_videos').select('lesson_id').in('lesson_id', lessonIds),
     db.from('lesson_docs').select('lesson_id').in('lesson_id', lessonIds),
@@ -208,7 +238,7 @@ async function renderLessonList() {
   (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
 
   const groups = {};
-  list.forEach(l => { const g = l.group_name || 'Bai hoc'; if (!groups[g]) groups[g] = []; groups[g].push(l); });
+  filtered.forEach(l => { const g = l.group_name || 'Bai hoc'; if (!groups[g]) groups[g] = []; groups[g].push(l); });
 
   const colors = [
     { gc:'#6366f1', gcLight:'#eef2ff', gcGlow:'rgba(99,102,241,.15)' },
@@ -253,29 +283,39 @@ async function renderLessonList() {
     inner.className = 'group-lesson-list-inner';
     lessonList.appendChild(inner);
 
-    let expanded = false;
+    let expanded = !!q;
+    if (expanded) {
+      card.classList.add('open');
+      lessonList.classList.add('open');
+    }
+
+    function loadLessons() {
+      if (inner.dataset.loaded) return;
+      inner.dataset.loaded = '1';
+      lessons.forEach((l, idx) => {
+        const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
+        const item = document.createElement('div');
+        item.className = 'group-lesson-item';
+        const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx+1;
+        const info = document.createElement('div'); info.className = 'group-lesson-info';
+        info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">\uD83D\uDCDA</span>${l.name}</div><div class="group-lesson-stats"><span>\uD83C\uDFAC ${vc}</span><span>\uD83D\uDCC4 ${dc}</span></div>`;
+        const openBtn = document.createElement('button');
+        openBtn.className = 'group-lesson-open';
+        openBtn.textContent = String.fromCharCode(8594);
+        openBtn.addEventListener('click', e => { e.stopPropagation(); openLessonDetail(l.id); });
+        item.appendChild(num); item.appendChild(info); item.appendChild(openBtn);
+        item.addEventListener('click', () => openLessonDetail(l.id));
+        inner.appendChild(item);
+      });
+    }
+
+    if (expanded) loadLessons(); // Load ngay khi search
+
     header.addEventListener('click', () => {
       expanded = !expanded;
       card.classList.toggle('open', expanded);
       lessonList.classList.toggle('open', expanded);
-      if (expanded && !inner.dataset.loaded) {
-        inner.dataset.loaded = '1';
-        lessons.forEach((l, idx) => {
-          const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
-          const item = document.createElement('div');
-          item.className = 'group-lesson-item';
-          const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx+1;
-          const info = document.createElement('div'); info.className = 'group-lesson-info';
-          info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">\uD83D\uDCDA</span>${l.name}</div><div class="group-lesson-stats"><span>\uD83C\uDFAC ${vc}</span><span>\uD83D\uDCC4 ${dc}</span></div>`;
-          const openBtn = document.createElement('button');
-          openBtn.className = 'group-lesson-open';
-          openBtn.textContent = String.fromCharCode(8594);
-          openBtn.addEventListener('click', e => { e.stopPropagation(); openLessonDetail(l.id); });
-          item.appendChild(num); item.appendChild(info); item.appendChild(openBtn);
-          item.addEventListener('click', () => openLessonDetail(l.id));
-          inner.appendChild(item);
-        });
-      }
+      if (expanded) loadLessons();
     });
 
     card.appendChild(header);
@@ -370,6 +410,7 @@ async function openLessonDetail(id) {
   });
 }
 document.getElementById('sBackToLessonsBtn').addEventListener('click', renderLessonList);
+document.getElementById('sLessonSearch').addEventListener('input', renderLessonList);
 
 // ---- Viewer ----
 function openViewer(title, url, fileName, fileType) {

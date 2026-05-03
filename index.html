@@ -191,17 +191,27 @@
 
         if (!student) { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
 
-        // Sai mật khẩu
+                // Sai mật khẩu
         if (student.password !== p) {
           const attempts = (student.login_attempts || 0) + 1;
-          await db.from('students').update({ login_attempts: attempts }).eq('id', student.id);
-          if (attempts >= 5) {
-            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Đăng nhập sai mật khẩu ${attempts} lần liên tiếp` });
-          }
-          err.textContent = `Sai mật khẩu. (${attempts}/5 lần)`; return;
-        }
+          const updates = { login_attempts: attempts };
 
-        if (!student.active) {
+          // Khoa tai khoan sau 5 lan sai
+          if (attempts >= 5) {
+            updates.active = false;
+            await db.from('students').update(updates).eq('id', student.id);
+            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Dang nhap sai mat khau ${attempts} lan - tai khoan bi khoa` });
+            err.textContent = `Tai khoan da bi khoa do nhap sai mat khau ${attempts} lan. Vui long lien he tro ly.`;
+          } else {
+            await db.from('students').update(updates).eq('id', student.id);
+            if (attempts >= 3) {
+              await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Dang nhap sai mat khau ${attempts} lan lien tiep` });
+            }
+            err.textContent = `Sai mat khau. Con ${5 - attempts} lan truoc khi bi khoa.`;
+          }
+          return;
+        }
+if (!student.active) {
           // Kiểm tra lý do bị khóa để hiện thông báo rõ hơn
           if (student.class_name) {
             const { data: cls } = await db.from('classes').select('end_date').eq('name', student.class_name).single();
@@ -270,6 +280,9 @@
         sessionStorage.setItem('dh_user', u);
         sessionStorage.setItem('dh_name', student.full_name);
         sessionStorage.setItem('dh_token', token);
+
+        // Ghi log dang nhap
+        db.from('login_logs').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'' }).then(() => {});
 
         // Hiện thông báo giám sát trước khi vào
         document.getElementById('monitorNotice').style.display = 'flex';
@@ -355,5 +368,7 @@
   <style>@keyframes monitorBlink{0%,100%{opacity:1}50%{opacity:.2}}</style>
 </body>
 </html>
+
+
 
 

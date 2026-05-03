@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
   <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body class="dashboard-page">
 
@@ -32,6 +33,8 @@
       <a href="#" class="slink" data-page="security"><span class="slink-icon">🚨</span><span class="slink-label">Nhật ký cảnh báo <span id="alertNavBadge" class="nav-badge" style="display:none"></span></span></a>
       <a href="#" class="slink" data-page="devices"><span class="slink-icon">📱</span><span class="slink-label">Cảnh báo thiết bị</span></a>
       <a href="#" class="slink" data-page="access-stats"><span class="slink-icon">📈</span><span class="slink-label">Thống kê truy cập</span></a>
+      <a href="#" class="slink" data-page="login-history"><span class="slink-icon">🕐</span><span class="slink-label">Lịch sử đăng nhập</span></a>
+      <a href="#" class="slink" data-page="announcements"><span class="slink-icon">📢</span><span class="slink-label">Thông báo</span></a>
       <a href="#" class="slink" data-page="profile"><span class="slink-icon">👤</span><span class="slink-label">Hồ sơ</span></a>
     </nav>
     <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
@@ -196,7 +199,7 @@
       <div class="page-header">
         <h1 class="page-title">Danh sách học sinh</h1>
         <div style="display:flex;gap:.5rem">
-          <button class="btn-outline" id="exportStudentsBtn">⬇ Tải Excel</button>
+          <button class="btn-outline" id="exportStudentsBtn">⬇ Xuất Excel</button>
           <button class="btn-primary" id="openAddStudentBtn">➕ Thêm học sinh</button>
         </div>
       </div>
@@ -306,6 +309,59 @@
         </div>
         <div id="accessLogList"></div>
         <div class="empty-state" id="emptyAccessLog">Chưa có dữ liệu truy cập.</div>
+      </div>
+    </section>
+
+    <!-- PAGE: LỊCH SỬ ĐĂNG NHẬP -->
+    <section class="page" id="pageLoginHistory">
+      <div class="page-header">
+        <h1 class="page-title">🕐 Lịch sử đăng nhập</h1>
+        <div style="display:flex;gap:.5rem">
+          <select id="loginHistoryFilterClass" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"><option value="">Tất cả lớp</option></select>
+          <button class="btn-outline" id="exportLoginHistoryBtn">⬇ Xuất CSV</button>
+          <button class="btn-outline btn-danger" id="clearLoginHistoryBtn">🗑 Xóa tất cả</button>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="loginHistorySearch" placeholder="🔍 Tìm theo tên hoặc Gmail..."/>
+      </div>
+      <div class="stat-grid" id="loginHistoryStats" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem"></div>
+      <div class="overview-panel">
+        <div id="loginHistoryList"></div>
+        <div class="empty-state" id="emptyLoginHistory">Chưa có lịch sử đăng nhập.</div>
+      </div>
+    </section>
+
+    <!-- PAGE: THÔNG BÁO -->
+    <section class="page" id="pageAnnouncements">
+      <div class="page-header">
+        <h1 class="page-title">📢 Thông báo</h1>
+      </div>
+      <div class="two-col">
+        <!-- Form tạo thông báo -->
+        <div class="form-panel">
+          <h3 id="annFormTitle">✏️ Tạo thông báo mới</h3>
+          <label>Tiêu đề <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="annTitle" placeholder="VD: Lịch học tuần tới..."/>
+          <label>Nội dung <span style="color:var(--danger)">*</span></label>
+          <textarea id="annContent" rows="4" placeholder="Nội dung thông báo..." style="resize:vertical"></textarea>
+          <label>Gửi đến lớp <span class="muted">(để trống = tất cả)</span></label>
+          <select id="annClass"><option value="">-- Tất cả học sinh --</option></select>
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" id="annPinned"/> Ghim thông báo (hiện nổi bật)
+          </label>
+          <div id="annError" class="error-msg"></div>
+          <div class="form-actions">
+            <button class="btn-outline" id="annCancelBtn">Hủy</button>
+            <button class="btn-primary" id="annSaveBtn">📢 Gửi thông báo</button>
+          </div>
+        </div>
+        <!-- Danh sách thông báo -->
+        <div class="form-panel">
+          <h3>Danh sách thông báo</h3>
+          <div id="annList" style="display:flex;flex-direction:column;gap:.6rem"></div>
+          <div class="empty-state" id="emptyAnn">Chưa có thông báo nào.</div>
+        </div>
       </div>
     </section>
 

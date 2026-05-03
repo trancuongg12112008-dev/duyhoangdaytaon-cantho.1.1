@@ -101,61 +101,69 @@
 
     <!-- TRANG CHỦ -->
     <section class="page active" id="pageHome">
+
+      <!-- Banner dien thoai -->
       <div id="deviceBanner" style="display:none;background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;border-radius:14px;padding:.85rem 1.1rem;margin-bottom:1rem;font-size:.83rem;line-height:1.6;align-items:center;gap:.75rem">
-        <span style="font-size:1.4rem;flex-shrink:0"></span>
-        <span>Để có trải nghiệm học tập <b>đầy đủ và hiệu quả nhất</b>, bạn nên học trên <b>máy tính, laptop hoặc tablet</b>. Điện thoại có thể bị giới hạn một số tính năng.</span>
+        <span style="font-size:1.4rem;flex-shrink:0">&#x1F4BB;</span>
+        <span>De co trai nghiem hoc tap <b>day du va hieu qua nhat</b>, ban nen hoc tren <b>may tinh, laptop hoac tablet</b>.</span>
       </div>
       <script>if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){document.getElementById("deviceBanner").style.display="flex";}</script>
-      <h1 class="page-title" id="welcomeTitle">Xin chào!</h1>
-      <p style="color:var(--muted);font-size:.95rem;margin-top:.1rem;margin-bottom:1.25rem;font-weight:500">📐 Duy Hoàng Dạy Toán Cần Thơ — Chúc bạn học tốt!</p>
 
+      <h1 class="page-title" id="welcomeTitle">Xin chao!</h1>
+      <p style="color:var(--muted);font-size:.95rem;margin-top:.1rem;margin-bottom:1.25rem;font-weight:500">&#x1F4D0; Duy Hoang Day Toan Can Tho &#x2014; Chuc ban hoc tot!</p>
+
+      <!-- Thong bao tu admin -->
+      <div id="announcementSection" style="display:none;margin-bottom:1.1rem">
+        <div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:14px;padding:1rem 1.25rem">
+          <div style="font-weight:700;font-size:.9rem;color:#92400e;margin-bottom:.6rem">&#x1F4E2; Thong bao</div>
+          <div id="announcementList" style="display:flex;flex-direction:column;gap:.5rem"></div>
+        </div>
+      </div>
+
+      <!-- Grid chinh -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
-
-        <!-- Bài học mới nhất -->
+        <!-- Bai hoc moi nhat -->
         <div class="overview-panel">
-          <div class="panel-header"><span>📚 Bài học mới nhất</span><a href="#" class="link-blue" data-goto="lessons">Xem tất cả</a></div>
+          <div class="panel-header"><span>&#x1F4DA; Bai hoc moi nhat</span><a href="#" class="link-blue" data-goto="lessons">Xem tat ca</a></div>
           <div id="homeRecentLessons"></div>
         </div>
-
-        <!-- Lưu ý khi học -->
+        <!-- Luu y khi hoc -->
         <div class="overview-panel">
-          <div class="panel-header"><span>⚠️ Lưu ý khi học</span></div>
+          <div class="panel-header"><span>&#x26A0;&#xFE0F; Luu y khi hoc</span></div>
           <div style="display:flex;flex-direction:column;gap:.65rem;font-size:.88rem;line-height:1.6">
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">🔒</span><span>Mỗi tài khoản chỉ được đăng nhập trên <b>01 thiết bị</b> tại một thời điểm.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">📵</span><span>Nghiêm cấm <b>chụp màn hình, quay video</b> hoặc phát tán nội dung bài giảng.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">👁</span><span>Hệ thống <b>giám sát toàn bộ</b> hoạt động. Mọi vi phạm đều được ghi nhận.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">🚫</span><span>Không chia sẻ tài khoản cho người khác dưới bất kỳ hình thức nào.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">⛔</span><span>Tài khoản vi phạm sẽ bị <b>khóa vĩnh viễn</b> mà không cần báo trước.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F512;</span><span>Moi tai khoan chi duoc dang nhap tren <b>01 thiet bi</b> tai mot thoi diem.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F4F5;</span><span>Nghiem cam <b>chup man hinh, quay video</b> hoac phat tan noi dung bai giang.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F441;</span><span>He thong <b>giam sat toan bo</b> hoat dong. Moi vi pham deu duoc ghi nhan.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F6AB;</span><span>Khong chia se tai khoan cho nguoi khac duoi bat ky hinh thuc nao.</span></div>
           </div>
         </div>
-
       </div>
 
-      <!-- Hướng dẫn sử dụng nhanh -->
+      <!-- Huong dan su dung nhanh -->
       <div class="overview-panel" style="margin-bottom:1.25rem">
-        <div class="panel-header"><span>📖 Hướng dẫn sử dụng nhanh</span></div>
+        <div class="panel-header"><span>&#x1F4D6; Huong dan su dung nhanh</span></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;font-size:.86rem">
           <div style="background:var(--primary-light);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
-            <span style="font-size:1.4rem">📚</span>
-            <b>Xem bài học</b>
-            <span style="color:var(--muted)">Vào mục <b>Bài học</b> → chọn nhóm → chọn bài để xem video và tài liệu.</span>
+            <span style="font-size:1.4rem">&#x1F4DA;</span>
+            <b>Xem bai hoc</b>
+            <span style="color:var(--muted)">Vao muc <b>Bai hoc</b> &#x2192; chon nhom &#x2192; chon bai de xem video va tai lieu.</span>
           </div>
           <div style="background:#e0f2fe;border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
-            <span style="font-size:1.4rem">🎬</span>
+            <span style="font-size:1.4rem">&#x1F3AC;</span>
             <b>Xem video</b>
-            <span style="color:var(--muted)">Nhấn vào thumbnail để phát video. Nên <b>xoay ngang</b> điện thoại để xem tốt hơn.</span>
+            <span style="color:var(--muted)">Nhan vao thumbnail de phat video. Nen <b>xoay ngang</b> dien thoai de xem tot hon.</span>
           </div>
           <div style="background:#d1fae5;border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
-            <span style="font-size:1.4rem">📞</span>
-            <b>Hỗ trợ</b>
-            <span style="color:var(--muted)">Liên hệ <b>Trợ lý Trần Cường</b> để được hỗ trợ tài khoản và kỹ thuật.</span>
+            <span style="font-size:1.4rem">&#x1F4DE;</span>
+            <b>Ho tro</b>
+            <span style="color:var(--muted)">Lien he <b>Tro ly Tran Cuong</b> de duoc ho tro tai khoan va ky thuat.</span>
           </div>
         </div>
       </div>
 
-      <!-- Avatar + thông tin học viên -->
+      <!-- Avatar + thong tin hoc vien -->
       <div class="overview-panel">
-        <div class="panel-header"><span>👤 Thông tin của bạn</span></div>
+        <div class="panel-header"><span>&#x1F464; Thong tin cua ban</span></div>
         <div style="display:flex;align-items:center;gap:1.25rem">
           <div id="homeAvatar" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;flex-shrink:0;box-shadow:0 4px 16px rgba(99,102,241,.3)"></div>
           <div>
@@ -173,6 +181,7 @@
       <!-- Danh sách bài -->
       <div id="sLessonListView">
         <h1 class="page-title">Bài học</h1>
+        <div style="margin-bottom:1rem"><input type="text" id="sLessonSearch" placeholder="Tim kiem bai hoc..." style="width:100%;padding:.65rem 1rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.9rem;background:var(--card)"/></div>
         <div class="content-list" id="sLessonList"></div>
         <div class="empty-state" id="sEmptyLessons">Chưa có bài học nào.</div>
       </div>
@@ -493,6 +502,12 @@
 
 </body>
 </html>
+
+
+
+
+
+
 
 
 
