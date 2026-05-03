@@ -120,7 +120,6 @@ async function renderHome() {
     el.appendChild(row);
   });
 }
-}
 
 // ---- Danh sách bài học ----
 async function renderLessonList() {

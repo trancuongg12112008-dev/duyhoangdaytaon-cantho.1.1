@@ -253,9 +253,6 @@
     // Chặn chuột phải
     document.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Chặn drag (kéo nội dung)
-    document.addEventListener('dragstart', e => e.preventDefault());
-
     // Chặn copy
     document.addEventListener('copy', e => { e.preventDefault(); e.clipboardData?.setData('text/plain',''); });
     document.addEventListener('cut',  e => { e.preventDefault(); });
