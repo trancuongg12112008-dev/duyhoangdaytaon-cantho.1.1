@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8"/>
@@ -277,7 +277,40 @@
       }
     });
 
-    // PWA Install prompt
+
+    //  Tự động khóa tài khoản khi lớp hết hạn (chạy mỗi lần tải trang) 
+    (async function autoLockExpired() {
+      try {
+        const today = new Date(); today.setHours(0,0,0,0);
+        // Lấy tất cả lớp có end_date đã qua
+        const { data: classes } = await db.from('classes').select('name,end_date');
+        if (!classes?.length) return;
+        const expiredNames = classes
+          .filter(c => c.end_date && new Date(c.end_date) < today)
+          .map(c => c.name);
+        if (!expiredNames.length) return;
+        // Khóa tất cả học sinh thuộc lớp hết hạn, chưa bị khóa, chưa được mở thủ công
+        await db.from('students')
+          .update({ active: false })
+          .in('class_name', expiredNames)
+          .eq('active', true)
+          .eq('manually_unlocked', false);
+      } catch(e) {}
+    })();
+        // Auto-lock tài khoản khi lớp hết hạn (chạy mỗi lần trang load)
+    (async function autoLockExpired() {
+      try {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const { data: classes } = await db.from('classes').select('name,end_date');
+        const expired = (classes||[]).filter(c => c.end_date && new Date(c.end_date) < today).map(c => c.name);
+        if (!expired.length) return;
+        await db.from('students').update({ active: false })
+          .in('class_name', expired)
+          .eq('active', true)
+          .eq('manually_unlocked', false);
+      } catch(e) {}
+    })();
+// PWA Install prompt
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
@@ -322,3 +355,5 @@
   <style>@keyframes monitorBlink{0%,100%{opacity:1}50%{opacity:.2}}</style>
 </body>
 </html>
+
+

@@ -62,7 +62,8 @@ function showPage(name) {
   if (page) page.classList.add('active');
   document.querySelectorAll(`[data-page="${name}"]`).forEach(l => l.classList.add('active'));
   if (name === 'overview')       renderOverview();
-  if (name === 'students')       { populateClassFilters(); renderStudents(); }
+  if (name === 'students')       { populateClassFilters(); renderStudents(); startStudentAutoRefresh(); }
+  if (name !== 'students')       stopStudentAutoRefresh();
   if (name === 'create-student') {
     renderMiniStudents();
     populateCsClassSelect();
@@ -383,6 +384,16 @@ document.getElementById('csCode').addEventListener('input', () => {
   document.getElementById('csPassword').value = document.getElementById('csCode').value;
 });
 
+// Khi chọn lớp → tự điền ngày hết hạn theo lớp
+document.getElementById('csClassSelect').addEventListener('change', async () => {
+  const cls = document.getElementById('csClassSelect').value;
+  if (!cls) return;
+  const { data } = await db.from('classes').select('end_date').eq('name', cls).single();
+  if (data?.end_date) {
+    document.getElementById('csExpiry').value = data.end_date;
+  }
+});
+
 // Tự động tạo mã học viên 5 ký tự unique
 async function genStudentCode() {
   const { data: existing } = await db.from('students').select('student_code');
@@ -429,6 +440,16 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   document.getElementById('naPassword').textContent = password;
   document.getElementById('naClass').textContent    = cls || '';
   document.getElementById('naPhone').textContent    = phone || '';
+
+  // Lay ngay khai giang va ket thuc cua lop
+  if (cls) {
+    const { data: clsInfo } = await db.from('classes').select('start_date,end_date').eq('name', cls).single();
+    document.getElementById('naStartDate').textContent = clsInfo?.start_date ? fmtDate(clsInfo.start_date) : '';
+    document.getElementById('naEndDate').textContent   = clsInfo?.end_date   ? fmtDate(clsInfo.end_date)   : '';
+  } else {
+    document.getElementById('naStartDate').textContent = '';
+    document.getElementById('naEndDate').textContent   = '';
+  }
   document.getElementById('newAccountModal').classList.add('open');
 
   // Reset form
@@ -470,7 +491,9 @@ document.getElementById('naCopyBtn').addEventListener('click', () => {
   const pw    = document.getElementById('naPassword').textContent;
   const cls   = document.getElementById('naClass').textContent;
   const phone = document.getElementById('naPhone').textContent;
-  const text  = `Ho ten: ${name}\nMa HV: ${code}\nGmail: ${user}\nMat khau: ${pw}\nLop: ${cls}\nSDT: ${phone}`;
+  const start = document.getElementById('naStartDate').textContent;
+  const end   = document.getElementById('naEndDate').textContent;
+  const text  = `Ho ten: ${name}\nMa HV: ${code}\nGmail: ${user}\nMat khau: ${pw}\nLop: ${cls}\nNgay khai giang: ${start}\nNgay ket thuc: ${end}\nSDT: ${phone}`;
   navigator.clipboard?.writeText(text).then(() => {
     const btn = document.getElementById('naCopyBtn');
     btn.textContent = '✅ Đã sao chép!';
@@ -535,19 +558,19 @@ async function renderStudents() {
     const actions = `<button class="btn-sm" data-action="edit" title="${s.notes?'📝 '+s.notes:''}">✏️ Sửa</button> <button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button> <button class="btn-sm btn-danger" data-action="delete">🗑</button>`;
 
     // Trạng thái học tập
-    let studyStatus = '<span style="color:#22c55e;font-weight:600">✅ Đang học</span>';
+    let studyStatus;
     if (!s.active) {
       if (s.expiry_date && new Date(s.expiry_date) < today) {
-        studyStatus = '<span style="color:#ef4444;font-weight:600">⏰ Hết hạn</span>';
+        studyStatus = '<span class="status-pill red">⏰ Hết hạn</span>';
       } else if (s.class_name && expiredClasses.has(s.class_name)) {
-        studyStatus = '<span style="color:#ef4444;font-weight:600">🏫 Lớp kết thúc</span>';
+        studyStatus = '<span class="status-pill red">🏫 Lớp kết thúc</span>';
       } else {
-        studyStatus = '<span style="color:#f59e0b;font-weight:600">🔒 Đã khóa</span>';
+        studyStatus = '<span class="status-pill orange">🔒 Đã khóa</span>';
       }
-    } else if (s.is_online) {
-      studyStatus = '<span style="color:#22c55e;font-weight:600">🟢 Online</span>';
+    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 60000) {
+      studyStatus = '<span class="status-pill green">🟢 Online</span>';
     } else {
-      studyStatus = '<span style="color:#94a3b8;font-weight:600">⚫ Offline</span>';
+      studyStatus = '<span class="status-pill gray">⚫ Offline</span>';
     }
 
     tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
@@ -1125,16 +1148,22 @@ async function renderClasses() {
   const grid=document.getElementById('classGrid');
   grid.innerHTML='';
   document.getElementById('emptyClasses').style.display=allNames.length?'none':'block';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const { data: allStudentsFull } = await db.from('students').select('class_name, active');
   allNames.forEach(cls=>{
-    const count=(allStudents||[]).filter(s=>s.class_name===cls).length;
+    const count=(allStudentsFull||[]).filter(s=>s.class_name===cls).length;
     const info=clsMap[cls]||{};
+    const isExpired = info.end_date && new Date(info.end_date) < today;
     const dateInfo = (info.start_date||info.end_date)
       ? `<div style="font-size:.75rem;color:#888;margin-top:.25rem">${info.start_date?'📅 '+fmtDate(info.start_date):''}${info.start_date&&info.end_date?' → ':''}${info.end_date?fmtDate(info.end_date):''}</div>`
       : '';
+    const expiredBadge = isExpired
+      ? `<span class="status-pill red" style="font-size:.7rem;margin-top:.3rem;display:inline-block">🔴 Đã kết thúc</span>`
+      : '';
     const card=document.createElement('div');
-    card.className='stat-card blue clickable';
+    card.className=`stat-card ${isExpired?'red':'blue'} clickable`;
     card.style.cursor='pointer';
-    card.innerHTML=`<div class="stat-icon">🏫</div><div style="flex:1"><div class="stat-num">${count}</div><div class="stat-label">${cls}</div>${dateInfo}</div><div style="display:flex;flex-direction:column;gap:.25rem;align-self:flex-start"><button class="btn-sm" data-edit="${cls}">✏️</button><button class="btn-sm btn-danger" data-del="${cls}">🗑</button></div>`;
+    card.innerHTML=`<div class="stat-icon">🏫</div><div style="flex:1"><div class="stat-num">${count}</div><div class="stat-label">${cls}</div>${dateInfo}<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.25rem">${expiredBadge}</div></div><div style="display:flex;flex-direction:column;gap:.25rem;align-self:flex-start"><button class="btn-sm" data-edit="${cls}">✏️</button><button class="btn-sm btn-danger" data-del="${cls}">🗑</button></div>`;
     card.addEventListener('click', e=>{ if(!e.target.closest('[data-edit],[data-del]')) openClassDetail(cls); });
     card.querySelector('[data-edit]').addEventListener('click', e=>{ e.stopPropagation(); openEditClassModal(cls, info); });
     card.querySelector('[data-del]').addEventListener('click', async e=>{
@@ -1153,17 +1182,42 @@ async function openClassDetail(cls) {
   document.getElementById('classListView').style.display='none';
   document.getElementById('classDetailView').style.display='';
   document.getElementById('classDetailTitle').textContent=cls;
+  const today = new Date(); today.setHours(0,0,0,0);
   const { data:list }=await db.from('students').select('*').eq('class_name',cls);
   const tbody=document.getElementById('classStudentBody');
   tbody.innerHTML='';
   document.getElementById('emptyClassStudents').style.display=(list||[]).length?'none':'block';
   (list||[]).forEach(s=>{
+    let statusHtml;
+    if (!s.active) {
+      if (s.expiry_date && new Date(s.expiry_date) < today)
+        statusHtml = '<span class="status-pill red">⏰ Hết hạn</span>';
+      else
+        statusHtml = '<span class="status-pill orange">🔒 Đã khóa</span>';
+    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 60000) {
+      statusHtml = '<span class="status-pill green">🟢 Online</span>';
+    } else {
+      statusHtml = '<span class="status-pill gray">⚫ Offline</span>';
+    }
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${s.full_name}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td>`;
+    tr.innerHTML=`<td>${s.student_code||'—'}</td><td>${s.full_name}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${statusHtml}</td>`;
     tbody.appendChild(tr);
   });
 }
 document.getElementById('backToClassesBtn').addEventListener('click', renderClasses);
+
+document.getElementById('unlockAllClassBtn').addEventListener('click', async () => {
+  const cls = document.getElementById('classDetailTitle').textContent;
+  if (!cls) return;
+  showConfirm(`Mở khóa toàn bộ học sinh lớp "${cls}"?`, async () => {
+    await db.from('students')
+      .update({ active: true, manually_unlocked: true })
+      .eq('class_name', cls)
+      .eq('active', false);
+    openClassDetail(cls);
+    renderClasses();
+  }, { title: 'Mở khóa toàn bộ', icon: '🔓', okText: 'Mở khóa' });
+});
 
 let editingClassName=null;
 function openEditClassModal(cls, clsData={}) {
@@ -1291,6 +1345,58 @@ document.getElementById('clearAlertsBtn').addEventListener('click', async ()=>{
 renderOverview();
 
 // ============================================================
+// TỰ ĐỘNG KHÓA TÀI KHOẢN KHI LỚP HẾT HẠN
+// ============================================================
+async function autoLockExpiredAccounts() {
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Lấy tất cả lớp có end_date
+  const { data: classes } = await db.from('classes').select('name, end_date');
+  if (!classes?.length) return;
+
+  // Lọc các lớp đã hết hạn
+  const expiredClasses = (classes).filter(c => {
+    if (!c.end_date) return false;
+    const end = new Date(c.end_date); end.setHours(0,0,0,0);
+    return today > end;
+  }).map(c => c.name);
+
+  if (!expiredClasses.length) return;
+
+  // Lấy học sinh thuộc lớp hết hạn còn đang active và chưa được mở thủ công
+  const { data: students } = await db.from('students')
+    .select('id, full_name, class_name, username')
+    .in('class_name', expiredClasses)
+    .eq('active', true)
+    .eq('manually_unlocked', false);
+
+  if (!students?.length) return;
+
+  // Khóa hàng loạt
+  const ids = students.map(s => s.id);
+  await db.from('students').update({ active: false }).in('id', ids);
+
+  console.log(`[AutoLock] Đã khóa ${ids.length} tài khoản thuộc lớp hết hạn:`, expiredClasses);
+}
+
+// Chạy ngay khi admin đăng nhập
+autoLockExpiredAccounts();
+
+// Auto-refresh danh sách học sinh để cập nhật online/offline
+let _studentRefreshTimer = null;
+function startStudentAutoRefresh() {
+  stopStudentAutoRefresh();
+  _studentRefreshTimer = setInterval(() => {
+    if (document.getElementById('pageStudents').classList.contains('active')) {
+      renderStudents();
+    }
+  }, 10000);
+}
+function stopStudentAutoRefresh() {
+  if (_studentRefreshTimer) { clearInterval(_studentRefreshTimer); _studentRefreshTimer = null; }
+}
+
+// ============================================================
 // THỐNG KÊ TRUY CẬP
 // ============================================================
 async function renderAccessStats() {
@@ -1376,6 +1482,7 @@ document.getElementById('exportAccessBtn').addEventListener('click', async () =>
   a.download = `thong_ke_truy_cap_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
 });
+
 
 
 

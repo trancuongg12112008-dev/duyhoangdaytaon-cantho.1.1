@@ -1113,3 +1113,19 @@ body.landing { background: #fff; }
 @media (max-width: 768px) {
   .sidebar.open { box-shadow: 4px 0 32px rgba(0,0,0,.3); }
 }
+
+/* Status pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .2rem .65rem;
+  border-radius: 20px;
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-pill.green  { background: #d1fae5; color: #065f46; }
+.status-pill.red    { background: #fee2e2; color: #991b1b; }
+.status-pill.orange { background: #fef3c7; color: #92400e; }
+.status-pill.gray   { background: #f1f5f9; color: #64748b; }

@@ -226,10 +226,13 @@
       <div id="classDetailView" style="display:none">
         <div class="page-header">
           <h1 class="page-title" id="classDetailTitle"></h1>
-          <button class="btn-outline" id="backToClassesBtn">← Quay lại</button>
+          <div style="display:flex;gap:.5rem">
+            <button class="btn-success btn-sm" id="unlockAllClassBtn" style="padding:.5rem 1rem;font-size:.85rem">🔓 Mở khóa toàn bộ</button>
+            <button class="btn-outline" id="backToClassesBtn">← Quay lại</button>
+          </div>
         </div>
         <table class="data-table">
-          <thead><tr><th>Họ tên</th><th>SĐT</th><th>Gmail</th><th>Trạng thái</th></tr></thead>
+          <thead><tr><th>Mã HV</th><th>Họ tên</th><th>SĐT</th><th>Gmail</th><th>Trạng thái</th></tr></thead>
           <tbody id="classStudentBody"></tbody>
         </table>
         <div class="empty-state" id="emptyClassStudents">Không có học sinh nào trong lớp này.</div>
@@ -358,6 +361,14 @@
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:.8rem;color:var(--muted);font-weight:600">Lớp</span>
           <span id="naClass" style="font-weight:600"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Ngày khai giảng</span>
+          <span id="naStartDate" style="font-weight:600;color:var(--success)">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Ngày kết thúc</span>
+          <span id="naEndDate" style="font-weight:600;color:var(--danger)">—</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:.8rem;color:var(--muted);font-weight:600">SĐT</span>

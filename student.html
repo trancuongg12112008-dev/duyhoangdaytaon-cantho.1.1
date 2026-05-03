@@ -433,9 +433,7 @@
     // Dùng Page Visibility API — đã xử lý ở visibilitychange bên trên
 
     // ── Watermark cá nhân hóa ──
-    const wmUser = sessionStorage.getItem('dh_code') || sessionStorage.getItem('dh_user') || '';
-    const wmName = sessionStorage.getItem('dh_name') || '';
-    const wmText = wmUser + (wmName ? ' · ' + wmName : '');
+    const wmText = sessionStorage.getItem('dh_user') || '';
     const wm = document.createElement('canvas');
     wm.id = 'watermark';
     document.body.appendChild(wm);
@@ -495,6 +493,7 @@
 
 </body>
 </html>
+
 
 
 

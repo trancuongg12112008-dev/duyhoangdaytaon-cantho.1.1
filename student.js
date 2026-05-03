@@ -113,10 +113,11 @@ window.addEventListener('beforeunload', () => {
   db.from('students').update({ is_online: false, last_seen: new Date().toISOString() }).eq('username', currentUser);
 });
 
-// Heartbeat mỗi 30s để giữ trạng thái online
+// Heartbeat mỗi 15s để giữ trạng thái online
+db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
 setInterval(() => {
   db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
-}, 30000);
+}, 15000);
 document.getElementById('menuToggle').addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarBackdrop').classList.toggle('show');
@@ -442,15 +443,83 @@ function closeViewer() {
 // ---- Init ----
 loadMe().then(() => renderHome());
 
-// Kiểm tra session token mỗi 30 giây
+// Realtime: lắng nghe thay đổi active của tài khoản này
+db.channel('student-lock-' + currentUser)
+  .on('postgres_changes', {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'students',
+    filter: `username=eq.${currentUser}`
+  }, async (payload) => {
+    const s = payload.new;
+    if (!s.active) {
+      // Hiện overlay thông báo
+      document.body.innerHTML = `
+        <div style="position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;text-align:center;padding:2rem;z-index:99999">
+          <div style="font-size:3.5rem">🔒</div>
+          <div style="color:#ef4444;font-size:1.3rem;font-weight:800">Tài khoản đã bị khóa</div>
+          <div style="color:rgba(255,255,255,.75);font-size:.95rem;max-width:320px;line-height:1.7">
+            Tài khoản của bạn vừa bị khóa bởi quản trị viên.<br/>
+            Vui lòng liên hệ <b style="color:#fff">Trợ lý Trần Cường</b> để được hỗ trợ.
+          </div>
+          <button onclick="sessionStorage.clear();location.href='index.html'" style="margin-top:.5rem;background:#6366f1;color:#fff;border:none;padding:.75rem 2rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer">
+            Về trang đăng nhập
+          </button>
+        </div>`;
+      await setOffline();
+      sessionStorage.clear();
+    }
+  })
+  .subscribe();
+
+// Kiểm tra session token + trạng thái tài khoản mỗi 30 giây
 setInterval(async () => {
   const token = sessionStorage.getItem('dh_token');
   if (!token) return;
-  const { data } = await db.from('students').select('session_token').eq('username', currentUser).single();
-  if (data && data.session_token !== token) {
-    alert('Tài khoản của bạn đã đăng nhập ở thiết bị khác. Bạn sẽ bị đăng xuất.');
+
+  const { data } = await db.from('students').select('session_token, active, class_name, expiry_date, manually_unlocked').eq('username', currentUser).single();
+  if (!data) return;
+
+  // Bị đăng nhập thiết bị khác — bỏ kiểm tra
+
+  // Tài khoản bị khóa thủ công
+  if (!data.active) {
+    alert('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ trợ lý.');
+    await setOffline();
     sessionStorage.clear();
     location.href = 'index.html';
+    return;
+  }
+
+  // Hết hạn tài khoản cá nhân
+  if (data.expiry_date) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const exp = new Date(data.expiry_date); exp.setHours(0,0,0,0);
+    if (today > exp) {
+      await db.from('students').update({ active: false }).eq('username', currentUser);
+      alert('Tài khoản của bạn đã hết hạn. Vui lòng liên hệ trợ lý để gia hạn.');
+      await setOffline();
+      sessionStorage.clear();
+      location.href = 'index.html';
+      return;
+    }
+  }
+
+  // Lớp học hết hạn
+  if (data.class_name && !data.manually_unlocked) {
+    const { data: cls } = await db.from('classes').select('end_date').eq('name', data.class_name).single();
+    if (cls?.end_date) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const end = new Date(cls.end_date); end.setHours(0,0,0,0);
+      if (today > end) {
+        await db.from('students').update({ active: false }).eq('username', currentUser);
+        alert(`Khóa học "${data.class_name}" đã kết thúc. Tài khoản đã bị khóa.`);
+        await setOffline();
+        sessionStorage.clear();
+        location.href = 'index.html';
+        return;
+      }
+    }
   }
 }, 30000);
 
