@@ -11,42 +11,87 @@ const currentUser = sessionStorage.getItem('dh_user');
 const currentName = sessionStorage.getItem('dh_name') || currentUser;
 
 document.getElementById('studentName').textContent  = currentName;
-document.getElementById('welcomeTitle').textContent = `Chào mừng, ${currentName}!`;
+document.getElementById('welcomeTitle').textContent = `Xin chào, ${currentName}! 👋`;
 document.getElementById('profileName').textContent  = currentName;
 
 let myClass = '';
 
 async function loadMe() {
-  const { data } = await db.from('students').select('class_name, student_code, expiry_date').eq('username', currentUser).single();
+  const { data } = await db.from('students').select('class_name, student_code, expiry_date, created_at, username, active').eq('username', currentUser).single();
   myClass = data?.class_name || '';
-  document.getElementById('profileClass').textContent = myClass ? `Lớp: ${myClass}` : '';
   sessionStorage.setItem('dh_code', data?.student_code || '');
 
-  const banner = document.getElementById('expiryBanner');
   const today = new Date(); today.setHours(0,0,0,0);
   const WARN_DAYS = 7;
+  const fmt = d => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
-  // Kiểm tra hết hạn tài khoản cá nhân
+  // Điền hồ sơ cơ bản
+  const av = document.getElementById('profileAvatar');
+  if (av) av.textContent = (currentName||'?')[0].toUpperCase();
+  const el = id => document.getElementById(id);
+  if (el('profileClass'))    el('profileClass').textContent    = myClass ? `Lớp: ${myClass}` : '';
+  if (el('profileCode'))     el('profileCode').textContent     = data?.student_code || '—';
+  if (el('profileUsername')) el('profileUsername').textContent = data?.username || '—';
+  if (el('profileCreated'))  el('profileCreated').textContent  = data?.created_at ? fmt(data.created_at) : '—';
+
+  // Lấy thông tin lớp học (song song với kiểm tra hết hạn)
+  let clsData = null;
+  if (myClass) {
+    const { data: c } = await db.from('classes').select('start_date, end_date').eq('name', myClass).single();
+    clsData = c;
+  }
+
+  if (el('profileStartDate')) el('profileStartDate').textContent = clsData?.start_date ? fmt(clsData.start_date) : '—';
+  if (el('profileEndDate'))   el('profileEndDate').textContent   = clsData?.end_date   ? fmt(clsData.end_date)   : '—';
+
+  // Kiểm tra hết hạn và tự khóa
+  const banner = document.getElementById('expiryBanner');
+  let locked = false;
+
+  // Hết hạn tài khoản cá nhân
   if (data?.expiry_date) {
     const exp = new Date(data.expiry_date); exp.setHours(0,0,0,0);
     const daysLeft = Math.round((exp - today) / 86400000);
-    if (daysLeft >= 0 && daysLeft <= WARN_DAYS) {
+    if (daysLeft < 0) {
+      // Tự khóa
+      await db.from('students').update({ active: false }).eq('username', currentUser);
+      locked = true;
+    } else if (daysLeft <= WARN_DAYS) {
       banner.style.display = 'block';
-      banner.innerHTML = `⚠️ Tài khoản của bạn sẽ hết hạn vào ngày <b>${exp.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Vui lòng liên hệ trợ lý để gia hạn.`;
-      return;
+      banner.innerHTML = `⚠️ Tài khoản sẽ hết hạn vào ngày <b>${exp.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Liên hệ trợ lý để gia hạn.`;
     }
   }
 
-  // Kiểm tra ngày kết thúc lớp học
-  if (myClass) {
-    const { data: cls } = await db.from('classes').select('end_date').eq('name', myClass).single();
-    if (cls?.end_date) {
-      const end = new Date(cls.end_date); end.setHours(0,0,0,0);
-      const daysLeft = Math.round((end - today) / 86400000);
-      if (daysLeft >= 0 && daysLeft <= WARN_DAYS) {
-        banner.style.display = 'block';
-        banner.innerHTML = `⚠️ Khóa học <b>${myClass}</b> sẽ kết thúc vào ngày <b>${end.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Vui lòng liên hệ trợ lý để được hỗ trợ.`;
-      }
+  // Hết hạn lớp học
+  if (!locked && clsData?.end_date) {
+    const end = new Date(clsData.end_date); end.setHours(0,0,0,0);
+    const daysLeft = Math.round((end - today) / 86400000);
+    if (daysLeft < 0) {
+      // Tự khóa vĩnh viễn
+      await db.from('students').update({ active: false }).eq('username', currentUser);
+      locked = true;
+    } else if (daysLeft <= WARN_DAYS) {
+      banner.style.display = 'block';
+      banner.innerHTML = `⚠️ Khóa học <b>${myClass}</b> kết thúc vào ngày <b>${end.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Liên hệ trợ lý để được hỗ trợ.`;
+    }
+  }
+
+  // Nếu bị khóa → đăng xuất ngay
+  if (locked) {
+    alert('Khóa học của bạn đã kết thúc. Tài khoản đã bị khóa. Vui lòng liên hệ trợ lý.');
+    sessionStorage.clear();
+    location.href = 'index.html';
+    return;
+  }
+
+  // Trạng thái
+  if (el('profileStatus')) {
+    const endDate = clsData?.end_date ? new Date(clsData.end_date) : null;
+    const daysLeft = endDate ? Math.round((endDate - today) / 86400000) : null;
+    if (daysLeft !== null && daysLeft <= 7 && daysLeft >= 0) {
+      el('profileStatus').innerHTML = `<span style="color:var(--warning);font-weight:700">⚠️ Sắp kết thúc (${daysLeft} ngày)</span>`;
+    } else {
+      el('profileStatus').innerHTML = `<span style="color:var(--success);font-weight:700">✅ Đang hoạt động</span>`;
     }
   }
 }
@@ -72,7 +117,14 @@ window.addEventListener('beforeunload', () => {
 setInterval(() => {
   db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
 }, 30000);
-document.getElementById('menuToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+document.getElementById('menuToggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('show');
+});
+document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+});
 
 // ---- Sidebar nav ----
 let currentSection = 'home';
@@ -88,7 +140,7 @@ function showPage(pg) {
   if (pg === 'lessons') renderLessonList();
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
-  l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); });
+  l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); });
 });
 document.querySelectorAll('[data-goto]').forEach(l => {
   l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.goto); });
@@ -265,14 +317,24 @@ async function logAccess(lessonId, lessonName, contentId, contentTitle, contentT
   } catch(e) {}
 }
 async function openLessonDetail(id) {
-  const { data:l } = await db.from('lessons').select('*').eq('id',id).single();
-  if (!l) return;
+  // Hiện view ngay, load song song
   document.getElementById('sLessonListView').style.display = 'none';
   document.getElementById('sLessonDetailView').style.display = '';
+  document.getElementById('sLessonDetailTitle').textContent = '...';
+  document.getElementById('sLessonDetailDesc').textContent  = '';
+
+  // 3 query song song
+  const [{ data:l }, { data:vids }, { data:docs }] = await Promise.all([
+    db.from('lessons').select('*').eq('id',id).single(),
+    db.from('lesson_videos').select('*').eq('lesson_id',id).order('created_at'),
+    db.from('lesson_docs').select('*').eq('lesson_id',id).order('created_at'),
+  ]);
+
+  if (!l) return;
   document.getElementById('sLessonDetailTitle').textContent = l.name;
   document.getElementById('sLessonDetailDesc').textContent  = l.description||'';
 
-  const { data:vids } = await db.from('lesson_videos').select('*').eq('lesson_id',id).order('created_at');
+  // Render video
   const vGrid = document.getElementById('sLessonVideoGrid');
   vGrid.innerHTML = '';
   document.getElementById('sEmptyLessonVideos').style.display = (vids||[]).length?'none':'block';
@@ -284,13 +346,13 @@ async function openLessonDetail(id) {
     if (isLink && getEmbedUrl(url)) {
       card.innerHTML = `<div class="video-thumb" style="background:#111;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.25rem"><span style="font-size:2rem">▶️</span><span style="color:#fff;font-size:.75rem">Nhấn để xem</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
     } else {
-      card.innerHTML = `<div class="video-thumb"><video src="${url}" preload="metadata"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
+      card.innerHTML = `<div class="video-thumb"><video src="${url}" preload="none"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
     }
     card.querySelector('.video-thumb').addEventListener('click', () => { logAccess(id, l.name, v.id, v.title, 'video'); openViewer(v.title, url, v.file_name, isLink ? 'link' : 'video'); });
     vGrid.appendChild(card);
   });
 
-  const { data:docs } = await db.from('lesson_docs').select('*').eq('lesson_id',id).order('created_at');
+  // Render tài liệu
   const dList = document.getElementById('sLessonDocList');
   dList.innerHTML = '';
   document.getElementById('sEmptyLessonDocs').style.display = (docs||[]).length?'none':'block';

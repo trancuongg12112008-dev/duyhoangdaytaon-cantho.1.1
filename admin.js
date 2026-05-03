@@ -44,7 +44,14 @@ if (!isTeacher) {
   document.querySelectorAll('[data-page="create-student"]').forEach(el => el.style.display = 'none');
 }
 document.getElementById('logoutBtn').addEventListener('click', e => { e.preventDefault(); sessionStorage.clear(); location.href='index.html'; });
-document.getElementById('menuToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+document.getElementById('menuToggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('show');
+});
+document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+});
 
 // ---- Sidebar navigation ----
 function showPage(name) {
@@ -72,7 +79,7 @@ function showPage(name) {
   if (name === 'classes')        renderClasses();
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
-  l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); });
+  l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); });
 });
 document.querySelectorAll('[data-goto]').forEach(l => {
   l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.goto); });
@@ -855,15 +862,22 @@ document.getElementById('lSaveBtn').addEventListener('click', async ()=>{
 });
 
 async function openLessonDetail(id) {
-  currentLessonId=id;
-  const { data:l }=await db.from('lessons').select('*').eq('id',id).single();
+  currentLessonId = id;
+  document.getElementById('lessonListView').style.display = 'none';
+  document.getElementById('lessonDetailView').style.display = '';
+  document.getElementById('lessonDetailTitle').textContent = '...';
+  document.getElementById('lessonDetailDesc').textContent  = '';
+
+  // Load song song
+  const [{ data:l }] = await Promise.all([
+    db.from('lessons').select('*').eq('id',id).single(),
+  ]);
   if (!l) return;
-  document.getElementById('lessonListView').style.display='none';
-  document.getElementById('lessonDetailView').style.display='';
-  document.getElementById('lessonDetailTitle').textContent=l.name;
-  document.getElementById('lessonDetailDesc').textContent=l.description||'';
-  await renderLessonVideos(id);
-  await renderLessonDocs(id);
+  document.getElementById('lessonDetailTitle').textContent = l.name;
+  document.getElementById('lessonDetailDesc').textContent  = l.description||'';
+
+  // Render video và doc song song
+  await Promise.all([renderLessonVideos(id), renderLessonDocs(id)]);
 }
 document.getElementById('backToLessonsBtn').addEventListener('click', renderLessons);
 
@@ -881,7 +895,7 @@ async function renderLessonVideos(lessonId) {
     if (embed) {
       card.innerHTML=`<div class="video-thumb" style="background:#000;display:flex;align-items:center;justify-content:center"><span style="font-size:2rem">🔗</span><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div><button class="btn-sm btn-danger del-btn">🗑 Xóa</button></div>`;
     } else {
-      card.innerHTML=`<div class="video-thumb"><video src="${url}" preload="metadata"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div><button class="btn-sm btn-danger del-btn">🗑 Xóa</button></div>`;
+      card.innerHTML=`<div class="video-thumb"><video src="${url}" preload="none"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div><button class="btn-sm btn-danger del-btn">🗑 Xóa</button></div>`;
     }
     card.querySelector('.video-thumb').addEventListener('click',()=>openViewer(v.title, url, v.file_name, isLink ? 'link' : 'video'));
     card.querySelector('.del-btn').addEventListener('click', async ()=>{
