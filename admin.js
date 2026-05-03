@@ -1,4 +1,4 @@
-// Khởi tạo Supabase client (CDN đã load sẵn qua script tag)
+﻿﻿// Khởi tạo Supabase client (CDN đã load sẵn qua script tag)
 const db = supabase.createClient(
   'https://gojpmogjretoxplydjvg.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
@@ -40,7 +40,7 @@ document.getElementById('teacherName').textContent = displayName;
 document.getElementById('profileName').textContent  = displayName;
 document.querySelector('.av-role').textContent      = displayRole;
 
-if (isTeacher) {
+if (!isTeacher) {
   document.querySelectorAll('[data-page="create-student"]').forEach(el => el.style.display = 'none');
 }
 document.getElementById('logoutBtn').addEventListener('click', e => { e.preventDefault(); sessionStorage.clear(); location.href='index.html'; });
@@ -56,11 +56,19 @@ function showPage(name) {
   document.querySelectorAll(`[data-page="${name}"]`).forEach(l => l.classList.add('active'));
   if (name === 'overview')       renderOverview();
   if (name === 'students')       { populateClassFilters(); renderStudents(); }
-  if (name === 'create-student') renderMiniStudents();
+  if (name === 'create-student') {
+    renderMiniStudents();
+    populateCsClassSelect();
+    genStudentCode().then(code => {
+      document.getElementById('csCode').value = code;
+      document.getElementById('csPassword').value = code;
+    });
+  }
   if (name === 'lessons')        { populateClassFilters(); renderLessons(); }
   if (name === 'lesson-groups')  { populateClassFilters(); renderGroups(); }
   if (name === 'security')       renderAlerts();
   if (name === 'devices')        renderDeviceAlerts();
+  if (name === 'access-stats')   renderAccessStats();
   if (name === 'classes')        renderClasses();
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
@@ -83,7 +91,7 @@ async function populateClassFilters() {
   const classes = await getClasses();
   const filterOpts = '<option value="">Tất cả lớp</option>' + classes.map(c=>`<option value="${c}">${c}</option>`).join('');
   const modalOpts  = '<option value="">-- Tất cả lớp --</option>' + classes.map(c=>`<option value="${c}">${c}</option>`).join('');
-  ['studentFilterClass','lessonFilterClass'].forEach(id => {
+  ['studentFilterClass','lessonFilterClass','accessFilterClass'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     const cur = el.value; el.innerHTML = filterOpts; el.value = cur;
   });
@@ -108,24 +116,168 @@ async function populateGroupSelect(selectId, currentVal='') {
 // ============================================================
 async function renderGroups() {
   const { data: list } = await db.from('lesson_groups').select('*').order('name');
-  const el = document.getElementById('groupList');
-  el.innerHTML = '';
-  document.getElementById('emptyGroups').style.display = (list||[]).length?'none':'block';
-  for (const g of (list||[])) {
-    const { count } = await db.from('lessons').select('*',{count:'exact',head:true}).eq('group_name',g.name);
-    const row = document.createElement('div');
-    row.className = 'content-row';
-    row.innerHTML = `<span class="list-icon">📂</span><div class="list-info"><div class="list-title">${g.name}</div><div class="list-meta">${g.class_name?`<span class="class-tag">${g.class_name}</span>`:''} ${count||0} bài học</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
-    row.querySelector('[data-action="edit"]').addEventListener('click', () => openGroupModal(g));
-    row.querySelector('[data-action="delete"]').addEventListener('click', () => {
-      showConfirm(`Xóa nhóm "${g.name}"? Các bài học trong nhóm sẽ không bị xóa.`, async () => {
-        await db.from('lessons').update({group_name:null}).eq('group_name',g.name);
-        await db.from('lesson_groups').delete().eq('id',g.id);
+  const container = document.getElementById('groupList');
+  container.innerHTML = '';
+  document.getElementById('emptyGroups').style.display = (list||[]).length ? 'none' : 'block';
+  if (!(list||[]).length) return;
+
+  const { data: allLessons } = await db.from('lessons').select('id,name,class_name,description,group_name').order('created_at', {ascending: false});
+  const lessonIds = (allLessons||[]).map(l => l.id);
+  const [{ data: allVids }, { data: allDocs }] = lessonIds.length ? await Promise.all([
+    db.from('lesson_videos').select('lesson_id').in('lesson_id', lessonIds),
+    db.from('lesson_docs').select('lesson_id').in('lesson_id', lessonIds),
+  ]) : [{ data: [] }, { data: [] }];
+  const vcMap = {}, dcMap = {};
+  (allVids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
+  (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
+
+  const colors = [
+    { gc:'#6366f1', gcLight:'#eef2ff', gcGlow:'rgba(99,102,241,.15)' },
+    { gc:'#0ea5e9', gcLight:'#e0f2fe', gcGlow:'rgba(14,165,233,.15)' },
+    { gc:'#10b981', gcLight:'#d1fae5', gcGlow:'rgba(16,185,129,.15)' },
+    { gc:'#f59e0b', gcLight:'#fef3c7', gcGlow:'rgba(245,158,11,.15)' },
+    { gc:'#ec4899', gcLight:'#fce7f3', gcGlow:'rgba(236,72,153,.15)' },
+    { gc:'#8b5cf6', gcLight:'#ede9fe', gcGlow:'rgba(139,92,246,.15)' },
+  ];
+
+  const grid = document.createElement('div');
+  grid.className = 'group-card-grid';
+  container.appendChild(grid);
+
+  function buildLessonItem(l, idx, vcMap, dcMap, onOpen, onEdit, onDel) {
+    const item = document.createElement('div');
+    item.className = 'group-lesson-item';
+    const num = document.createElement('div');
+    num.className = 'group-lesson-num';
+    num.textContent = idx + 1;
+    const info = document.createElement('div');
+    info.className = 'group-lesson-info';
+    const title = document.createElement('div');
+    title.className = 'group-lesson-title';
+    title.textContent = l.name;
+    const stats = document.createElement('div');
+    stats.className = 'group-lesson-stats';
+    stats.innerHTML = `<span>${vcMap[l.id]||0} video</span><span>${dcMap[l.id]||0} tai lieu</span>${l.class_name ? `<span class="class-tag" style="font-size:.68rem">${l.class_name}</span>` : ''}`;
+    info.appendChild(title);
+    info.appendChild(stats);
+    const acts = document.createElement('div');
+    acts.className = 'group-lesson-item-actions';
+    const openBtn = document.createElement('button');
+    openBtn.className = 'group-lesson-open';
+    openBtn.textContent = String.fromCharCode(8594);
+    openBtn.addEventListener('click', e => { e.stopPropagation(); onOpen(); });
+    acts.appendChild(openBtn);
+    if (onEdit) {
+      const eb = document.createElement('button'); eb.className = 'btn-sm'; eb.textContent = String.fromCharCode(9999,65039);
+      eb.addEventListener('click', e => { e.stopPropagation(); onEdit(); }); acts.appendChild(eb);
+    }
+    if (onDel) {
+      const db2 = document.createElement('button'); db2.className = 'btn-sm btn-danger'; db2.textContent = String.fromCharCode(128465);
+      db2.addEventListener('click', e => { e.stopPropagation(); onDel(); }); acts.appendChild(db2);
+    }
+    item.appendChild(num); item.appendChild(info); item.appendChild(acts);
+    item.addEventListener('click', onOpen);
+    return item;
+  }
+
+  list.forEach((g, gi) => {
+    const lessons = (allLessons||[]).filter(l => l.group_name === g.name);
+    const count = lessons.length;
+    const c = colors[gi % colors.length];
+
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    card.style.setProperty('--gc', c.gc);
+    card.style.setProperty('--gc-light', c.gcLight);
+    card.style.setProperty('--gc-glow', c.gcGlow);
+
+    const header = document.createElement('div');
+    header.className = 'group-card-header';
+
+    const iconEl = document.createElement('div');
+    iconEl.className = 'group-card-icon';
+    const groupIcons = ['\uD83D\uDCDA','\uD83C\uDFAF','\uD83D\uDD25','\uD83D\uDCA1','\uD83C\uDF1F','\uD83D\uDE80'];
+    iconEl.textContent = groupIcons[gi % groupIcons.length];
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'group-card-body';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'group-card-name';
+    nameEl.textContent = g.name;
+    const metaEl = document.createElement('div');
+    metaEl.className = 'group-card-meta';
+    if (g.class_name) { const ct = document.createElement('span'); ct.className = 'class-tag'; ct.textContent = g.class_name; metaEl.appendChild(ct); }
+    const countEl = document.createElement('span');
+    countEl.className = 'group-card-count';
+    countEl.textContent = count + ' bai hoc';
+    metaEl.appendChild(countEl);
+    bodyEl.appendChild(nameEl);
+    bodyEl.appendChild(metaEl);
+
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'group-card-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-sm';
+    editBtn.textContent = String.fromCharCode(9999,65039);
+    editBtn.addEventListener('click', e => { e.stopPropagation(); openGroupModal(g); });
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-sm btn-danger';
+    delBtn.textContent = String.fromCharCode(128465);
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      showConfirm(`Xoa nhom "${g.name}"?`, async () => {
+        await db.from('lessons').update({ group_name: null }).eq('group_name', g.name);
+        await db.from('lesson_groups').delete().eq('id', g.id);
         renderGroups();
       });
     });
-    el.appendChild(row);
-  }
+    actionsEl.appendChild(editBtn);
+    actionsEl.appendChild(delBtn);
+
+    const chevron = document.createElement('div');
+    chevron.className = 'group-card-chevron';
+    chevron.textContent = String.fromCharCode(9660);
+
+    header.appendChild(iconEl);
+    header.appendChild(bodyEl);
+    header.appendChild(actionsEl);
+    header.appendChild(chevron);
+
+    const lessonList = document.createElement('div');
+    lessonList.className = 'group-lesson-list';
+    const inner = document.createElement('div');
+    inner.className = 'group-lesson-list-inner';
+    lessonList.appendChild(inner);
+
+    let expanded = false;
+    header.addEventListener('click', e => {
+      if (e.target.closest('.group-card-actions')) return;
+      expanded = !expanded;
+      card.classList.toggle('open', expanded);
+      lessonList.classList.toggle('open', expanded);
+      if (expanded && !inner.dataset.loaded) {
+        inner.dataset.loaded = '1';
+        if (!lessons.length) {
+          const msg = document.createElement('div');
+          msg.className = 'group-empty-msg';
+          msg.textContent = 'Chua co bai hoc nao.';
+          inner.appendChild(msg);
+          return;
+        }
+        lessons.forEach((l, idx) => {
+          inner.appendChild(buildLessonItem(l, idx, vcMap, dcMap,
+            () => openLessonDetail(l.id),
+            () => openLessonModal(l),
+            () => showConfirm(`Xoa bai hoc "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderGroups(); })
+          ));
+        });
+      }
+    });
+
+    card.appendChild(header);
+    card.appendChild(lessonList);
+    grid.appendChild(card);
+  });
 }
 
 let editingGroupId = null;
@@ -205,29 +357,120 @@ async function renderOverview() {
 // ============================================================
 // CREATE STUDENT
 // ============================================================
-document.getElementById('csSaveBtn').addEventListener('click', async () => {
-  const name=document.getElementById('csName').value.trim(), username=document.getElementById('csUsername').value.trim();
-  const password=document.getElementById('csPassword').value, cls=document.getElementById('csClass').value.trim();
-  const expiry=document.getElementById('csExpiry').value || null;
-  const notes=document.getElementById('csNotes').value.trim() || null;
-  const err=document.getElementById('csError');
-  err.textContent = '';
-  if (!name||!username||!password) { err.textContent='Vui lòng điền đầy đủ thông tin.'; return; }
-  const { error } = await db.from('students').insert({ full_name:name, username, password, class_name:cls, active:true, expiry_date:expiry, notes });
-  if (error) { err.textContent = error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
-  ['csName','csUsername','csPassword','csClass'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('csExpiry').value='';
-  document.getElementById('csNotes').value='';
-  renderMiniStudents(); populateClassFilters();
-});
-document.getElementById('csResetBtn').addEventListener('click', () => {
-  ['csName','csUsername','csPassword','csClass'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('csExpiry').value='';
-  document.getElementById('csNotes').value='';
-  document.getElementById('csError').textContent='';
+
+async function populateCsClassSelect() {
+  const classes = await getClasses();
+  const el = document.getElementById('csClassSelect');
+  if (!el) return;
+  const cur = el.value;
+  el.innerHTML = '<option value="">-- Chon lop --</option>' + classes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  el.value = cur;
+}
+
+document.getElementById('csGenPwBtn').addEventListener('click', () => {
+  document.getElementById('csPassword').value = Math.random().toString(36).slice(2,8).toUpperCase();
 });
 
-let miniPage=1; const miniPerPage=5;
+// Mã học viên = mật khẩu tự động
+document.getElementById('csCode').addEventListener('input', () => {
+  document.getElementById('csPassword').value = document.getElementById('csCode').value;
+});
+
+// Tự động tạo mã học viên 5 ký tự unique
+async function genStudentCode() {
+  const { data: existing } = await db.from('students').select('student_code');
+  const usedCodes = new Set((existing||[]).map(s => s.student_code).filter(Boolean));
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let code;
+  do {
+    code = Array.from({length: 5}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  } while (usedCodes.has(code));
+  return code;
+}
+
+document.getElementById('csSaveBtn').addEventListener('click', async () => {
+  const code     = document.getElementById('csCode').value.trim();
+  const name     = document.getElementById('csName').value.trim();
+  const phone    = document.getElementById('csPhone').value.trim();
+  const username = document.getElementById('csUsername').value.trim();
+  const password = document.getElementById('csPassword').value.trim();
+  const cls      = document.getElementById('csClassSelect').value;
+  const expiry   = document.getElementById('csExpiry').value || null;
+  const notes    = document.getElementById('csNotes').value.trim() || null;
+  const err = document.getElementById('csError');
+  const suc = document.getElementById('csSuccess');
+  err.textContent = ''; suc.textContent = '';
+
+  if (!name)     { err.textContent = 'Vui long nhap ho va ten.'; return; }
+  if (!username) { err.textContent = 'Vui long nhap Gmail.'; return; }
+  if (!password) { err.textContent = 'Vui long nhap mat khau.'; return; }
+
+  const { error } = await db.from('students').insert({
+    student_code: code || null,
+    full_name: name, phone: phone || null,
+    username, password,
+    class_name: cls || null,
+    active: true, expiry_date: expiry, notes
+  });
+
+  if (error) { err.textContent = error.message.includes('unique') ? 'Gmail nay da ton tai.' : error.message; return; }
+
+  // Hien modal thong tin tai khoan
+  document.getElementById('naName').textContent     = name;
+  document.getElementById('naCode').textContent     = code || '—';
+  document.getElementById('naUsername').textContent = username;
+  document.getElementById('naPassword').textContent = password;
+  document.getElementById('naClass').textContent    = cls || '';
+  document.getElementById('naPhone').textContent    = phone || '';
+  document.getElementById('newAccountModal').classList.add('open');
+
+  // Reset form
+  ['csCode','csName','csPhone','csUsername','csPassword'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('csExpiry').value = '';
+  document.getElementById('csNotes').value = '';
+  document.getElementById('csClassSelect').value = '';
+  err.textContent = ''; suc.textContent = '';
+
+  // Tao ma moi cho lan tiep theo
+  genStudentCode().then(c => {
+    document.getElementById('csCode').value = c;
+    document.getElementById('csPassword').value = c;
+  });
+
+  await renderMiniStudents();
+  await populateClassFilters();
+});
+
+document.getElementById('csResetBtn').addEventListener('click', () => {
+  ['csCode','csName','csPhone','csUsername','csPassword'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('csExpiry').value = '';
+  document.getElementById('csNotes').value = '';
+  document.getElementById('csClassSelect').value = '';
+  document.getElementById('csError').textContent = '';
+  document.getElementById('csSuccess').textContent = '';
+});
+
+document.getElementById('goToStudentListBtn').addEventListener('click', () => showPage('students'));
+
+// Modal thong tin tai khoan moi
+document.getElementById('naCloseBtn').addEventListener('click', () => {
+  document.getElementById('newAccountModal').classList.remove('open');
+});
+document.getElementById('naCopyBtn').addEventListener('click', () => {
+  const name  = document.getElementById('naName').textContent;
+  const code  = document.getElementById('naCode').textContent;
+  const user  = document.getElementById('naUsername').textContent;
+  const pw    = document.getElementById('naPassword').textContent;
+  const cls   = document.getElementById('naClass').textContent;
+  const phone = document.getElementById('naPhone').textContent;
+  const text  = `Ho ten: ${name}\nMa HV: ${code}\nGmail: ${user}\nMat khau: ${pw}\nLop: ${cls}\nSDT: ${phone}`;
+  navigator.clipboard?.writeText(text).then(() => {
+    const btn = document.getElementById('naCopyBtn');
+    btn.textContent = '✅ Đã sao chép!';
+    setTimeout(() => { btn.textContent = '📋 Sao chép'; }, 2000);
+  });
+});
+let miniPage=1; const miniPerPage=8;
 async function renderMiniStudents() {
   const { data: list } = await db.from('students').select('*').order('created_at', { ascending:false });
   const tbody = document.getElementById('miniStudentBody');
@@ -235,9 +478,9 @@ async function renderMiniStudents() {
   if (miniPage > totalPages) miniPage = totalPages;
   const slice = (list||[]).slice((miniPage-1)*miniPerPage, miniPage*miniPerPage);
   tbody.innerHTML = '';
-  slice.forEach((s,i) => {
+  slice.forEach(s => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${(miniPage-1)*miniPerPage+i+1}</td><td>${s.full_name}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td><button class="btn-sm" data-action="edit">✏️</button></td>`;
+    tr.innerHTML = `<td>${s.student_code||''}</td><td>${s.full_name}</td><td>${s.phone||''}</td><td>${s.username}</td><td>${s.class_name||''}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'HD':'Khoa'}</span></td><td><button class="btn-sm" data-action="edit">&#x270F;&#xFE0F;</button></td>`;
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
     tbody.appendChild(tr);
   });
@@ -251,6 +494,7 @@ async function renderMiniStudents() {
     pg.appendChild(btn);
   }
 }
+
 
 // ============================================================
 // STUDENTS LIST
@@ -481,17 +725,16 @@ let currentLessonId=null, pendingLessonVideoFile=null, pendingLessonDocFile=null
 async function renderLessons() {
   document.getElementById('lessonListView').style.display='';
   document.getElementById('lessonDetailView').style.display='none';
-  const fc=document.getElementById('lessonFilterClass').value;
-  let query=db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false});
-  if (fc) query=query.eq('class_name',fc);
-  const { data: list }=await query;
-  const el=document.getElementById('lessonList');
-  el.innerHTML='';
-  document.getElementById('emptyLessons').style.display=(list||[]).length?'none':'block';
+  const fc = document.getElementById('lessonFilterClass').value;
+  let query = db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false});
+  if (fc) query = query.eq('class_name', fc);
+  const { data: list } = await query;
+  const el = document.getElementById('lessonList');
+  el.innerHTML = '';
+  document.getElementById('emptyLessons').style.display = (list||[]).length ? 'none' : 'block';
   if (!(list||[]).length) return;
 
-  // Lấy tất cả counts 1 lần
-  const ids = list.map(l=>l.id);
+  const ids = list.map(l => l.id);
   const [{ data: allVids }, { data: allDocs }] = await Promise.all([
     db.from('lesson_videos').select('lesson_id').in('lesson_id', ids),
     db.from('lesson_docs').select('lesson_id').in('lesson_id', ids),
@@ -500,40 +743,86 @@ async function renderLessons() {
   (allVids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
   (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
 
-  // Gom theo nhóm
   const groups = {};
-  list.forEach(l => {
-    const g = l.group_name || '📚 Chưa phân nhóm';
-    if (!groups[g]) groups[g] = [];
-    groups[g].push(l);
-  });
+  list.forEach(l => { const g = l.group_name || 'Chua phan nhom'; if (!groups[g]) groups[g] = []; groups[g].push(l); });
 
-  for (const [groupName, lessons] of Object.entries(groups)) {
+  const colors = [
+    { gc:'#6366f1', gcLight:'#eef2ff', gcGlow:'rgba(99,102,241,.15)' },
+    { gc:'#0ea5e9', gcLight:'#e0f2fe', gcGlow:'rgba(14,165,233,.15)' },
+    { gc:'#10b981', gcLight:'#d1fae5', gcGlow:'rgba(16,185,129,.15)' },
+    { gc:'#f59e0b', gcLight:'#fef3c7', gcGlow:'rgba(245,158,11,.15)' },
+    { gc:'#ec4899', gcLight:'#fce7f3', gcGlow:'rgba(236,72,153,.15)' },
+    { gc:'#8b5cf6', gcLight:'#ede9fe', gcGlow:'rgba(139,92,246,.15)' },
+  ];
+
+  const grid = document.createElement('div');
+  grid.className = 'group-card-grid';
+  el.appendChild(grid);
+
+  Object.entries(groups).forEach(([groupName, lessons], gi) => {
+    const c = colors[gi % colors.length];
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    card.style.setProperty('--gc', c.gc);
+    card.style.setProperty('--gc-light', c.gcLight);
+    card.style.setProperty('--gc-glow', c.gcGlow);
+
     const header = document.createElement('div');
-    header.style.cssText = 'font-weight:700;font-size:.95rem;padding:.6rem .75rem;background:#f1f5f9;border-radius:8px;margin-top:1rem;margin-bottom:.25rem;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:space-between';
-    header.innerHTML = `<span>📂 ${groupName}</span><span style="font-size:.8rem;color:#94a3b8">${lessons.length} bài</span>`;
-    el.appendChild(header);
+    header.className = 'group-card-header';
+    const iconEl = document.createElement('div');
+    iconEl.className = 'group-card-icon';
+    const groupIcons = ['\uD83D\uDCDA','\uD83C\uDFAF','\uD83D\uDD25','\uD83D\uDCA1','\uD83C\uDF1F','\uD83D\uDE80'];
+    iconEl.textContent = groupIcons[gi % groupIcons.length];
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'group-card-body';
+    bodyEl.innerHTML = `<div class="group-card-name">${groupName}</div><div class="group-card-meta"><span class="group-card-count">${lessons.length} bai hoc</span></div>`;
+    const chevron = document.createElement('div');
+    chevron.className = 'group-card-chevron';
+    chevron.textContent = String.fromCharCode(9660);
+    header.appendChild(iconEl);
+    header.appendChild(bodyEl);
+    header.appendChild(chevron);
 
-    const groupEl = document.createElement('div');
-    groupEl.style.cssText = 'margin-bottom:.5rem;display:none';
+    const lessonList = document.createElement('div');
+    lessonList.className = 'group-lesson-list';
+    const inner = document.createElement('div');
+    inner.className = 'group-lesson-list-inner';
+    lessonList.appendChild(inner);
+
+    let expanded = false;
     header.addEventListener('click', () => {
-      groupEl.style.display = groupEl.style.display === 'none' ? '' : 'none';
-      header.querySelector('span:last-child').textContent = groupEl.style.display === 'none' ? `${lessons.length} bài ▶` : `${lessons.length} bài ▼`;
+      expanded = !expanded;
+      card.classList.toggle('open', expanded);
+      lessonList.classList.toggle('open', expanded);
+      if (expanded && !inner.dataset.loaded) {
+        inner.dataset.loaded = '1';
+        if (!lessons.length) { inner.innerHTML = '<div class="group-empty-msg">Chua co bai hoc nao.</div>'; return; }
+        lessons.forEach((l, idx) => {
+          const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
+          const item = document.createElement('div');
+          item.className = 'group-lesson-item';
+          const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx+1;
+          const info = document.createElement('div'); info.className = 'group-lesson-info';
+          info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">\uD83D\uDCDA</span>${l.name}</div><div class="group-lesson-stats"><span>\uD83C\uDFAC ${vc}</span><span>\uD83D\uDCC4 ${dc}</span>${l.class_name?`<span class="class-tag" style="font-size:.68rem">${l.class_name}</span>`:''}</div>`;
+          const acts = document.createElement('div'); acts.className = 'group-lesson-item-actions';
+          const openBtn = document.createElement('button'); openBtn.className = 'group-lesson-open'; openBtn.textContent = String.fromCharCode(8594);
+          openBtn.addEventListener('click', e => { e.stopPropagation(); openLessonDetail(l.id); });
+          const eb = document.createElement('button'); eb.className = 'btn-sm'; eb.textContent = String.fromCharCode(9999,65039);
+          eb.addEventListener('click', e => { e.stopPropagation(); openLessonModal(l); });
+          const db2 = document.createElement('button'); db2.className = 'btn-sm btn-danger'; db2.textContent = String.fromCharCode(128465);
+          db2.addEventListener('click', e => { e.stopPropagation(); showConfirm(`Xoa bai hoc "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderLessons(); }); });
+          acts.appendChild(openBtn); acts.appendChild(eb); acts.appendChild(db2);
+          item.appendChild(num); item.appendChild(info); item.appendChild(acts);
+          item.addEventListener('click', () => openLessonDetail(l.id));
+          inner.appendChild(item);
+        });
+      }
     });
-    header.querySelector('span:last-child').textContent = `${lessons.length} bài ▶`;
 
-    lessons.forEach(l => {
-      const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
-      const row=document.createElement('div');
-      row.className='content-row clickable';
-      row.innerHTML=`<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} <span>🎬 ${vc} video</span> • <span>📄 ${dc} tài liệu</span>${l.description?` • ${l.description}`:''}</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
-      row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openLessonDetail(l.id); });
-      row.querySelector('[data-action="edit"]').addEventListener('click', e=>{ e.stopPropagation(); openLessonModal(l); });
-      row.querySelector('[data-action="delete"]').addEventListener('click', async e=>{ e.stopPropagation(); showConfirm(`Xóa bài học "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderLessons(); }); });
-      groupEl.appendChild(row);
-    });
-    el.appendChild(groupEl);
-  }
+    card.appendChild(header);
+    card.appendChild(lessonList);
+    grid.appendChild(card);
+  });
 }
 document.getElementById('lessonFilterClass').addEventListener('change', renderLessons);
 
@@ -986,3 +1275,101 @@ document.getElementById('clearAlertsBtn').addEventListener('click', async ()=>{
 
 // ---- Init ----
 renderOverview();
+
+// ============================================================
+// THỐNG KÊ TRUY CẬP
+// ============================================================
+async function renderAccessStats() {
+  const cls   = document.getElementById('accessFilterClass').value;
+  const type  = document.getElementById('accessFilterType').value;
+  const search = (document.getElementById('accessSearch').value||'').toLowerCase();
+
+  let query = db.from('access_logs').select('*').order('accessed_at', {ascending: false});
+  if (cls)  query = query.eq('class_name', cls);
+  if (type) query = query.eq('content_type', type);
+  const { data: logs } = await query;
+  const all = logs || [];
+
+  // Stat tổng
+  const totalViews   = all.length;
+  const uniqueUsers  = new Set(all.map(l => l.username)).size;
+  const videoViews   = all.filter(l => l.content_type === 'video').length;
+  const docViews     = all.filter(l => l.content_type === 'doc').length;
+
+  document.getElementById('accessStatGrid').innerHTML = `
+    <div class="stat-card blue"><div class="stat-icon">👁</div><div><div class="stat-num">${totalViews}</div><div class="stat-label">Tổng lượt xem</div></div></div>
+    <div class="stat-card green"><div class="stat-icon">👨‍🎓</div><div><div class="stat-num">${uniqueUsers}</div><div class="stat-label">Học sinh đã truy cập</div></div></div>
+    <div class="stat-card purple"><div class="stat-icon">🎬</div><div><div class="stat-num">${videoViews}</div><div class="stat-label">Lượt xem video</div></div></div>
+  `;
+
+  // Top bài học
+  const lessonCount = {};
+  all.forEach(l => { lessonCount[l.lesson_name] = (lessonCount[l.lesson_name]||0)+1; });
+  const topLessons = Object.entries(lessonCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const tlEl = document.getElementById('topLessons');
+  tlEl.innerHTML = topLessons.length ? topLessons.map(([name, cnt], i) => `
+    <div class="list-row">
+      <span style="width:22px;height:22px;background:var(--primary-light);color:var(--primary);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0">${i+1}</span>
+      <div class="list-info" style="flex:1;min-width:0"><div class="list-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div></div>
+      <span class="group-card-count" style="background:var(--primary-light);color:var(--primary);padding:.2rem .6rem;border-radius:20px;font-size:.75rem;font-weight:700">${cnt} lượt</span>
+    </div>`).join('') : '<p class="muted-sm">Chưa có dữ liệu.</p>';
+
+  // Top học sinh
+  const studentCount = {};
+  all.forEach(l => { if (!studentCount[l.username]) studentCount[l.username] = { name: l.student_name, cls: l.class_name, cnt: 0 }; studentCount[l.username].cnt++; });
+  const topStudents = Object.values(studentCount).sort((a,b)=>b.cnt-a.cnt).slice(0,8);
+  const tsEl = document.getElementById('topStudents');
+  tsEl.innerHTML = topStudents.length ? topStudents.map((s, i) => `
+    <div class="list-row">
+      <span style="width:22px;height:22px;background:var(--primary-light);color:var(--primary);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;flex-shrink:0">${i+1}</span>
+      <div class="list-info" style="flex:1"><div class="list-title">${s.name}</div><div class="list-meta">${s.cls||'—'}</div></div>
+      <span class="group-card-count" style="background:var(--success);color:#fff;padding:.2rem .6rem;border-radius:20px;font-size:.75rem;font-weight:700">${s.cnt} lượt</span>
+    </div>`).join('') : '<p class="muted-sm">Chưa có dữ liệu.</p>';
+
+  // Log chi tiết
+  const filtered = search ? all.filter(l => (l.student_name||'').toLowerCase().includes(search) || (l.username||'').toLowerCase().includes(search)) : all;
+  const logEl = document.getElementById('accessLogList');
+  document.getElementById('emptyAccessLog').style.display = filtered.length ? 'none' : 'block';
+  logEl.innerHTML = filtered.slice(0, 100).map(l => {
+    const icon = l.content_type === 'video' ? '🎬' : '📄';
+    const time = new Date(l.accessed_at).toLocaleString('vi-VN');
+    return `<div class="list-row">
+      <span class="list-icon">${icon}</span>
+      <div class="list-info" style="flex:1">
+        <div class="list-title">${l.student_name} <span class="muted" style="font-weight:400">— ${l.content_title}</span></div>
+        <div class="list-meta">${l.lesson_name||''} ${l.class_name?`• <span class="class-tag">${l.class_name}</span>`:''} • ${time}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('accessFilterClass').addEventListener('change', renderAccessStats);
+document.getElementById('accessFilterType').addEventListener('change', renderAccessStats);
+document.getElementById('accessSearch').addEventListener('input', renderAccessStats);
+
+document.getElementById('exportAccessBtn').addEventListener('click', async () => {
+  const { data: logs } = await db.from('access_logs').select('*').order('accessed_at', {ascending: false});
+  if (!logs?.length) { alert('Chưa có dữ liệu.'); return; }
+  const rows = [['Thời gian','Học sinh','Gmail','Lớp','Bài học','Nội dung','Loại']];
+  logs.forEach(l => rows.push([
+    new Date(l.accessed_at).toLocaleString('vi-VN'),
+    l.student_name||'', l.username||'', l.class_name||'',
+    l.lesson_name||'', l.content_title||'', l.content_type||''
+  ]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `thong_ke_truy_cap_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+});
+
+
+
+
+
+
+
+
+
+
+

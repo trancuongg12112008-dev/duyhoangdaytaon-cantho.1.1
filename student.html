@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8"/>
@@ -67,15 +67,18 @@
     setTimeout(() => { document.getElementById('monitorNotice').style.display = 'none'; }, 5000);
   </script>
 
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">Học Sinh</div>
+    <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">&#x1F4D0;</div>
+      <span class="sidebar-brand-text">Hoc Sinh</span>
+    </div>
     <nav class="sidebar-nav">
-      <a href="#" class="slink active" data-page="home">🏠 Trang chủ</a>
-      <a href="#" class="slink" data-page="lessons">📚 Bài học</a>
-      <a href="#" class="slink" data-page="guide">📖 Hướng dẫn</a>
-      <a href="#" class="slink" data-page="profile">👤 Hồ sơ</a>
+      <a href="#" class="slink active" data-page="home"><span class="slink-icon">&#x1F3E0;</span><span class="slink-label">Trang chu</span></a>
+      <a href="#" class="slink" data-page="lessons"><span class="slink-icon">&#x1F4DA;</span><span class="slink-label">Bai hoc</span></a>
+      <a href="#" class="slink" data-page="guide"><span class="slink-icon">&#x1F4D6;</span><span class="slink-label">Huong dan</span></a>
+      <a href="#" class="slink" data-page="profile"><span class="slink-icon">&#x1F464;</span><span class="slink-label">Ho so</span></a>
     </nav>
-    <a href="login.html" class="slink slink-logout" id="logoutBtn">🚪 Đăng xuất</a>
+    <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">&#x1F6AA;</span><span class="slink-label">Dang xuat</span></a>
   </aside>
 
   <div class="dash-main">
@@ -98,12 +101,64 @@
     <!-- TRANG CHỦ -->
     <section class="page active" id="pageHome">
       <h1 class="page-title" id="welcomeTitle">Chào mừng!</h1>
-      <div class="overview-grid">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+
+        <!-- Bài học mới nhất -->
         <div class="overview-panel">
-          <div class="panel-header"><span>Bài học mới nhất</span><a href="#" class="link-blue" data-goto="lessons">Xem tất cả</a></div>
+          <div class="panel-header"><span>📚 Bài học mới nhất</span><a href="#" class="link-blue" data-goto="lessons">Xem tất cả</a></div>
           <div id="homeRecentLessons"></div>
         </div>
+
+        <!-- Lưu ý khi học -->
+        <div class="overview-panel">
+          <div class="panel-header"><span>⚠️ Lưu ý khi học</span></div>
+          <div style="display:flex;flex-direction:column;gap:.65rem;font-size:.88rem;line-height:1.6">
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">🔒</span><span>Mỗi tài khoản chỉ được đăng nhập trên <b>01 thiết bị</b> tại một thời điểm.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">📵</span><span>Nghiêm cấm <b>chụp màn hình, quay video</b> hoặc phát tán nội dung bài giảng.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">👁</span><span>Hệ thống <b>giám sát toàn bộ</b> hoạt động. Mọi vi phạm đều được ghi nhận.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">🚫</span><span>Không chia sẻ tài khoản cho người khác dưới bất kỳ hình thức nào.</span></div>
+            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">⛔</span><span>Tài khoản vi phạm sẽ bị <b>khóa vĩnh viễn</b> mà không cần báo trước.</span></div>
+          </div>
+        </div>
+
       </div>
+
+      <!-- Hướng dẫn sử dụng nhanh -->
+      <div class="overview-panel" style="margin-bottom:1.25rem">
+        <div class="panel-header"><span>📖 Hướng dẫn sử dụng nhanh</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;font-size:.86rem">
+          <div style="background:var(--primary-light);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
+            <span style="font-size:1.4rem">📚</span>
+            <b>Xem bài học</b>
+            <span style="color:var(--muted)">Vào mục <b>Bài học</b> → chọn nhóm → chọn bài để xem video và tài liệu.</span>
+          </div>
+          <div style="background:#e0f2fe;border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
+            <span style="font-size:1.4rem">🎬</span>
+            <b>Xem video</b>
+            <span style="color:var(--muted)">Nhấn vào thumbnail để phát video. Nên <b>xoay ngang</b> điện thoại để xem tốt hơn.</span>
+          </div>
+          <div style="background:#d1fae5;border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
+            <span style="font-size:1.4rem">📞</span>
+            <b>Hỗ trợ</b>
+            <span style="color:var(--muted)">Liên hệ <b>Trợ lý Trần Cường</b> để được hỗ trợ tài khoản và kỹ thuật.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Avatar + thông tin học viên -->
+      <div class="overview-panel">
+        <div class="panel-header"><span>👤 Thông tin của bạn</span></div>
+        <div style="display:flex;align-items:center;gap:1.25rem">
+          <div id="homeAvatar" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;flex-shrink:0;box-shadow:0 4px 16px rgba(99,102,241,.3)"></div>
+          <div>
+            <div id="homeStudentName" style="font-size:1.1rem;font-weight:800"></div>
+            <div id="homeStudentClass" style="color:var(--primary);font-size:.88rem;font-weight:600;margin-top:.2rem"></div>
+            <div id="homeStudentCode" style="color:var(--muted);font-size:.8rem;margin-top:.1rem"></div>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- BÀI HỌC -->
@@ -181,7 +236,7 @@
     </section>
 
     <!-- FOOTER -->
-    <footer style="text-align:center;padding:1.5rem 1rem;font-size:.78rem;color:#aaa;background:#111;border-top:1px solid #333;margin-top:auto;line-height:1.8">
+    <footer style="text-align:center;padding:1.5rem 1rem;font-size:.76rem;color:#888;background:#0f172a;border-top:1px solid #1e293b;margin-top:auto;line-height:1.9">
       <p>© Bản quyền thuộc về <b>Duy Hoàng Dạy Toán</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
       <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
       <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
@@ -385,3 +440,5 @@
 
 </body>
 </html>
+
+

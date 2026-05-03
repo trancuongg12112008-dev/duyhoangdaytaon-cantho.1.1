@@ -114,3 +114,18 @@ on conflict do nothing;
 -- Policy cho phép upload/download public
 create policy "Public Access" on storage.objects
   for all using (bucket_id = 'lessons');
+
+-- Bảng nhật ký truy cập tài liệu/video
+create table if not exists access_logs (
+  id           bigint generated always as identity primary key,
+  username     text not null,
+  student_name text,
+  class_name   text,
+  lesson_id    bigint,
+  lesson_name  text,
+  content_id   bigint,
+  content_title text,
+  content_type text,   -- 'video' | 'doc'
+  accessed_at  timestamptz default now()
+);
+alter table access_logs disable row level security;

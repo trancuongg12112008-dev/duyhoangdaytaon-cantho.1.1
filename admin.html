@@ -17,20 +17,24 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">htql</div>
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">📐</div>
+      <span class="sidebar-brand-text">htql</span>
+    </div>
     <nav class="sidebar-nav">
-      <a href="#" class="slink active" data-page="overview">📊 Tổng quan</a>
-      <a href="#" class="slink" data-page="lessons">📚 Bài học</a>
-      <a href="#" class="slink" data-page="lesson-groups">📂 Nhóm bài học</a>
-      <a href="#" class="slink" data-page="create-student">➕ Tạo tài khoản học sinh</a>
-      <a href="#" class="slink" data-page="students">👨‍🎓 Danh sách học sinh</a>
-      <a href="#" class="slink" data-page="classes">🏫 Lớp học</a>
-      <a href="#" class="slink" data-page="security">🚨 Nhật ký cảnh báo <span id="alertNavBadge" class="nav-badge" style="display:none"></span></a>
-      <a href="#" class="slink" data-page="devices">📱 Cảnh báo thiết bị</a>
-      <a href="#" class="slink" data-page="profile">👤 Hồ sơ</a>
+      <a href="#" class="slink active" data-page="overview"><span class="slink-icon">📊</span><span class="slink-label">Tổng quan</span></a>
+      <a href="#" class="slink" data-page="lessons"><span class="slink-icon">📚</span><span class="slink-label">Bài học</span></a>
+      <a href="#" class="slink" data-page="lesson-groups"><span class="slink-icon">📂</span><span class="slink-label">Nhóm bài học</span></a>
+      <a href="#" class="slink" data-page="create-student"><span class="slink-icon">➕</span><span class="slink-label">Thêm học viên mới</span></a>
+      <a href="#" class="slink" data-page="students"><span class="slink-icon">👨‍🎓</span><span class="slink-label">Danh sách học sinh</span></a>
+      <a href="#" class="slink" data-page="classes"><span class="slink-icon">🏫</span><span class="slink-label">Lớp học</span></a>
+      <a href="#" class="slink" data-page="security"><span class="slink-icon">🚨</span><span class="slink-label">Nhật ký cảnh báo <span id="alertNavBadge" class="nav-badge" style="display:none"></span></span></a>
+      <a href="#" class="slink" data-page="devices"><span class="slink-icon">📱</span><span class="slink-label">Cảnh báo thiết bị</span></a>
+      <a href="#" class="slink" data-page="access-stats"><span class="slink-icon">📈</span><span class="slink-label">Thống kê truy cập</span></a>
+      <a href="#" class="slink" data-page="profile"><span class="slink-icon">👤</span><span class="slink-label">Hồ sơ</span></a>
     </nav>
-    <a href="login.html" class="slink slink-logout" id="logoutBtn">🚪 Đăng xuất</a>
-    <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="text-align:left;">🔗 Trang đăng nhập</a>
+    <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
+    <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="margin:.4rem .75rem"><span class="slink-icon">🔗</span><span class="slink-label">Trang đăng nhập</span></a>
   </aside>
 
   <!-- MAIN -->
@@ -127,36 +131,62 @@
 
     <!-- PAGE: TẠO TÀI KHOẢN -->
     <section class="page" id="pageCreateStudent">
-      <h1 class="page-title">Tạo tài khoản học sinh</h1>
+      <h1 class="page-title">Thêm học viên mới</h1>
       <div class="two-col">
+
+        <!-- FORM -->
         <div class="form-panel">
-          <h3>Thông tin tài khoản</h3>
-          <label>Họ và tên</label>
+          <h3>Thông tin học viên</h3>
+
+          <label>Mã học viên</label>
+          <input type="text" id="csCode" placeholder="VD: HV001"/>
+
+          <label>Họ và tên <span style="color:var(--danger)">*</span></label>
           <input type="text" id="csName" placeholder="Nhập họ và tên..."/>
-          <label>Gmail (tên đăng nhập)</label>
+
+          <label>Số điện thoại</label>
+          <input type="text" id="csPhone" placeholder="VD: 0901234567"/>
+
+          <label>Gmail (tên đăng nhập) <span style="color:var(--danger)">*</span></label>
           <input type="text" id="csUsername" placeholder="VD: hocsinh@gmail.com"/>
-          <label>Số báo danh (mật khẩu)</label>
-          <input type="password" id="csPassword" placeholder="Nhập số báo danh..."/>
+
+          <label>Mật khẩu <span style="color:var(--danger)">*</span></label>
+          <div style="position:relative">
+            <input type="text" id="csPassword" placeholder="Nhập mật khẩu..." style="width:100%;padding-right:2.5rem"/>
+            <button type="button" id="csGenPwBtn" title="Tạo mật khẩu tự động" style="position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted)">🎲</button>
+          </div>
+
           <label>Lớp</label>
-          <input type="text" id="csClass" placeholder="VD: Lớp 9A"/>
+          <select id="csClassSelect"><option value="">-- Chọn lớp --</option></select>
+
           <label>Ngày hết hạn <span class="muted">(để trống = không giới hạn)</span></label>
           <input type="date" id="csExpiry"/>
+
           <label>Ghi chú <span class="muted">(tuỳ chọn)</span></label>
           <textarea id="csNotes" placeholder="Ghi chú riêng cho học viên..." rows="2" style="resize:vertical"></textarea>
+
           <div id="csError" class="error-msg"></div>
+          <div id="csSuccess" class="success-msg"></div>
+
           <div class="form-actions">
-            <button class="btn-outline" id="csResetBtn">Hủy</button>
-            <button class="btn-primary" id="csSaveBtn">Tạo tài khoản</button>
+            <button class="btn-outline" id="csResetBtn">Làm mới</button>
+            <button class="btn-primary" id="csSaveBtn">💾 Lưu & xem danh sách</button>
           </div>
         </div>
+
+        <!-- PREVIEW danh sách vừa tạo -->
         <div class="form-panel">
-          <h3>Danh sách tài khoản đã tạo</h3>
+          <h3>Vừa thêm gần đây</h3>
           <table class="mini-table" id="miniStudentTable">
-            <thead><tr><th>STT</th><th>Họ tên</th><th>Tên đăng nhập</th><th>Lớp</th><th>Trạng thái</th><th></th></tr></thead>
+            <thead><tr><th>Mã HV</th><th>Họ tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Trạng thái</th><th></th></tr></thead>
             <tbody id="miniStudentBody"></tbody>
           </table>
           <div class="table-pagination" id="miniPagination"></div>
+          <div style="margin-top:1rem;text-align:right">
+            <button class="btn-primary" id="goToStudentListBtn">👨‍🎓 Xem toàn bộ danh sách →</button>
+          </div>
         </div>
+
       </div>
     </section>
 
@@ -234,6 +264,47 @@
       <div class="empty-state" id="emptyAlerts">Chưa có cảnh báo nào.</div>
     </section>
 
+    <!-- PAGE: THỐNG KÊ TRUY CẬP -->
+    <section class="page" id="pageAccessStats">
+      <div class="page-header">
+        <h1 class="page-title">Thống kê truy cập</h1>
+        <div style="display:flex;gap:.5rem">
+          <select id="accessFilterClass" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"><option value="">Tất cả lớp</option></select>
+          <select id="accessFilterType" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem">
+            <option value="">Tất cả loại</option>
+            <option value="video">Video</option>
+            <option value="doc">Tài liệu</option>
+          </select>
+          <button class="btn-outline" id="exportAccessBtn">⬇ Tải CSV</button>
+        </div>
+      </div>
+
+      <!-- Stat tổng -->
+      <div class="stat-grid" id="accessStatGrid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem"></div>
+
+      <!-- Top bài học được xem nhiều -->
+      <div class="overview-grid" style="margin-bottom:1.5rem">
+        <div class="overview-panel">
+          <div class="panel-header"><span>🏆 Bài học được xem nhiều nhất</span></div>
+          <div id="topLessons"></div>
+        </div>
+        <div class="overview-panel">
+          <div class="panel-header"><span>👨‍🎓 Học sinh hoạt động nhiều nhất</span></div>
+          <div id="topStudents"></div>
+        </div>
+      </div>
+
+      <!-- Log chi tiết -->
+      <div class="overview-panel">
+        <div class="panel-header">
+          <span>📋 Nhật ký truy cập</span>
+          <input type="text" id="accessSearch" placeholder="🔍 Tìm học sinh..." style="padding:.4rem .8rem;border:1.5px solid var(--border);border-radius:8px;outline:none;font-size:.83rem;width:200px"/>
+        </div>
+        <div id="accessLogList"></div>
+        <div class="empty-state" id="emptyAccessLog">Chưa có dữ liệu truy cập.</div>
+      </div>
+    </section>
+
     <!-- PAGE: HỒ SƠ -->
     <section class="page" id="pageProfile">
       <h1 class="page-title">Hồ sơ</h1>
@@ -257,6 +328,47 @@
         <button class="btn-primary" id="pwSaveBtn" style="margin-top:0.5rem">Lưu thay đổi</button>
       </div>
     </section>
+  </div>
+
+  <!-- MODAL: Thông tin tài khoản vừa tạo -->
+  <div class="modal-overlay" id="newAccountModal">
+    <div class="modal" style="max-width:400px;text-align:center">
+      <div style="font-size:2.5rem;margin-bottom:.25rem">🎉</div>
+      <h2 style="margin-bottom:.25rem">Tạo tài khoản thành công!</h2>
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem">Thông tin đăng nhập của học viên</p>
+
+      <div style="background:var(--bg);border-radius:12px;padding:1.25rem;text-align:left;display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.25rem">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Họ và tên</span>
+          <span id="naName" style="font-weight:700"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Mã học viên</span>
+          <span id="naCode" style="font-weight:700;font-family:monospace;font-size:1rem;color:var(--primary)"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Gmail (đăng nhập)</span>
+          <span id="naUsername" style="font-weight:600;font-size:.88rem"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Mật khẩu</span>
+          <span id="naPassword" style="font-weight:700;font-family:monospace;font-size:1rem;color:var(--primary)"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Lớp</span>
+          <span id="naClass" style="font-weight:600"></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:.8rem;color:var(--muted);font-weight:600">SĐT</span>
+          <span id="naPhone" style="font-weight:600"></span>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="justify-content:center;gap:.75rem">
+        <button class="btn-outline" id="naCopyBtn">📋 Sao chép</button>
+        <button class="btn-primary" id="naCloseBtn">✅ Xong</button>
+      </div>
+    </div>
   </div>
 
   <!-- MODAL: Sửa học sinh -->
