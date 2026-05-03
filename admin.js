@@ -282,7 +282,24 @@ async function renderStudents() {
   filtered.forEach(s => {
     const tr = document.createElement('tr');
     const actions = `<button class="btn-sm" data-action="edit" title="${s.notes?'📝 '+s.notes:''}">✏️ Sửa</button> <button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button> <button class="btn-sm btn-danger" data-action="delete">🗑</button>`;
-    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${actions}</td>`;
+
+    // Trạng thái học tập
+    let studyStatus = '<span style="color:#22c55e;font-weight:600">✅ Đang học</span>';
+    if (!s.active) {
+      if (s.expiry_date && new Date(s.expiry_date) < today) {
+        studyStatus = '<span style="color:#ef4444;font-weight:600">⏰ Hết hạn</span>';
+      } else if (s.class_name && expiredClasses.has(s.class_name)) {
+        studyStatus = '<span style="color:#ef4444;font-weight:600">🏫 Lớp kết thúc</span>';
+      } else {
+        studyStatus = '<span style="color:#f59e0b;font-weight:600">🔒 Đã khóa</span>';
+      }
+    } else if (s.is_online) {
+      studyStatus = '<span style="color:#22c55e;font-weight:600">🟢 Online</span>';
+    } else {
+      studyStatus = '<span style="color:#94a3b8;font-weight:600">⚫ Offline</span>';
+    }
+
+    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
     tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
       const newActive = !s.active;
@@ -471,41 +488,50 @@ async function renderLessons() {
   const el=document.getElementById('lessonList');
   el.innerHTML='';
   document.getElementById('emptyLessons').style.display=(list||[]).length?'none':'block';
+  if (!(list||[]).length) return;
+
+  // Lấy tất cả counts 1 lần
+  const ids = list.map(l=>l.id);
+  const [{ data: allVids }, { data: allDocs }] = await Promise.all([
+    db.from('lesson_videos').select('lesson_id').in('lesson_id', ids),
+    db.from('lesson_docs').select('lesson_id').in('lesson_id', ids),
+  ]);
+  const vcMap = {}, dcMap = {};
+  (allVids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
+  (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
 
   // Gom theo nhóm
   const groups = {};
-  (list||[]).forEach(l => {
+  list.forEach(l => {
     const g = l.group_name || '📚 Chưa phân nhóm';
     if (!groups[g]) groups[g] = [];
     groups[g].push(l);
   });
 
   for (const [groupName, lessons] of Object.entries(groups)) {
-    // Header nhóm
     const header = document.createElement('div');
     header.style.cssText = 'font-weight:700;font-size:.95rem;padding:.6rem .75rem;background:#f1f5f9;border-radius:8px;margin-top:1rem;margin-bottom:.25rem;color:#334155;cursor:pointer;display:flex;align-items:center;justify-content:space-between';
     header.innerHTML = `<span>📂 ${groupName}</span><span style="font-size:.8rem;color:#94a3b8">${lessons.length} bài</span>`;
     el.appendChild(header);
 
     const groupEl = document.createElement('div');
-    groupEl.style.cssText = 'margin-bottom:.5rem';
+    groupEl.style.cssText = 'margin-bottom:.5rem;display:none';
     header.addEventListener('click', () => {
       groupEl.style.display = groupEl.style.display === 'none' ? '' : 'none';
+      header.querySelector('span:last-child').textContent = groupEl.style.display === 'none' ? `${lessons.length} bài ▶` : `${lessons.length} bài ▼`;
     });
+    header.querySelector('span:last-child').textContent = `${lessons.length} bài ▶`;
 
-    for (const l of lessons) {
-      const [{ count:vc },{ count:dc }]=await Promise.all([
-        db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-        db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-      ]);
+    lessons.forEach(l => {
+      const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
       const row=document.createElement('div');
       row.className='content-row clickable';
-      row.innerHTML=`<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} <span>🎬 ${vc||0} video</span> • <span>📄 ${dc||0} tài liệu</span>${l.description?` • ${l.description}`:''}</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
+      row.innerHTML=`<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} <span>🎬 ${vc} video</span> • <span>📄 ${dc} tài liệu</span>${l.description?` • ${l.description}`:''}</div></div><div class="row-actions"><button class="btn-sm" data-action="edit">✏️</button><button class="btn-sm btn-danger" data-action="delete">🗑</button></div>`;
       row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openLessonDetail(l.id); });
       row.querySelector('[data-action="edit"]').addEventListener('click', e=>{ e.stopPropagation(); openLessonModal(l); });
       row.querySelector('[data-action="delete"]').addEventListener('click', async e=>{ e.stopPropagation(); showConfirm(`Xóa bài học "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderLessons(); }); });
       groupEl.appendChild(row);
-    }
+    });
     el.appendChild(groupEl);
   }
 }
@@ -628,24 +654,8 @@ document.getElementById('tabVideoLink').addEventListener('click', () => {
   document.getElementById('tabVideoLink').classList.add('active');
 });
 
-// Preview khi nhập link
-document.getElementById('lvLinkInput').addEventListener('input', () => {
-  const url = document.getElementById('lvLinkInput').value.trim();
-  const preview = document.getElementById('lvLinkPreview');
-  if (!url) { preview.innerHTML = ''; return; }
-  const embed = getEmbedUrl(url);
-  if (embed) {
-    preview.innerHTML = `<iframe src="${embed}" style="width:100%;height:200px;border:none;border-radius:8px" allowfullscreen></iframe>`;
-  } else if (url.match(/\.(mp4|webm|ogg)(\?|$)/i)) {
-    preview.innerHTML = `<video src="${url}" controls style="width:100%;border-radius:8px;max-height:200px"></video>`;
-  } else {
-    preview.innerHTML = `<p class="muted-sm">🔗 Link sẽ được nhúng khi học viên xem.</p>`;
-  }
-  // Tự điền tiêu đề nếu chưa có
-  if (!document.getElementById('lvTitleInput').value) {
-    try { document.getElementById('lvTitleInput').value = new URL(url).hostname; } catch(e) {}
-  }
-});
+// Preview khi nhập link — bỏ qua vì textarea nhiều dòng
+document.getElementById('lvLinkInput').addEventListener('input', () => {});
 
 document.getElementById('lessonVideoFileInput').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
@@ -667,9 +677,12 @@ document.getElementById('lvSaveBtn').addEventListener('click', async () => {
   btn.textContent = 'Đang lưu...'; btn.disabled = true;
 
   if (isLinkTab) {
-    const url = document.getElementById('lvLinkInput').value.trim();
-    if (!url) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
-    await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: url, storage_path: null, file_name: null });
+    const raw = document.getElementById('lvLinkInput').value.trim();
+    if (!raw) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
+    const links = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    for (const url of links) {
+      await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: url, storage_path: null, file_name: null });
+    }
   } else {
     if (!pendingLessonVideoFile) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
     const safeName = `${Date.now()}_${pendingLessonVideoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
@@ -747,17 +760,38 @@ document.getElementById('ldSaveBtn').addEventListener('click', async ()=>{
   btn.textContent='Đang lưu...'; btn.disabled=true;
 
   if (isHandwrittenTab) {
-    const url = document.getElementById('ldHandwrittenInput').value.trim();
-    if (!url) { btn.textContent='Tải lên'; btn.disabled=false; return; }
-    const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-    const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
-    await db.from('lesson_docs').insert({lesson_id:currentLessonId, title, file_name:null, file_type:'handwritten', storage_path:null, doc_url:docUrl});
+    // Tab viết tay riêng (không dùng nữa nhưng giữ tương thích)
+    const raw = document.getElementById('ldHandwrittenInput').value.trim();
+    if (!raw) { btn.textContent='Tải lên'; btn.disabled=false; return; }
+    const links = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    for (let i=0; i<links.length; i++) {
+      const url = links[i];
+      const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+      const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+      const t = links.length > 1 ? `Bản viết tay ${i+1}` : 'Bản viết tay';
+      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'handwritten', storage_path:null, doc_url:docUrl});
+    }
   } else if (isLinkTab) {
-    const url = document.getElementById('ldLinkInput').value.trim();
-    if (!url) { btn.textContent='Tải lên'; btn.disabled=false; return; }
-    const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-    const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
-    await db.from('lesson_docs').insert({lesson_id:currentLessonId, title, file_name:null, file_type:'link', storage_path:null, doc_url:docUrl});
+    // Tab tài liệu: lưu cả tài liệu + viết tay cùng lúc
+    const rawDoc = document.getElementById('ldLinkInput').value.trim();
+    const rawHw  = document.getElementById('ldHandwrittenInput').value.trim();
+    if (!rawDoc && !rawHw) { btn.textContent='Tải lên'; btn.disabled=false; return; }
+    const docLinks = rawDoc ? rawDoc.split('\n').map(l=>l.trim()).filter(Boolean) : [];
+    for (let i=0; i<docLinks.length; i++) {
+      const url = docLinks[i];
+      const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+      const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+      const t = docLinks.length > 1 ? `Tài liệu ${i+1}` : 'Tài liệu';
+      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'link', storage_path:null, doc_url:docUrl});
+    }
+    const hwLinks = rawHw ? rawHw.split('\n').map(l=>l.trim()).filter(Boolean) : [];
+    for (let i=0; i<hwLinks.length; i++) {
+      const url = hwLinks[i];
+      const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+      const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+      const t = hwLinks.length > 1 ? `Bản viết tay ${i+1}` : 'Bản viết tay';
+      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'handwritten', storage_path:null, doc_url:docUrl});
+    }
   } else {
     if (!pendingLessonDocFile) { btn.textContent='Tải lên'; btn.disabled=false; return; }
     const safeName=`${Date.now()}_${pendingLessonDocFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;

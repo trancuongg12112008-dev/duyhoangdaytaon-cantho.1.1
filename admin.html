@@ -174,7 +174,7 @@
         <select id="studentFilterClass"><option value="">Tất cả lớp</option></select>
       </div>
       <table class="data-table">
-        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Ngày tạo</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
+        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Ngày tạo</th><th>Trạng thái</th><th>Học tập</th><th>Hành động</th></tr></thead>
         <tbody id="studentBody"></tbody>
       </table>
       <div class="empty-state" id="emptyStudents">Chưa có học sinh nào.</div>
@@ -398,8 +398,8 @@
       </div>
       <!-- Dán link -->
       <div id="videoLinkSection" style="display:none">
-        <label>Link video <span class="muted">(YouTube, Google Drive, MP4...)</span></label>
-        <input type="text" id="lvLinkInput" placeholder="https://..."/>
+        <label>Link video <span class="muted">(YouTube, Google Drive... mỗi dòng 1 link)</span></label>
+        <textarea id="lvLinkInput" placeholder="https://link1...&#10;https://link2..." rows="4" style="resize:vertical;width:100%;padding:.5rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem"></textarea>
         <div id="lvLinkPreview" style="margin-top:.5rem"></div>
       </div>
       <label>Tiêu đề</label>
@@ -417,7 +417,7 @@
       <h2>Thêm tài liệu vào bài học</h2>
       <div class="tab-row" style="margin-bottom:1rem">
         <button class="tab-btn active" id="tabDocFile">📁 Upload file</button>
-        <button class="tab-btn" id="tabDocLink">🔗 Dán link</button>
+        <button class="tab-btn" id="tabDocLink">🔗 Tài liệu</button>
         <button class="tab-btn" id="tabDocHandwritten">✍️ Viết tay</button>
       </div>
       <!-- Upload file -->
@@ -428,17 +428,15 @@
           <div id="lessonDocFileInfo" class="file-info"></div>
         </div>
       </div>
-      <!-- Dán link -->
+      <!-- Dán link tài liệu + viết tay cùng lúc -->
       <div id="docLinkSection" style="display:none">
-        <label>Link tài liệu <span class="muted">(Google Drive, PDF...)</span></label>
-        <input type="text" id="ldLinkInput" placeholder="https://..."/>
+        <label>Link tài liệu <span class="muted">(mỗi dòng 1 link)</span></label>
+        <textarea id="ldLinkInput" placeholder="https://link1...&#10;https://link2..." rows="3" style="resize:vertical;width:100%;padding:.5rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem;margin-bottom:.75rem"></textarea>
+        <label>Link bản viết tay <span class="muted">(mỗi dòng 1 link, tuỳ chọn)</span></label>
+        <textarea id="ldHandwrittenInput" placeholder="https://link1...&#10;https://link2..." rows="3" style="resize:vertical;width:100%;padding:.5rem;border:1px solid #ddd;border-radius:8px;font-size:.9rem"></textarea>
       </div>
-      <!-- Bản viết tay -->
-      <div id="docHandwrittenSection" style="display:none">
-        <label>Link bản viết tay <span class="muted">(ảnh, Google Drive...)</span></label>
-        <input type="text" id="ldHandwrittenInput" placeholder="https://..."/>
-        <p class="muted-sm" style="margin-top:.4rem">Dán link ảnh chụp bản viết tay hoặc link Google Drive chứa ảnh.</p>
-      </div>
+      <!-- Bản viết tay riêng (ẩn, giữ để tương thích) -->
+      <div id="docHandwrittenSection" style="display:none"></div>
       <input type="text" id="ldTitleInput" placeholder="Tên tài liệu..." style="display:none"/>
       <div class="modal-actions">
         <button id="ldCancelBtn" class="btn-outline">Hủy</button>
