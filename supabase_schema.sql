@@ -26,6 +26,8 @@ create table if not exists students (
   expiry_date  date default null,        -- Ngày hết hạn tài khoản (null = không giới hạn)
   notes        text default null,        -- Ghi chú riêng cho học viên
   manually_unlocked boolean default false, -- Admin mở thủ công, bỏ qua kiểm tra lớp hết hạn
+  is_online    boolean default false,       -- Đang online hay không
+  last_seen    timestamptz default null,    -- Lần cuối hoạt động
   created_at   timestamptz default now()
 );
 
