@@ -1129,3 +1129,15 @@ body.landing { background: #fff; }
 .status-pill.red    { background: #fee2e2; color: #991b1b; }
 .status-pill.orange { background: #fef3c7; color: #92400e; }
 .status-pill.gray   { background: #f1f5f9; color: #64748b; }
+
+/* Student hero section */
+#pageHome .page-title { color: #fff !important; }
+@media (max-width: 768px) {
+  #pageHome > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; }
+  #pageHome > div[style*="repeat(3,1fr)"] { grid-template-columns: 1fr !important; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}

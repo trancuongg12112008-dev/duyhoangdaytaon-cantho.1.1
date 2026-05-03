@@ -362,6 +362,34 @@ async function renderOverview() {
     }
   });
   document.getElementById('classExpiryNotices').innerHTML = notices.join('');
+
+  // Render online students
+  renderOnlineStudents();
+}
+
+async function renderOnlineStudents() {
+  const cutoff = new Date(Date.now() - 60000).toISOString();
+  const { data: online } = await db.from('students')
+    .select('full_name, class_name, last_seen')
+    .eq('is_online', true)
+    .gte('last_seen', cutoff)
+    .order('last_seen', { ascending: false });
+
+  const el = document.getElementById('onlineStudentList');
+  const countEl = document.getElementById('onlineCount');
+  if (!el) return;
+  const list = online || [];
+  if (countEl) countEl.textContent = list.length + ' online';
+  if (!list.length) {
+    el.innerHTML = '<p class="muted-sm">Chưa có học sinh nào online.</p>';
+    return;
+  }
+  el.innerHTML = list.map(s => `
+    <div style="display:flex;align-items:center;gap:.5rem;background:var(--bg);padding:.4rem .75rem;border-radius:20px;font-size:.82rem;border:1px solid #d1fae5">
+      <span style="width:8px;height:8px;background:#10b981;border-radius:50%;flex-shrink:0;animation:badgePop .3s ease"></span>
+      <span style="font-weight:600">${s.full_name}</span>
+      ${s.class_name ? `<span class="class-tag" style="font-size:.7rem">${s.class_name}</span>` : ''}
+    </div>`).join('');
 }
 
 // ============================================================
@@ -1582,9 +1610,13 @@ document.getElementById('annCancelBtn').addEventListener('click', () => {
 async function renderLoginHistory() {
   const cls    = document.getElementById('loginHistoryFilterClass').value;
   const search = (document.getElementById('loginHistorySearch').value||'').toLowerCase();
+  const from   = document.getElementById('loginHistoryDateFrom').value;
+  const to     = document.getElementById('loginHistoryDateTo').value;
 
   let query = db.from('login_logs').select('*').order('logged_in_at', {ascending: false}).limit(500);
-  if (cls) query = query.eq('class_name', cls);
+  if (cls)  query = query.eq('class_name', cls);
+  if (from) query = query.gte('logged_in_at', from);
+  if (to)   query = query.lte('logged_in_at', to + 'T23:59:59');
   const { data: logs } = await query;
   const all = logs || [];
 
@@ -1623,6 +1655,8 @@ async function renderLoginHistory() {
 
 document.getElementById('loginHistoryFilterClass').addEventListener('change', renderLoginHistory);
 document.getElementById('loginHistorySearch').addEventListener('input', renderLoginHistory);
+document.getElementById('loginHistoryDateFrom').addEventListener('change', renderLoginHistory);
+document.getElementById('loginHistoryDateTo').addEventListener('change', renderLoginHistory);
 
 document.getElementById('clearLoginHistoryBtn').addEventListener('click', () => {
   showConfirm('Xóa toàn bộ lịch sử đăng nhập?', async () => {
@@ -1661,17 +1695,28 @@ function stopStudentAutoRefresh() {
   if (_studentRefreshTimer) { clearInterval(_studentRefreshTimer); _studentRefreshTimer = null; }
 }
 
+// Auto-refresh online panel trên tổng quan mỗi 20s
+setInterval(() => {
+  if (document.getElementById('pageOverview')?.classList.contains('active')) {
+    renderOnlineStudents();
+  }
+}, 20000);
+
 // ============================================================
 // THỐNG KÊ TRUY CẬP
 // ============================================================
 async function renderAccessStats() {
-  const cls   = document.getElementById('accessFilterClass').value;
-  const type  = document.getElementById('accessFilterType').value;
+  const cls    = document.getElementById('accessFilterClass').value;
+  const type   = document.getElementById('accessFilterType').value;
   const search = (document.getElementById('accessSearch').value||'').toLowerCase();
+  const from   = document.getElementById('accessDateFrom').value;
+  const to     = document.getElementById('accessDateTo').value;
 
   let query = db.from('access_logs').select('*').order('accessed_at', {ascending: false});
   if (cls)  query = query.eq('class_name', cls);
   if (type) query = query.eq('content_type', type);
+  if (from) query = query.gte('accessed_at', from);
+  if (to)   query = query.lte('accessed_at', to + 'T23:59:59');
   const { data: logs } = await query;
   const all = logs || [];
 
@@ -1731,6 +1776,8 @@ async function renderAccessStats() {
 document.getElementById('accessFilterClass').addEventListener('change', renderAccessStats);
 document.getElementById('accessFilterType').addEventListener('change', renderAccessStats);
 document.getElementById('accessSearch').addEventListener('input', renderAccessStats);
+document.getElementById('accessDateFrom').addEventListener('change', renderAccessStats);
+document.getElementById('accessDateTo').addEventListener('change', renderAccessStats);
 
 document.getElementById('exportAccessBtn').addEventListener('click', async () => {
   const { data: logs } = await db.from('access_logs').select('*').order('accessed_at', {ascending: false});

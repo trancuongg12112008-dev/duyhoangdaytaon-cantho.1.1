@@ -343,19 +343,18 @@ function getDownloadUrl(url) {
 
 // ---- Chi tiết bài học ----
 // ---- Ghi log truy cap ----
-async function logAccess(lessonId, lessonName, contentId, contentTitle, contentType) {
-  try {
-    await db.from('access_logs').insert({
-      username: currentUser,
-      student_name: currentName,
-      class_name: myClass || '',
-      lesson_id: lessonId,
-      lesson_name: lessonName,
-      content_id: contentId,
-      content_title: contentTitle,
-      content_type: contentType
-    });
-  } catch(e) {}
+function logAccess(lessonId, lessonName, contentId, contentTitle, contentType) {
+  // Fire-and-forget — không block UI
+  db.from('access_logs').insert({
+    username: currentUser,
+    student_name: currentName,
+    class_name: myClass || '',
+    lesson_id: lessonId,
+    lesson_name: lessonName,
+    content_id: contentId,
+    content_title: contentTitle,
+    content_type: contentType
+  }).then(() => {}).catch(() => {});
 }
 async function openLessonDetail(id) {
   // Hiện view ngay, load song song
@@ -379,17 +378,40 @@ async function openLessonDetail(id) {
   const vGrid = document.getElementById('sLessonVideoGrid');
   vGrid.innerHTML = '';
   document.getElementById('sEmptyLessonVideos').style.display = (vids||[]).length?'none':'block';
-  (vids||[]).forEach(v => {
+  (vids||[]).forEach((v, idx) => {
     const isLink = !!v.video_url;
     const url = isLink ? v.video_url : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
     const card = document.createElement('div');
     card.className = 'video-card';
     if (isLink && getEmbedUrl(url)) {
-      card.innerHTML = `<div class="video-thumb" style="background:#111;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.25rem"><span style="font-size:2rem">▶️</span><span style="color:#fff;font-size:.75rem">Nhấn để xem</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
+      card.innerHTML = `
+        <div class="video-thumb" style="background:linear-gradient(135deg,#1e1b4b,#312e81);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.5rem;position:relative">
+          <div style="width:52px;height:52px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;border:2px solid rgba(255,255,255,.3)">▶</div>
+          <span style="color:rgba(255,255,255,.8);font-size:.75rem;font-weight:600">Nhấn để xem</span>
+          <div style="position:absolute;top:8px;left:8px;background:#ef4444;color:#fff;font-size:.65rem;font-weight:700;padding:.2rem .5rem;border-radius:6px">VIDEO</div>
+        </div>
+        <div class="video-info">
+          <div class="video-title">${v.title}</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">Bài ${idx+1}</div>
+        </div>`;
     } else {
-      card.innerHTML = `<div class="video-thumb"><video src="${url}" preload="none"></video><span class="play-btn">▶</span></div><div class="video-info"><div class="video-title">${v.title}</div></div>`;
+      card.innerHTML = `
+        <div class="video-thumb" style="position:relative">
+          <video src="${url}" preload="none"></video>
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 50%);display:flex;align-items:center;justify-content:center">
+            <div style="width:52px;height:52px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;border:2px solid rgba(255,255,255,.4);backdrop-filter:blur(4px)">▶</div>
+          </div>
+          <div style="position:absolute;top:8px;left:8px;background:#ef4444;color:#fff;font-size:.65rem;font-weight:700;padding:.2rem .5rem;border-radius:6px">VIDEO</div>
+        </div>
+        <div class="video-info">
+          <div class="video-title">${v.title}</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">Bài ${idx+1}</div>
+        </div>`;
     }
-    card.querySelector('.video-thumb').addEventListener('click', () => { logAccess(id, l.name, v.id, v.title, 'video'); openViewer(v.title, url, v.file_name, isLink ? 'link' : 'video'); });
+    card.querySelector('.video-thumb').addEventListener('click', () => {
+      logAccess(id, l.name, v.id, v.title, 'video');
+      openViewer(v.title, url, v.file_name, isLink ? 'link' : 'video');
+    });
     vGrid.appendChild(card);
   });
 
@@ -401,11 +423,28 @@ async function openLessonDetail(id) {
     const isLink = d.file_type==='link';
     const isHandwritten = d.file_type==='handwritten';
     const url = (isLink||isHandwritten) ? d.doc_url : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
-    const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
+
+    const icon  = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
+    const color = isHandwritten ? '#8b5cf6' : isLink ? '#0ea5e9' : '#f59e0b';
+    const bg    = isHandwritten ? '#ede9fe' : isLink ? '#e0f2fe' : '#fef3c7';
+    const label = isHandwritten ? 'Bản viết tay' : isLink ? 'Tài liệu online' : 'File tài liệu';
+
     const row = document.createElement('div');
-    row.className = 'content-row clickable';
-    row.innerHTML = `<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><span class="btn-sm">👁 Xem</span>`;
-    row.addEventListener('click', () => { logAccess(id, l.name, d.id, d.title, 'doc'); openViewer(d.title, url, d.file_name, isHandwritten?'handwritten-link':isLink?'doc-link':d.file_type); });
+    row.style.cssText = `display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;background:var(--card);border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;box-shadow:var(--shadow)`;
+    row.innerHTML = `
+      <div style="width:42px;height:42px;background:${bg};border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.title}</div>
+        <div style="font-size:.75rem;color:${color};font-weight:600;margin-top:.15rem">${label}</div>
+      </div>
+      <div style="background:${bg};color:${color};padding:.35rem .75rem;border-radius:8px;font-size:.78rem;font-weight:700;flex-shrink:0">Xem →</div>
+    `;
+    row.addEventListener('mouseenter', () => { row.style.borderColor = color; row.style.transform = 'translateX(3px)'; });
+    row.addEventListener('mouseleave', () => { row.style.borderColor = 'var(--border)'; row.style.transform = ''; });
+    row.addEventListener('click', () => {
+      logAccess(id, l.name, d.id, d.title, 'doc');
+      openViewer(d.title, url, d.file_name, isHandwritten?'handwritten-link':isLink?'doc-link':d.file_type);
+    });
     dList.appendChild(row);
   });
 }
@@ -437,16 +476,10 @@ function openViewer(title, url, fileName, fileType) {
     if (embed) body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
     else body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
   } else if (isLink) {
+    dl.style.display = 'none';
     const embed = getEmbedUrl(url);
-    const dlUrl = getDownloadUrl(url);
-    // Chỉ hiện nút tải cho tài liệu Drive — KHÔNG hiện cho video
-    // fileType 'link' từ video sẽ không có dlUrl hiện
-    // Phân biệt: video link được gọi với fileType='link' từ video card
-    // Tài liệu link được gọi với fileType='link' từ doc list
-    // Dùng tham số thứ 5 để phân biệt
-    dl.style.display = 'none'; // Mặc định ẩn cho link
     if (embed) {
-      body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+      body.innerHTML=`<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .85rem;border-radius:8px;margin-bottom:.5rem;font-size:.8rem;color:#92400e">💡 Video bị mờ? Nhấn ⚙️ trong góc video → chọn <b>Chất lượng</b> → tăng lên <b>720p hoặc 1080p</b></div><iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
     } else {
       body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
     }
@@ -494,7 +527,6 @@ db.channel('student-lock-' + currentUser)
   }, async (payload) => {
     const s = payload.new;
     if (!s.active) {
-      // Hiện overlay thông báo
       document.body.innerHTML = `
         <div style="position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;text-align:center;padding:2rem;z-index:99999">
           <div style="font-size:3.5rem">🔒</div>
@@ -512,6 +544,34 @@ db.channel('student-lock-' + currentUser)
     }
   })
   .subscribe();
+
+// Realtime: lắng nghe thông báo mới từ admin
+db.channel('announcements-realtime')
+  .on('postgres_changes', {
+    event: '*',
+    schema: 'public',
+    table: 'announcements'
+  }, () => {
+    // Reload thông báo nếu đang ở trang chủ
+    if (document.getElementById('pageHome')?.classList.contains('active')) {
+      renderHome();
+    }
+    // Hiện toast thông báo mới
+    showAnnouncementToast();
+  })
+  .subscribe();
+
+function showAnnouncementToast() {
+  const existing = document.getElementById('annToast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'annToast';
+  toast.style.cssText = 'position:fixed;top:70px;right:1rem;z-index:9000;background:#1e1b4b;color:#fff;padding:.75rem 1.1rem;border-radius:12px;font-size:.85rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);border-left:4px solid #f59e0b;display:flex;align-items:center;gap:.6rem;animation:slideInRight .3s ease;max-width:280px';
+  toast.innerHTML = '<span style="font-size:1.1rem">📢</span><span>Có thông báo mới từ giáo viên!</span>';
+  toast.addEventListener('click', () => { showPage('home'); toast.remove(); });
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .5s'; setTimeout(() => toast.remove(), 500); }, 5000);
+}
 
 // Kiểm tra session token + trạng thái tài khoản mỗi 30 giây
 setInterval(async () => {

@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Học Sinh</title>
+  <title>Học Sinh - Duy Hoàng Dạy Toán v1.2</title>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#4f46e5"/>
@@ -67,27 +69,47 @@
     setTimeout(() => { document.getElementById('monitorNotice').style.display = 'none'; }, 5000);
   </script>
 
-    <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+      <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-brand-icon">&#x1F4D0;</div>
-      <span class="sidebar-brand-text">DH D&#x1EA1;y To&#xE1;n</span>
+      <div class="sidebar-brand-icon"><img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
+      <span class="sidebar-brand-text">DH Dạy Toán</span>
     </div>
     <nav class="sidebar-nav">
-      <a href="#" class="slink active" data-page="home"><span class="slink-icon">&#x1F3E0;</span><span class="slink-label">Trang chu</span></a>
-      <a href="#" class="slink" data-page="lessons"><span class="slink-icon">&#x1F4DA;</span><span class="slink-label">Bai hoc</span></a>
-      <a href="#" class="slink" data-page="guide"><span class="slink-icon">&#x1F4D6;</span><span class="slink-label">Huong dan</span></a>
-      <a href="#" class="slink" data-page="profile"><span class="slink-icon">&#x1F464;</span><span class="slink-label">Ho so</span></a>
+      <a href="#" class="slink active" data-page="home">
+        <span class="slink-icon">🏠</span><span class="slink-label">Trang chủ</span>
+      </a>
+      <a href="#" class="slink" data-page="lessons">
+        <span class="slink-icon">📚</span><span class="slink-label">Bài học</span>
+      </a>
+      <a href="#" class="slink" data-page="guide">
+        <span class="slink-icon">📖</span><span class="slink-label">Hướng dẫn</span>
+      </a>
+      <a href="#" class="slink" data-page="profile">
+        <span class="slink-icon">👤</span><span class="slink-label">Hồ sơ</span>
+      </a>
     </nav>
-    <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">&#x1F6AA;</span><span class="slink-label">Dang xuat</span></a>
+    <a href="index.html" class="slink slink-logout" id="logoutBtn">
+      <span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span>
+    </a>
+    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.2</div>
   </aside>
 
+  <!-- MAIN -->
   <div class="dash-main">
+
+    <!-- TOPBAR -->
     <header class="topbar">
       <button class="menu-toggle" id="menuToggle">☰</button>
+      <div style="font-weight:700;font-size:.95rem;color:var(--text);display:flex;align-items:center;gap:.5rem">
+        <img src="icons/icon-192.png" style="width:24px;height:24px;border-radius:6px"/>
+        Duy Hoàng Dạy Toán
+      </div>
       <div class="topbar-right">
         <div class="avatar-info">
-          <div class="avatar">HS</div>
+          <div class="avatar" id="topbarAvatar">HS</div>
           <div>
             <div class="av-name" id="studentName"></div>
             <div class="av-role">Học sinh</div>
@@ -96,80 +118,108 @@
       </div>
     </header>
 
-    <!-- BANNER CẢNH BÁO HẾT HẠN -->
-    <div id="expiryBanner" style="display:none;background:#fff3cd;border-left:4px solid #f59e0b;padding:.75rem 1.25rem;font-size:.9rem;color:#92400e;margin:.75rem 1rem;border-radius:8px;"></div>
+    <!-- BANNER HẾT HẠN -->
+    <div id="expiryBanner" style="display:none;background:linear-gradient(135deg,#fff3cd,#fef9c3);border-left:4px solid #f59e0b;padding:.75rem 1.25rem;font-size:.88rem;color:#92400e;margin:.75rem 1.25rem;border-radius:10px;"></div>
 
     <!-- TRANG CHỦ -->
     <section class="page active" id="pageHome">
 
-      <!-- Banner dien thoai -->
-      <div id="deviceBanner" style="display:none;background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;border-radius:14px;padding:.85rem 1.1rem;margin-bottom:1rem;font-size:.83rem;line-height:1.6;align-items:center;gap:.75rem">
-        <span style="font-size:1.4rem;flex-shrink:0">&#x1F4BB;</span>
-        <span>De co trai nghiem hoc tap <b>day du va hieu qua nhat</b>, ban nen hoc tren <b>may tinh, laptop hoac tablet</b>.</span>
+      <!-- Hero banner -->
+      <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 55%,#4338ca 100%);border-radius:20px;padding:2rem;margin-bottom:1.5rem;position:relative;overflow:hidden;color:#fff">
+        <div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:rgba(255,255,255,.05);border-radius:50%"></div>
+        <div style="position:absolute;bottom:-40px;right:80px;width:150px;height:150px;background:rgba(99,102,241,.12);border-radius:50%"></div>
+        <div style="position:absolute;top:50%;left:55%;width:80px;height:80px;background:rgba(6,182,212,.1);border-radius:50%;transform:translateY(-50%)"></div>
+        <div style="position:relative;z-index:1">
+          <div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:1.25rem">
+            <div id="homeAvatar" style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border:2px solid rgba(255,255,255,.3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.2)"></div>
+            <div>
+              <h1 class="page-title" id="welcomeTitle" style="color:#fff;margin-bottom:.25rem;font-size:1.45rem;letter-spacing:-.3px">Xin chào!</h1>
+              <div id="homeStudentClass" style="color:rgba(255,255,255,.7);font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:.4rem"></div>
+              <div id="homeStudentCode" style="color:rgba(255,255,255,.45);font-size:.75rem;margin-top:.15rem;font-family:monospace"></div>
+              <div id="homeStudentName" style="display:none"></div>
+            </div>
+          </div>
+          <!-- Quick stats -->
+          <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div style="background:rgba(255,255,255,.1);border-radius:10px;padding:.5rem .9rem;font-size:.78rem;display:flex;align-items:center;gap:.4rem;border:1px solid rgba(255,255,255,.1)">
+              <span>🎬</span><span>Video HD</span>
+            </div>
+            <div style="background:rgba(255,255,255,.1);border-radius:10px;padding:.5rem .9rem;font-size:.78rem;display:flex;align-items:center;gap:.4rem;border:1px solid rgba(255,255,255,.1)">
+              <span>📄</span><span>Tài liệu chọn lọc</span>
+            </div>
+            <div style="background:rgba(255,255,255,.1);border-radius:10px;padding:.5rem .9rem;font-size:.78rem;display:flex;align-items:center;gap:.4rem;border:1px solid rgba(255,255,255,.1)">
+              <span>🔒</span><span>Bảo mật cao</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banner điện thoại -->
+      <div id="deviceBanner" style="display:none;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border-radius:12px;padding:.8rem 1rem;margin-bottom:1rem;font-size:.82rem;line-height:1.6;align-items:center;gap:.75rem;border:1px solid rgba(255,255,255,.08)">
+        <span style="font-size:1.2rem;flex-shrink:0">💻</span>
+        <span>Để học tốt hơn, hãy dùng <b>máy tính hoặc tablet</b>.</span>
       </div>
       <script>if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){document.getElementById("deviceBanner").style.display="flex";}</script>
 
-      <h1 class="page-title" id="welcomeTitle">Xin chao!</h1>
-      <p style="color:var(--muted);font-size:.95rem;margin-top:.1rem;margin-bottom:1.25rem;font-weight:500">&#x1F4D0; Duy Hoang Day Toan Can Tho &#x2014; Chuc ban hoc tot!</p>
-
-      <!-- Thong bao tu admin -->
-      <div id="announcementSection" style="display:none;margin-bottom:1.1rem">
-        <div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:14px;padding:1rem 1.25rem">
-          <div style="font-weight:700;font-size:.9rem;color:#92400e;margin-bottom:.6rem">&#x1F4E2; Thong bao</div>
+      <!-- Thông báo từ admin -->
+      <div id="announcementSection" style="display:none;margin-bottom:1.25rem">
+        <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #f59e0b;border-radius:14px;padding:1rem 1.25rem">
+          <div style="font-weight:700;font-size:.88rem;color:#92400e;margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem">📢 Thông báo từ giáo viên</div>
           <div id="announcementList" style="display:flex;flex-direction:column;gap:.5rem"></div>
         </div>
       </div>
 
-      <!-- Grid chinh -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+      <!-- Grid: bài học + lưu ý -->
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
         <!-- Bai hoc moi nhat -->
         <div class="overview-panel">
-          <div class="panel-header"><span>&#x1F4DA; Bai hoc moi nhat</span><a href="#" class="link-blue" data-goto="lessons">Xem tat ca</a></div>
+          <div class="panel-header">
+            <span style="font-weight:700">📚 Bài học mới nhất</span>
+            <a href="#" class="link-blue" data-goto="lessons" style="font-size:.8rem">Xem tất cả →</a>
+          </div>
           <div id="homeRecentLessons"></div>
         </div>
-        <!-- Luu y khi hoc -->
-        <div class="overview-panel">
-          <div class="panel-header"><span>&#x26A0;&#xFE0F; Luu y khi hoc</span></div>
-          <div style="display:flex;flex-direction:column;gap:.65rem;font-size:.88rem;line-height:1.6">
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F512;</span><span>Moi tai khoan chi duoc dang nhap tren <b>01 thiet bi</b> tai mot thoi diem.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F4F5;</span><span>Nghiem cam <b>chup man hinh, quay video</b> hoac phat tan noi dung bai giang.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F441;</span><span>He thong <b>giam sat toan bo</b> hoat dong. Moi vi pham deu duoc ghi nhan.</span></div>
-            <div style="display:flex;gap:.6rem;align-items:flex-start"><span style="font-size:1rem;flex-shrink:0">&#x1F6AB;</span><span>Khong chia se tai khoan cho nguoi khac duoi bat ky hinh thuc nao.</span></div>
+        <!-- Luu y -->
+        <div class="overview-panel" style="background:linear-gradient(135deg,#fff5f5,#fff)">
+          <div class="panel-header"><span style="font-weight:700;color:#dc2626">⚠️ Lưu ý quan trọng</span></div>
+          <div style="display:flex;flex-direction:column;gap:.5rem;font-size:.84rem">
+            <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .65rem;background:#fff;border-radius:9px;border-left:3px solid #ef4444">
+              <span style="flex-shrink:0">🔒</span><span>Chỉ đăng nhập trên <b>01 thiết bị</b> tại một thời điểm.</span>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .65rem;background:#fff;border-radius:9px;border-left:3px solid #f59e0b">
+              <span style="flex-shrink:0">📵</span><span>Nghiêm cấm <b>chụp/quay màn hình</b> nội dung bài giảng.</span>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .65rem;background:#fff;border-radius:9px;border-left:3px solid #8b5cf6">
+              <span style="flex-shrink:0">🚫</span><span>Không chia sẻ tài khoản dưới bất kỳ hình thức nào.</span>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .65rem;background:#fff;border-radius:9px;border-left:3px solid #06b6d4">
+              <span style="flex-shrink:0">👁</span><span>Hệ thống <b>giám sát 24/7</b> — mọi vi phạm đều bị ghi nhận.</span>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:flex-start;padding:.55rem .65rem;background:#fff;border-radius:9px;border-left:3px solid #ef4444">
+              <span style="flex-shrink:0">🎥</span><span>Hệ thống đang <b>quay video trực tiếp</b> và phát hiện mọi hành vi bất thường của bạn.</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Huong dan su dung nhanh -->
-      <div class="overview-panel" style="margin-bottom:1.25rem">
-        <div class="panel-header"><span>&#x1F4D6; Huong dan su dung nhanh</span></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;font-size:.86rem">
-          <div style="background:var(--primary-light);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
-            <span style="font-size:1.4rem">&#x1F4DA;</span>
-            <b>Xem bai hoc</b>
-            <span style="color:var(--muted)">Vao muc <b>Bai hoc</b> &#x2192; chon nhom &#x2192; chon bai de xem video va tai lieu.</span>
+      <!-- Hướng dẫn nhanh -->
+      <div class="overview-panel">
+        <div class="panel-header"><span style="font-weight:700">📖 Hướng dẫn nhanh</span><a href="#" class="link-blue" data-goto="guide" style="font-size:.8rem">Chi tiết →</a></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;font-size:.84rem">
+          <div style="background:var(--primary-light);border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem;cursor:pointer;transition:transform .15s" onclick="showPage('lessons')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <span style="font-size:1.4rem">📚</span>
+            <b>Xem bài học</b>
+            <span style="color:var(--muted);font-size:.78rem;line-height:1.5">Bài học → chọn nhóm → chọn bài để học</span>
           </div>
           <div style="background:#e0f2fe;border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
-            <span style="font-size:1.4rem">&#x1F3AC;</span>
+            <span style="font-size:1.4rem">🎬</span>
             <b>Xem video</b>
-            <span style="color:var(--muted)">Nhan vao thumbnail de phat video. Nen <b>xoay ngang</b> dien thoai de xem tot hon.</span>
+            <span style="color:var(--muted);font-size:.78rem;line-height:1.5">Nhấn thumbnail để phát. Xoay ngang điện thoại để xem tốt hơn.</span>
           </div>
           <div style="background:#d1fae5;border-radius:12px;padding:1rem;display:flex;flex-direction:column;gap:.4rem">
-            <span style="font-size:1.4rem">&#x1F4DE;</span>
-            <b>Ho tro</b>
-            <span style="color:var(--muted)">Lien he <b>Tro ly Tran Cuong</b> de duoc ho tro tai khoan va ky thuat.</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Avatar + thong tin hoc vien -->
-      <div class="overview-panel">
-        <div class="panel-header"><span>&#x1F464; Thong tin cua ban</span></div>
-        <div style="display:flex;align-items:center;gap:1.25rem">
-          <div id="homeAvatar" style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;flex-shrink:0;box-shadow:0 4px 16px rgba(99,102,241,.3)"></div>
-          <div>
-            <div id="homeStudentName" style="font-size:1.1rem;font-weight:800"></div>
-            <div id="homeStudentClass" style="color:var(--primary);font-size:.88rem;font-weight:600;margin-top:.2rem"></div>
-            <div id="homeStudentCode" style="color:var(--muted);font-size:.8rem;margin-top:.1rem"></div>
+            <span style="font-size:1.4rem">📞</span>
+            <b>Cần hỗ trợ?</b>
+            <span style="color:var(--muted);font-size:.78rem;line-height:1.5">Liên hệ <b>Trợ lý Trần Cường</b> để được hỗ trợ nhanh nhất.</span>
           </div>
         </div>
       </div>
@@ -178,69 +228,126 @@
 
     <!-- BÀI HỌC -->
     <section class="page" id="pageLessons">
-      <!-- Danh sách bài -->
+
+      <!-- Danh sách bài học -->
       <div id="sLessonListView">
-        <h1 class="page-title">Bài học</h1>
-        <div style="margin-bottom:1rem"><input type="text" id="sLessonSearch" placeholder="Tim kiem bai hoc..." style="width:100%;padding:.65rem 1rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.9rem;background:var(--card)"/></div>
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#312e81,#4338ca);border-radius:16px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <div>
+            <h1 style="font-size:1.3rem;font-weight:800;margin:0;letter-spacing:-.3px">📚 Bài học</h1>
+            <p style="font-size:.8rem;opacity:.7;margin-top:.2rem">Chọn nhóm bài học để bắt đầu học</p>
+          </div>
+          <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:.5rem .85rem;font-size:.78rem;font-weight:600;white-space:nowrap">🔒 Bảo mật</div>
+        </div>
+
+        <!-- Search -->
+        <div style="margin-bottom:1.25rem;position:relative">
+          <span style="position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1rem">🔍</span>
+          <input type="text" id="sLessonSearch" placeholder="Tìm kiếm bài học theo tên..." style="width:100%;padding:.75rem 1rem .75rem 2.6rem;border:1.5px solid var(--border);border-radius:12px;outline:none;font-size:.9rem;background:var(--card);transition:border-color .2s,box-shadow .2s" onfocus="this.style.borderColor='var(--primary)';this.style.boxShadow='0 0 0 3px rgba(99,102,241,.1)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"/>
+        </div>
+
         <div class="content-list" id="sLessonList"></div>
         <div class="empty-state" id="sEmptyLessons">Chưa có bài học nào.</div>
       </div>
-      <!-- Chi tiết bài -->
+
+      <!-- Chi tiết bài học -->
       <div id="sLessonDetailView" style="display:none">
-        <div class="page-header">
-          <h1 class="page-title" id="sLessonDetailTitle"></h1>
-          <button class="btn-outline" id="sBackToLessonsBtn">← Quay lại</button>
+
+        <!-- Header bài học -->
+        <div style="background:linear-gradient(135deg,#1e1b4b,#312e81,#4338ca);border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;color:#fff;position:relative;overflow:hidden">
+          <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,.06);border-radius:50%"></div>
+          <button id="sBackToLessonsBtn" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);color:#fff;padding:.4rem .9rem;border-radius:8px;font-size:.82rem;cursor:pointer;margin-bottom:.85rem;font-weight:600">← Quay lại</button>
+          <h1 id="sLessonDetailTitle" style="font-size:1.3rem;font-weight:800;margin:0;letter-spacing:-.3px;line-height:1.3"></h1>
+          <p id="sLessonDetailDesc" style="font-size:.85rem;opacity:.75;margin-top:.4rem;line-height:1.5"></p>
         </div>
-        <p class="muted-sm" id="sLessonDetailDesc"></p>
-        <div class="two-col" style="margin-top:1rem">
-          <div>
-            <div class="panel-header" style="margin-bottom:.5rem"><span>🎬 Video</span></div>
-            <div class="video-grid" id="sLessonVideoGrid"></div>
-            <div class="empty-state" id="sEmptyLessonVideos" style="font-size:.85rem">Chưa có video.</div>
+
+        <!-- Video section -->
+        <div style="margin-bottom:1.5rem">
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#6366f1,#4f46e5);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem">🎬</div>
+            <span style="font-weight:800;font-size:1rem">Video bài giảng</span>
           </div>
-          <div>
-            <div class="panel-header" style="margin-bottom:.5rem"><span>📄 Tài liệu</span></div>
-            <div class="content-list" id="sLessonDocList"></div>
-            <div class="empty-state" id="sEmptyLessonDocs" style="font-size:.85rem">Chưa có tài liệu.</div>
-          </div>
+          <div class="video-grid" id="sLessonVideoGrid"></div>
+          <div class="empty-state" id="sEmptyLessonVideos" style="font-size:.85rem;padding:1.5rem">Chưa có video nào.</div>
         </div>
+
+        <!-- Tài liệu section -->
+        <div>
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem">📄</div>
+            <span style="font-weight:800;font-size:1rem">Tài liệu học tập</span>
+          </div>
+          <div id="sLessonDocList" style="display:flex;flex-direction:column;gap:.5rem"></div>
+          <div class="empty-state" id="sEmptyLessonDocs" style="font-size:.85rem;padding:1.5rem">Chưa có tài liệu nào.</div>
+        </div>
+
       </div>
     </section>
 
     <!-- HƯỚNG DẪN -->
     <section class="page" id="pageGuide">
       <h1 class="page-title">📖 Hướng dẫn sử dụng</h1>
-      <div class="form-panel" style="max-width:680px">
+      <div class="form-panel" style="max-width:720px;gap:1rem">
 
-        <h3>🔐 Đăng nhập</h3>
-        <p>Học viên vui lòng nhắn <b>Trợ Lý - Trần Cường</b> và cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ được phép hoạt động trên <b>01 thiết bị</b> tại một thời điểm nhằm đảm bảo tính bảo mật và quyền lợi học tập.</p>
+        <!-- Dang nhap -->
+        <div style="background:var(--primary-light);border-radius:12px;padding:1rem 1.25rem">
+          <div style="font-weight:800;font-size:.95rem;color:var(--primary);margin-bottom:.5rem">🔐 Đăng nhập</div>
+          <p style="font-size:.88rem;line-height:1.7;color:var(--text)">Nhắn <b>Trợ Lý - Trần Cường</b> cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ hoạt động trên <b>01 thiết bị</b> tại một thời điểm. Sau <b>5 lần nhập sai</b> mật khẩu, tài khoản sẽ bị khóa tự động.</p>
+        </div>
 
-        <h3 style="margin-top:1.25rem">📚 Xem bài học</h3>
-        <p>Truy cập mục <b>Bài học</b> → chọn bài học tương ứng để xem video bài giảng và tài liệu đi kèm. Hệ thống chỉ hiển thị nội dung thuộc đúng lớp học mà bạn đã đăng ký.</p>
+        <!-- Xem bai hoc -->
+        <div style="background:#e0f2fe;border-radius:12px;padding:1rem 1.25rem">
+          <div style="font-weight:800;font-size:.95rem;color:#0369a1;margin-bottom:.5rem">📚 Xem bài học</div>
+          <p style="font-size:.88rem;line-height:1.7;color:var(--text)">Vào mục <b>Bài học</b> → chọn nhóm bài → nhấn vào bài học để xem video và tài liệu. Hệ thống chỉ hiển thị nội dung đúng lớp bạn đã đăng ký. Dùng ô <b>tìm kiếm</b> để tìm nhanh bài học theo tên.</p>
+        </div>
 
-        <h3 style="margin-top:1.25rem">🎬 Xem video bài giảng</h3>
-        <p>Nhấn vào ảnh đại diện (thumbnail) của bài học để bắt đầu xem video. Đối với điện thoại, nên <b>xoay ngang màn hình</b> để có trải nghiệm học tập tốt nhất. Video được bảo vệ bản quyền và <b>không hỗ trợ tải xuống</b> dưới mọi hình thức.</p>
+        <!-- Xem video -->
+        <div style="background:#d1fae5;border-radius:12px;padding:1rem 1.25rem">
+          <div style="font-weight:800;font-size:.95rem;color:#065f46;margin-bottom:.5rem">🎬 Xem video bài giảng</div>
+          <p style="font-size:.88rem;line-height:1.7;color:var(--text)">Nhấn vào thumbnail để phát video. Với điện thoại, nên <b>xoay ngang màn hình</b> để có trải nghiệm tốt nhất. Video được bảo vệ bản quyền và <b>không hỗ trợ tải xuống</b> dưới mọi hình thức.</p>
+        </div>
 
-        <h3 style="margin-top:1.25rem">🚨 Lưu ý bảo mật</h3>
-        <ul style="padding-left:1.25rem;line-height:2">
-          <li>Không chia sẻ tài khoản cho người khác sử dụng dưới bất kỳ hình thức nào.</li>
-          <li>Nghiêm cấm hành vi chụp màn hình, quay video hoặc phát tán nội dung bài giảng.</li>
-          <li>Mọi hoạt động bất thường đều được hệ thống ghi nhận và thông báo trực tiếp đến giáo viên quản lý.</li>
-          <li>Tài khoản vi phạm sẽ bị <b>khóa vĩnh viễn</b> mà không cần báo trước.</li>
-        </ul>
+        <!-- Tai lieu -->
+        <div style="background:#fef3c7;border-radius:12px;padding:1rem 1.25rem">
+          <div style="font-weight:800;font-size:.95rem;color:#92400e;margin-bottom:.5rem">📄 Tài liệu học tập</div>
+          <p style="font-size:.88rem;line-height:1.7;color:var(--text)">Nhấn vào tài liệu để xem trực tiếp trên trình duyệt. Một số tài liệu hỗ trợ tải xuống. Tài liệu chỉ dành cho học viên đã đăng ký và <b>không được phép chia sẻ</b> ra ngoài.</p>
+        </div>
 
-        <h3 style="margin-top:1.25rem">📞 Liên hệ hỗ trợ</h3>
-        <ul style="padding-left:1.25rem;line-height:2">
-          <li>Hỗ trợ kỹ thuật &amp; Tài khoản: Vui lòng liên hệ <b>Trợ lý - Trần Cường</b> và cung cấp Gmail, SĐT và Số báo danh (SBD) để được xử lý nhanh nhất.</li>
-          <li>Thắc mắc chuyên môn: Đối với các bài giảng hoặc bài toán khó chưa hiểu, vui lòng liên hệ trực tiếp với <b>Duy Hoàng Giáo viên</b>.</li>
-        </ul>
-        <p style="margin-top:.75rem;font-style:italic">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục mục tiêu đại học. 💪</p>
+        <!-- Bao mat -->
+        <div style="background:#fee2e2;border-radius:12px;padding:1rem 1.25rem">
+          <div style="font-weight:800;font-size:.95rem;color:#991b1b;margin-bottom:.5rem">🚨 Lưu ý bảo mật quan trọng</div>
+          <ul style="padding-left:1.25rem;line-height:2.1;font-size:.88rem;color:var(--text)">
+            <li>Không chia sẻ tài khoản cho người khác dưới bất kỳ hình thức nào.</li>
+            <li>Nghiêm cấm chụp màn hình, quay video hoặc phát tán nội dung bài giảng.</li>
+            <li>Hệ thống giám sát toàn bộ hoạt động — mọi vi phạm đều được ghi nhận và báo cáo đến giáo viên.</li>
+            <li>Khi chuyển tab hoặc thoát khỏi trang, màn hình sẽ tự động ẩn nội dung.</li>
+            <li>Tài khoản vi phạm sẽ bị <b>khóa vĩnh viễn</b> mà không cần báo trước.</li>
+            <li>Mỗi lần đăng nhập từ thiết bị mới sẽ được ghi lại và thông báo đến giáo viên.</li>
+          </ul>
+        </div>
+
+        <!-- Lien he -->
+        <div style="background:var(--bg);border-radius:12px;padding:1rem 1.25rem;border:1.5px solid var(--border)">
+          <div style="font-weight:800;font-size:.95rem;margin-bottom:.75rem">📞 Liên hệ hỗ trợ</div>
+          <div style="display:flex;flex-direction:column;gap:.6rem;font-size:.88rem">
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:var(--card);border-radius:10px">
+              <span style="font-size:1.2rem">🛠️</span>
+              <div><div style="font-weight:700">Kỹ thuật & Tài khoản</div><div style="color:var(--muted);font-size:.8rem">Liên hệ <b>Trợ lý - Trần Cường</b> — cung cấp Gmail, SĐT và Mã HV</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:var(--card);border-radius:10px">
+              <span style="font-size:1.2rem">📐</span>
+              <div><div style="font-weight:700">Thắc mắc chuyên môn</div><div style="color:var(--muted);font-size:.8rem">Liên hệ trực tiếp <b>Duy Hoàng Giáo viên</b></div></div>
+            </div>
+          </div>
+        </div>
+
+        <p style="text-align:center;font-style:italic;color:var(--muted);font-size:.85rem;padding:.5rem 0">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục đại học. 💪</p>
       </div>
     </section>
 
     <!-- HỒ SƠ -->
     <section class="page" id="pageProfile">
-      <h1 class="page-title">Hồ sơ</h1>
+      <h1 class="page-title">👤 Hồ sơ</h1>
       <div class="profile-card" style="max-width:520px">
         <div class="profile-avatar" id="profileAvatar">HS</div>
         <div class="profile-info">
@@ -249,11 +356,8 @@
           <div class="profile-class" id="profileClass"></div>
         </div>
       </div>
-
-      <!-- Thông tin khóa học -->
       <div class="form-panel" style="max-width:520px;margin-top:1.25rem;gap:.6rem">
         <h3 style="margin-bottom:.5rem">📋 Thông tin khóa học</h3>
-
         <div style="display:flex;flex-direction:column;gap:.5rem;font-size:.9rem">
           <div style="display:flex;justify-content:space-between;padding:.6rem .75rem;background:var(--bg);border-radius:10px">
             <span style="color:var(--muted);font-weight:600">Mã học viên</span>
@@ -275,7 +379,7 @@
             <span style="color:var(--muted);font-weight:600">Ngày kết thúc</span>
             <span id="profileEndDate" style="font-weight:600">—</span>
           </div>
-          <div id="profileStatusRow" style="display:flex;justify-content:space-between;padding:.6rem .75rem;background:var(--bg);border-radius:10px">
+          <div style="display:flex;justify-content:space-between;padding:.6rem .75rem;background:var(--bg);border-radius:10px">
             <span style="color:var(--muted);font-weight:600">Trạng thái</span>
             <span id="profileStatus" style="font-weight:700">—</span>
           </div>
@@ -288,6 +392,7 @@
       <p>© Bản quyền thuộc về <b>Duy Hoàng Dạy Toán</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
       <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
       <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
+      <p style="margin-top:.5rem;color:#555;font-size:.72rem">Phiên bản <b style="color:#6366f1">v1.2</b></p>
     </footer>
   </div>
 

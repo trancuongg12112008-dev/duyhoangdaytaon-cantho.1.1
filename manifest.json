@@ -1,7 +1,7 @@
 {
-  "name": "Duy Hoàng DTCT",
-  "short_name": "Duy Hoàng",
-  "description": "Hệ thống quản lý học tập trực tuyến",
+  "name": "Duy Hoàng DTCT v1.2",
+  "short_name": "DH Dạy Toán",
+  "description": "Hệ thống quản lý học tập trực tuyến - v1.2",
   "start_url": "/duyhoangdaytaon-cantho.1.1/index.html?v=1.2",
   "scope": "/duyhoangdaytaon-cantho.1.1/",
   "display": "standalone",

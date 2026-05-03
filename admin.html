@@ -1,9 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Giáo Viên</title>
+  <title>Quản Trị - Duy Hoàng Dạy Toán v1.2</title>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#4f46e5"/>
@@ -20,7 +22,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <div class="sidebar-brand-icon">📐</div>
+      <div class="sidebar-brand-icon"><img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
       <span class="sidebar-brand-text">htql</span>
     </div>
     <nav class="sidebar-nav">
@@ -39,6 +41,7 @@
     </nav>
     <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
     <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="margin:.4rem .75rem"><span class="slink-icon">🔗</span><span class="slink-label">Trang đăng nhập</span></a>
+    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.2</div>
   </aside>
 
   <!-- MAIN -->
@@ -77,6 +80,17 @@
       </div>
       <!-- Thông báo lớp hết hạn / sắp hết hạn -->
       <div id="classExpiryNotices" style="margin-top:1rem"></div>
+
+      <!-- Học sinh đang online -->
+      <div class="overview-panel" style="margin-top:1.5rem">
+        <div class="panel-header">
+          <span>🟢 Học sinh đang online</span>
+          <span id="onlineCount" class="status-pill green" style="font-size:.75rem">0</span>
+        </div>
+        <div id="onlineStudentList" style="display:flex;flex-wrap:wrap;gap:.5rem;min-height:2rem">
+          <p class="muted-sm">Chưa có học sinh nào online.</p>
+        </div>
+      </div>
     </section>
 
     <!-- PAGE: BÀI HỌC -->
@@ -275,7 +289,9 @@
     <section class="page" id="pageAccessStats">
       <div class="page-header">
         <h1 class="page-title">Thống kê truy cập</h1>
-        <div style="display:flex;gap:.5rem">
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <input type="date" id="accessDateFrom" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"/>
+          <input type="date" id="accessDateTo" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"/>
           <select id="accessFilterClass" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"><option value="">Tất cả lớp</option></select>
           <select id="accessFilterType" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem">
             <option value="">Tất cả loại</option>
@@ -316,7 +332,9 @@
     <section class="page" id="pageLoginHistory">
       <div class="page-header">
         <h1 class="page-title">🕐 Lịch sử đăng nhập</h1>
-        <div style="display:flex;gap:.5rem">
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <input type="date" id="loginHistoryDateFrom" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"/>
+          <input type="date" id="loginHistoryDateTo" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"/>
           <select id="loginHistoryFilterClass" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem"><option value="">Tất cả lớp</option></select>
           <button class="btn-outline" id="exportLoginHistoryBtn">⬇ Xuất CSV</button>
           <button class="btn-outline btn-danger" id="clearLoginHistoryBtn">🗑 Xóa tất cả</button>

@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Đăng Nhập</title>
+  <title>Đăng Nhập - Duy Hoàng Dạy Toán v1.2</title>
+  <link rel="icon" type="image/png" href="icons/icon-192.png"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
   <link rel="manifest" href="manifest.json"/>
   <meta name="theme-color" content="#4f46e5"/>
@@ -17,48 +19,104 @@
 <body class="auth-page" style="height:auto;min-height:100vh;display:flex;flex-direction:column;">
 
   <div class="auth-wrap" style="flex:1">
-    <div class="auth-left">
-      <div class="brand white">📐 Duy Hoàng Dạy Toán</div>
-      <h2>Bứt phá<br/>giới hạn</h2>
-      <p>Chạm tới cánh cửa đại học mơ ước cùng lộ trình học tập được cá nhân hóa.</p>
-      <div class="auth-features">
-        <div class="auth-feature-item">
-          <div class="auth-feature-icon">🎬</div>
-          <div class="auth-feature-text">
-            <div class="title">Video bài giảng HD</div>
-            <div class="sub">Học mọi lúc, mọi nơi</div>
+
+    <!-- LEFT PANEL -->
+    <div class="auth-left" style="flex:1.25">
+      <!-- Animated canvas particles -->
+      <canvas id="authCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
+
+      <!-- Floating shapes với animation -->
+      <div style="position:absolute;top:-60px;right:-60px;width:280px;height:280px;background:rgba(99,102,241,.12);border-radius:50%;pointer-events:none;animation:floatShape 8s ease-in-out infinite"></div>
+      <div style="position:absolute;bottom:-40px;left:-40px;width:200px;height:200px;background:rgba(6,182,212,.1);border-radius:50%;pointer-events:none;animation:floatShape 10s ease-in-out infinite reverse"></div>
+      <div style="position:absolute;top:35%;right:8%;width:100px;height:100px;background:rgba(165,180,252,.1);border-radius:50%;pointer-events:none;animation:floatShape 7s ease-in-out infinite 1s"></div>
+      <div style="position:absolute;top:60%;left:5%;width:60px;height:60px;background:rgba(6,182,212,.12);border-radius:50%;pointer-events:none;animation:floatShape 9s ease-in-out infinite 3s"></div>
+
+      <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;text-align:center">
+        <!-- Brand to ở giữa -->
+        <div class="brand-anim" style="margin-bottom:2rem">
+          <div style="width:80px;height:80px;border-radius:20px;overflow:hidden;margin:0 auto 1rem">
+            <img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover"/>
+          </div>
+          <div style="font-weight:900;font-size:2.2rem;letter-spacing:-.5px;line-height:1.2">Duy Hoàng Dạy Toán</div>
+          <div style="font-size:1.2rem;opacity:.65;margin-top:.35rem;font-weight:500;letter-spacing:.5px">Cần Thơ</div>
+        </div>
+
+        <!-- Headline -->
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;text-align:center">
+          <h1 style="font-size:2.4rem;font-weight:900;line-height:1.2;letter-spacing:-.5px;margin-bottom:.85rem;animation:authSlideLeft .7s ease .15s both">Bứt phá giới hạn <span style="color:#a5b4fc">của bạn</span></h1>
+          <p style="opacity:.7;font-size:.95rem;line-height:1.65;margin-bottom:2rem;max-width:300px;animation:authSlideLeft .7s ease .25s both">Hệ thống học tập trực tuyến — video HD, tài liệu chọn lọc, lộ trình cá nhân hóa.</p>
+
+          <!-- Stats -->
+          <div style="display:flex;gap:2rem;margin-bottom:2rem;animation:authSlideLeft .7s ease .35s both">
+            <div>
+              <div style="font-size:1.6rem;font-weight:900">HD</div>
+              <div style="font-size:.75rem;opacity:.6;margin-top:.1rem">Video bài giảng</div>
+            </div>
+            <div style="width:1px;background:rgba(255,255,255,.15)"></div>
+            <div>
+              <div style="font-size:1.6rem;font-weight:900">24/7</div>
+              <div style="font-size:.75rem;opacity:.6;margin-top:.1rem">Học mọi lúc</div>
+            </div>
+            <div style="width:1px;background:rgba(255,255,255,.15)"></div>
+            <div>
+              <div style="font-size:1.6rem;font-weight:900">🔒</div>
+              <div style="font-size:.75rem;opacity:.6;margin-top:.1rem">Bảo mật cao</div>
+            </div>
+          </div>
+
+          <!-- Features -->
+          <div style="display:flex;flex-direction:column;gap:.6rem;width:100%;max-width:320px;animation:authSlideLeft .7s ease .45s both">
+            <div style="display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.07);padding:.7rem 1rem;border-radius:12px;border:1px solid rgba(255,255,255,.08)">
+              <span style="font-size:1.2rem">🎬</span>
+              <div>
+                <div style="font-weight:600;font-size:.85rem">Video bài giảng HD</div>
+                <div style="font-size:.73rem;opacity:.6">Học mọi lúc, mọi nơi</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.07);padding:.7rem 1rem;border-radius:12px;border:1px solid rgba(255,255,255,.08)">
+              <span style="font-size:1.2rem">📄</span>
+              <div>
+                <div style="font-weight:600;font-size:.85rem">Tài liệu luyện thi</div>
+                <div style="font-size:.73rem;opacity:.6">Đề thi, bài tập chọn lọc</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.75rem;background:rgba(255,255,255,.07);padding:.7rem 1rem;border-radius:12px;border:1px solid rgba(255,255,255,.08)">
+              <span style="font-size:1.2rem">🏆</span>
+              <div>
+                <div style="font-weight:600;font-size:.85rem">Lộ trình cá nhân hóa</div>
+                <div style="font-size:.73rem;opacity:.6">Theo từng lớp, từng học sinh</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="auth-feature-item">
-          <div class="auth-feature-icon">📄</div>
-          <div class="auth-feature-text">
-            <div class="title">Tài liệu luyện thi</div>
-            <div class="sub">Đề thi, bài tập chọn lọc</div>
-          </div>
-        </div>
-        <div class="auth-feature-item">
-          <div class="auth-feature-icon">🏆</div>
-          <div class="auth-feature-text">
-            <div class="title">Lộ trình cá nhân hóa</div>
-            <div class="sub">Theo từng lớp, từng học sinh</div>
-          </div>
+
+        <!-- Version -->
+        <div style="margin-top:2rem">
+          <span style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);font-size:.72rem;font-weight:700;padding:.25rem .7rem;border-radius:20px;letter-spacing:.5px">v1.2</span>
         </div>
       </div>
     </div>
 
+    <!-- RIGHT PANEL -->
     <div class="auth-right">
       <div class="auth-box">
+
+        <!-- Header -->
         <div class="auth-box-header">
-          <div class="emoji">👋</div>
-          <h2>Chào mừng trở lại!</h2>
-          <p>Đăng nhập để tiếp tục học</p>
+          <div style="width:52px;height:52px;border-radius:16px;overflow:hidden;margin:0 auto .75rem;box-shadow:0 8px 24px rgba(99,102,241,.35)">
+            <img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover"/>
+          </div>
+          <h2>Đăng nhập</h2>
+          <p>Chào mừng bạn trở lại!</p>
         </div>
 
+        <!-- Tabs -->
         <div class="tab-row">
-          <button class="tab-btn active" id="tabStudent">Học Sinh</button>
-          <button class="tab-btn" id="tabTeacher">Admin</button>
+          <button class="tab-btn active" id="tabStudent">🎓 Học Sinh</button>
+          <button class="tab-btn" id="tabTeacher">⚙️ Admin</button>
         </div>
 
+        <!-- Form -->
         <form id="loginForm">
           <label id="usernameLabel">Gmail</label>
           <div class="input-icon">
@@ -71,16 +129,20 @@
             <input type="password" id="passwordInput" placeholder="Nhập mật khẩu" required/>
           </div>
           <div class="auth-row">
-            <label class="checkbox-label"><input type="checkbox"/> Ghi nhớ đăng nhập</label>
+            <label class="checkbox-label"><input type="checkbox"/> Ghi nhớ</label>
             <a href="#" class="link-muted">Quên mật khẩu?</a>
           </div>
           <div id="loginError" class="error-msg"></div>
-          <button type="submit" class="btn-primary btn-block">Đăng Nhập</button>
+          <button type="submit" class="btn-primary btn-block" style="padding:.8rem;font-size:.95rem;border-radius:12px;margin-top:.25rem">Đăng Nhập →</button>
         </form>
 
-        <p class="auth-hint">Chưa có tài khoản? Liên hệ trợ lý Trần Cường.</p>
-        <p class="auth-hint" style="margin-top:.25rem"><a href="#" id="showGuideBtn" style="color:#6c63ff">📖 Hướng dẫn sử dụng</a></p>
-        <button id="installBtn" style="display:none;width:100%;margin-top:.75rem;padding:.6rem;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;font-weight:600">📲 Tải app về máy</button>
+        <!-- Footer links -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.25rem">
+          <p class="auth-hint" style="margin:0">Chưa có tài khoản? <span style="color:var(--primary);font-weight:600">Liên hệ trợ lý</span></p>
+          <a href="#" id="showGuideBtn" style="color:var(--primary);font-size:.83rem;font-weight:600">📖 Hướng dẫn</a>
+        </div>
+
+        <button id="installBtn" style="display:none;width:100%;margin-top:.75rem;padding:.65rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:10px;font-size:.88rem;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,.3)">📲 Tải app về máy</button>
       </div>
     </div>
   </div>
@@ -348,6 +410,7 @@ if (!student.active) {
     <p>© Bản quyền thuộc về <b>Duy Hoàng Dạy Toán</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
     <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
     <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
+    <p style="margin-top:.5rem;color:#555;font-size:.72rem">Phiên bản <b style="color:#6366f1">v1.2</b></p>
   </footer>
 
   <!-- THÔNG BÁO GIÁM SÁT -->
@@ -366,6 +429,89 @@ if (!student.active) {
     <div style="color:#888;font-size:.78rem;margin-top:.5rem">Đang vào hệ thống...</div>
   </div>
   <style>@keyframes monitorBlink{0%,100%{opacity:1}50%{opacity:.2}}</style>
+
+  <style>
+    /* Auth left animations */
+    @keyframes floatShape {
+      0%,100% { transform: translateY(0) scale(1); }
+      50%      { transform: translateY(-20px) scale(1.05); }
+    }
+    @keyframes authFadeIn {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes authSlideLeft {
+      from { opacity:0; transform:translateX(-30px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+    .auth-left > * { position:relative; z-index:1; }
+    .auth-left .brand-anim  { animation: authSlideLeft .7s ease both; }
+    .auth-left .title-anim  { animation: authSlideLeft .7s ease .15s both; }
+    .auth-left .stats-anim  { animation: authSlideLeft .7s ease .3s both; }
+    .auth-left .feat-anim   { animation: authSlideLeft .7s ease .45s both; }
+    .auth-box               { animation: authFadeIn .6s ease .2s both; }
+  </style>
+
+  <script>
+    // Particles animation trên canvas
+    const canvas = document.getElementById('authCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      let W, H, particles = [];
+
+      function resize() {
+        W = canvas.width  = canvas.offsetWidth;
+        H = canvas.height = canvas.offsetHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      function rand(min, max) { return Math.random() * (max - min) + min; }
+
+      for (let i = 0; i < 40; i++) {
+        particles.push({
+          x: rand(0, W), y: rand(0, H),
+          r: rand(1, 3),
+          vx: rand(-.3, .3), vy: rand(-.5, -.1),
+          alpha: rand(.2, .6)
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(165,180,252,${p.alpha})`;
+          ctx.fill();
+
+          p.x += p.vx; p.y += p.vy;
+          if (p.y < -5) { p.y = H + 5; p.x = rand(0, W); }
+          if (p.x < -5) p.x = W + 5;
+          if (p.x > W + 5) p.x = -5;
+        });
+
+        // Vẽ đường nối giữa các particle gần nhau
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 80) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(165,180,252,${.15 * (1 - dist/80)})`;
+              ctx.lineWidth = .5;
+              ctx.stroke();
+            }
+          }
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+  </script>
 </body>
 </html>
 
