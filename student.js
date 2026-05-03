@@ -51,7 +51,27 @@ async function loadMe() {
   }
 }
 
-document.getElementById('logoutBtn').addEventListener('click', e => { e.preventDefault(); sessionStorage.clear(); location.href = 'index.html'; });
+async function setOffline() {
+  await db.from('students').update({ is_online: false, last_seen: new Date().toISOString() }).eq('username', currentUser);
+}
+
+document.getElementById('logoutBtn').addEventListener('click', async e => {
+  e.preventDefault();
+  await setOffline();
+  sessionStorage.clear();
+  location.href = 'index.html';
+});
+
+// Set offline khi đóng tab/thoát
+window.addEventListener('beforeunload', () => {
+  navigator.sendBeacon && navigator.sendBeacon('', ''); // trigger để chạy sync
+  db.from('students').update({ is_online: false, last_seen: new Date().toISOString() }).eq('username', currentUser);
+});
+
+// Heartbeat mỗi 30s để giữ trạng thái online
+setInterval(() => {
+  db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
+}, 30000);
 document.getElementById('menuToggle').addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
 
 // ---- Sidebar nav ----
@@ -82,17 +102,24 @@ async function renderHome() {
   const el = document.getElementById('homeRecentLessons');
   el.innerHTML = '';
   if (!(list||[]).length) { el.innerHTML = '<p class="muted-sm">Chưa có bài học nào.</p>'; return; }
-  for (const l of list) {
-    const [{ count:vc },{ count:dc }] = await Promise.all([
-      db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-      db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-    ]);
+
+  const ids = list.map(l=>l.id);
+  const [{ data: vids }, { data: docs }] = await Promise.all([
+    db.from('lesson_videos').select('lesson_id').in('lesson_id', ids),
+    db.from('lesson_docs').select('lesson_id').in('lesson_id', ids),
+  ]);
+  const vcMap = {}, dcMap = {};
+  (vids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
+  (docs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
+
+  list.forEach(l => {
     const row = document.createElement('div');
     row.className = 'list-row clickable';
-    row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} 🎬 ${vc||0} video • 📄 ${dc||0} tài liệu</div></div>`;
+    row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} 🎬 ${vcMap[l.id]||0} video • 📄 ${dcMap[l.id]||0} tài liệu</div></div>`;
     row.addEventListener('click', () => { showPage('lessons'); openLessonDetail(l.id); });
     el.appendChild(row);
-  }
+  });
+}
 }
 
 // ---- Danh sách bài học ----
@@ -105,10 +132,21 @@ async function renderLessonList() {
   const el = document.getElementById('sLessonList');
   el.innerHTML = '';
   document.getElementById('sEmptyLessons').style.display = (list||[]).length?'none':'block';
+  if (!(list||[]).length) return;
+
+  // Lấy tất cả video/doc counts 1 lần thay vì từng bài
+  const lessonIds = list.map(l => l.id);
+  const [{ data: allVids }, { data: allDocs }] = await Promise.all([
+    db.from('lesson_videos').select('lesson_id').in('lesson_id', lessonIds),
+    db.from('lesson_docs').select('lesson_id').in('lesson_id', lessonIds),
+  ]);
+  const vcMap = {}, dcMap = {};
+  (allVids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0) + 1; });
+  (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0) + 1; });
 
   // Gom theo nhóm
   const groups = {};
-  (list||[]).forEach(l => {
+  list.forEach(l => {
     const g = l.group_name || '📚 Bài học';
     if (!groups[g]) groups[g] = [];
     groups[g].push(l);
@@ -121,21 +159,22 @@ async function renderLessonList() {
     el.appendChild(header);
 
     const groupEl = document.createElement('div');
+    groupEl.style.display = 'none'; // Mặc định thu gọn
     header.addEventListener('click', () => {
       groupEl.style.display = groupEl.style.display === 'none' ? '' : 'none';
+      header.querySelector('span:last-child').textContent = groupEl.style.display === 'none' ? `${lessons.length} bài ▶` : `${lessons.length} bài ▼`;
     });
+    header.querySelector('span:last-child').textContent = `${lessons.length} bài ▶`;
 
-    for (const l of lessons) {
-      const [{ count:vc },{ count:dc }] = await Promise.all([
-        db.from('lesson_videos').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-        db.from('lesson_docs').select('*',{count:'exact',head:true}).eq('lesson_id',l.id),
-      ]);
+    lessons.forEach(l => {
+      const vc = vcMap[l.id] || 0;
+      const dc = dcMap[l.id] || 0;
       const row = document.createElement('div');
       row.className = 'content-row clickable';
-      row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">🎬 ${vc||0} video • 📄 ${dc||0} tài liệu${l.description?` • ${l.description}`:''}</div></div><span class="btn-sm">👁 Xem</span>`;
+      row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">🎬 ${vc} video • 📄 ${dc} tài liệu${l.description?` • ${l.description}`:''}</div></div><span class="btn-sm">👁 Xem</span>`;
       row.addEventListener('click', () => openLessonDetail(l.id));
       groupEl.appendChild(row);
-    }
+    });
     el.appendChild(groupEl);
   }
 }
