@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quản Trị - Duy Hoàng Dạy Toán v1.2</title>
+  <title>Quản Trị - Duy Hoàng Dạy Toán v1.2.1</title>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -12,9 +12,10 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="Duy Ho�ng DTCT"/>
+  <meta name="apple-mobile-web-app-title" content="Duy Hoang DTCT"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body class="dashboard-page">
 
@@ -41,7 +42,7 @@
     </nav>
     <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
     <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="margin:.4rem .75rem"><span class="slink-icon">🔗</span><span class="slink-label">Trang đăng nhập</span></a>
-    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.2</div>
+    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.2.1</div>
   </aside>
 
   <!-- MAIN -->
@@ -157,21 +158,20 @@
           <h3>Thông tin học viên</h3>
 
           <label>Mã học viên</label>
-          <input type="text" id="csCode" placeholder="VD: HV001"/>
+          <input type="text" id="csCode" placeholder="Tự động tạo..." style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
 
           <label>Họ và tên <span style="color:var(--danger)">*</span></label>
           <input type="text" id="csName" placeholder="Nhập họ và tên..."/>
 
           <label>Số điện thoại</label>
-          <input type="text" id="csPhone" placeholder="VD: 0901234567"/>
+          <input type="tel" id="csPhone" placeholder="VD: 0901234567" maxlength="10" inputmode="numeric"/>
 
           <label>Gmail (tên đăng nhập) <span style="color:var(--danger)">*</span></label>
           <input type="text" id="csUsername" placeholder="VD: hocsinh@gmail.com"/>
 
           <label>Mật khẩu <span style="color:var(--danger)">*</span></label>
           <div style="position:relative">
-            <input type="text" id="csPassword" placeholder="Nhập mật khẩu..." style="width:100%;padding-right:2.5rem"/>
-            <button type="button" id="csGenPwBtn" title="Tạo mật khẩu tự động" style="position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted)">🎲</button>
+            <input type="text" id="csPassword" placeholder="Tự động theo mã học viên" style="width:100%;background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
           </div>
 
           <label>Lớp</label>
@@ -410,50 +410,88 @@
 
   <!-- MODAL: Thông tin tài khoản vừa tạo -->
   <div class="modal-overlay" id="newAccountModal">
-    <div class="modal" style="max-width:400px;text-align:center">
-      <div style="font-size:2.5rem;margin-bottom:.25rem">🎉</div>
-      <h2 style="margin-bottom:.25rem">Tạo tài khoản thành công!</h2>
-      <p style="color:var(--muted);font-size:.85rem;margin-bottom:1.25rem">Thông tin đăng nhập của học viên</p>
+    <div class="modal" style="max-width:420px;padding:0;overflow:hidden;border-radius:20px">
 
-      <div style="background:var(--bg);border-radius:12px;padding:1.25rem;text-align:left;display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.25rem">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Họ và tên</span>
-          <span id="naName" style="font-weight:700"></span>
+      <!-- Header gradient -->
+      <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:1.75rem 1.5rem 1.25rem;text-align:center;position:relative">
+        <div style="font-size:2.8rem;margin-bottom:.4rem;filter:drop-shadow(0 2px 6px rgba(0,0,0,.2))">🎉</div>
+        <div style="color:#fff;font-size:1.15rem;font-weight:800;letter-spacing:.01em">Tài khoản đăng nhập học sinh</div>
+        <div style="color:rgba(255,255,255,.75);font-size:.8rem;margin-top:.25rem">Gửi thông tin này cho học viên</div>
+      </div>
+
+      <!-- Card thông tin -->
+      <div style="padding:1.25rem 1.5rem">
+        <div id="naInfoCard" style="background:#f8faff;border:1.5px solid #e0e7ff;border-radius:14px;overflow:hidden;margin-bottom:1rem">
+
+          <!-- Tên học viên nổi bật -->
+          <div style="background:linear-gradient(90deg,#eef2ff,#f5f3ff);padding:.9rem 1.1rem;border-bottom:1px solid #e0e7ff;display:flex;align-items:center;gap:.6rem">
+            <span style="font-size:1.3rem">👤</span>
+            <div>
+              <div style="font-size:.68rem;color:#6366f1;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Học viên</div>
+              <div id="naName" style="font-weight:800;font-size:1rem;color:#1e1b4b"></div>
+            </div>
+          </div>
+
+          <!-- Các dòng thông tin -->
+          <div style="padding:.75rem 1.1rem;display:flex;flex-direction:column;gap:.55rem">
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">Mã học viên</span>
+              <span id="naCode" style="font-family:monospace;font-size:1.05rem;font-weight:800;color:#6366f1;background:#eef2ff;padding:.15rem .6rem;border-radius:6px;letter-spacing:.08em"></span>
+            </div>
+
+            <div style="height:1px;background:#e0e7ff"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">Mật khẩu</span>
+              <span id="naPassword" style="font-family:monospace;font-size:1.05rem;font-weight:800;color:#6366f1;background:#eef2ff;padding:.15rem .6rem;border-radius:6px;letter-spacing:.08em"></span>
+            </div>
+
+            <div style="height:1px;background:#e0e7ff"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">Gmail đăng nhập</span>
+              <span id="naUsername" style="font-weight:600;font-size:.82rem;color:#1e293b"></span>
+            </div>
+
+            <div style="height:1px;background:#e0e7ff"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">Lớp</span>
+              <span id="naClass" style="font-weight:700;color:#1e293b"></span>
+            </div>
+
+            <div style="height:1px;background:#e0e7ff"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">Khai giảng</span>
+              <span id="naStartDate" style="font-weight:600;color:#059669;font-size:.85rem">Chưa có</span>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">Kết thúc</span>
+              <span id="naEndDate" style="font-weight:600;color:#dc2626;font-size:.85rem">Chưa có</span>
+            </div>
+
+            <div style="height:1px;background:#e0e7ff"></div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.78rem;color:#64748b;font-weight:600">SĐT</span>
+              <span id="naPhone" style="font-weight:600;color:#1e293b"></span>
+            </div>
+
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Mã học viên</span>
-          <span id="naCode" style="font-weight:700;font-family:monospace;font-size:1rem;color:var(--primary)"></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Gmail (đăng nhập)</span>
-          <span id="naUsername" style="font-weight:600;font-size:.88rem"></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Mật khẩu</span>
-          <span id="naPassword" style="font-weight:700;font-family:monospace;font-size:1rem;color:var(--primary)"></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Lớp</span>
-          <span id="naClass" style="font-weight:600"></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Ngày khai giảng</span>
-          <span id="naStartDate" style="font-weight:600;color:var(--success)">—</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">Ngày kết thúc</span>
-          <span id="naEndDate" style="font-weight:600;color:var(--danger)">—</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.8rem;color:var(--muted);font-weight:600">SĐT</span>
-          <span id="naPhone" style="font-weight:600"></span>
+
+        <!-- Nút hành động -->
+        <div class="modal-actions" style="justify-content:center;gap:.6rem;padding:0">
+          <button class="btn-outline" id="naCopyBtn" style="flex:1;font-size:.85rem">📋 Sao chép</button>
+          <button class="btn-outline" id="naShareBtn" style="flex:1;font-size:.85rem">📤 Chia sẻ</button>
+          <button class="btn-outline" id="naCancelBtn" style="flex:1;font-size:.85rem;color:var(--danger,#ef4444);border-color:var(--danger,#ef4444)">✕ Hủy</button>
+          <button class="btn-primary" id="naCloseBtn" style="flex:1;font-size:.85rem">✅ Xong</button>
         </div>
       </div>
 
-      <div class="modal-actions" style="justify-content:center;gap:.75rem">
-        <button class="btn-outline" id="naCopyBtn">📋 Sao chép</button>
-        <button class="btn-primary" id="naCloseBtn">✅ Xong</button>
-      </div>
     </div>
   </div>
 
@@ -462,7 +500,9 @@
     <div class="modal">
       <h2>Chỉnh sửa tài khoản</h2>
       <label>Mã học viên</label>
-      <input type="text" id="esCode" placeholder="Mã học viên..."/>
+      <input type="text" id="esCode" placeholder="Mã học viên..." style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
+      <label>Mật khẩu <span class="muted">(= mã học viên, không thể thay đổi)</span></label>
+      <input type="text" id="esPassword" placeholder="Tự động theo mã học viên" style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
       <label>Họ và tên</label>
       <input type="text" id="esName" placeholder="Họ và tên..."/>
       <label>Gmail (tên đăng nhập)</label>
@@ -500,15 +540,15 @@
     <div class="modal">
       <h2>Thêm học sinh</h2>
       <label>Mã học viên</label>
-      <input type="text" id="addCode" placeholder="VD: HV001..."/>
+      <input type="text" id="addCode" placeholder="Tự động tạo..." style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
       <label>Họ và tên</label>
       <input type="text" id="addName" placeholder="Nhập họ và tên..."/>
       <label>Số điện thoại</label>
-      <input type="text" id="addPhone" placeholder="Nhập số điện thoại..."/>
+      <input type="tel" id="addPhone" placeholder="Nhập số điện thoại..." maxlength="10" inputmode="numeric"/>
       <label>Gmail (tên đăng nhập)</label>
       <input type="text" id="addUsername" placeholder="VD: hocsinh@gmail.com"/>
       <label>Số báo danh (mật khẩu)</label>
-      <input type="text" id="addPassword" placeholder="Nhập số báo danh..."/>
+      <input type="text" id="addPassword" placeholder="Tự động theo mã học viên" style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
       <label>Lớp</label>
       <select id="addClass"><option value="">-- Chọn lớp --</option></select>
       <label>Ngày hết hạn <span class="muted">(để trống = không giới hạn)</span></label>

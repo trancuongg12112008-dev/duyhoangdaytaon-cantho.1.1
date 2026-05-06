@@ -29,8 +29,8 @@ async function loadMe() {
   const av = document.getElementById('profileAvatar');
   if (av) av.textContent = (currentName||'?')[0].toUpperCase();
   const el = id => document.getElementById(id);
-  if (el('profileClass'))    el('profileClass').textContent    = myClass ? `Lớp: ${myClass}` : '';
-  if (el('profileCode'))     el('profileCode').textContent     = data?.student_code || '—';
+  if (el('profileClass'))    el('profileClass').textContent    = myClass ? `🎓 Lớp: ${myClass}` : '';
+  if (el('profileCode'))     el('profileCode').textContent     = data?.student_code ? `Mã HV: ${data.student_code}` : '';
   if (el('profileUsername')) el('profileUsername').textContent = data?.username || '—';
   if (el('profileCreated'))  el('profileCreated').textContent  = data?.created_at ? fmt(data.created_at) : '—';
 
@@ -119,12 +119,26 @@ setInterval(() => {
   db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
 }, 15000);
 document.getElementById('menuToggle').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebarBackdrop').classList.toggle('show');
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarBackdrop').classList.toggle('show');
+  } else {
+    document.body.classList.remove('sidebar-collapsed');
+  }
 });
 document.getElementById('sidebarBackdrop').addEventListener('click', () => {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarBackdrop').classList.remove('show');
+});
+document.getElementById('sidebarClose').addEventListener('click', () => {
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+  } else {
+    document.body.classList.add('sidebar-collapsed');
+  }
 });
 
 // ---- Sidebar nav ----
@@ -133,12 +147,13 @@ function showPage(pg) {
   currentSection = pg;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.slink').forEach(l => l.classList.remove('active'));
-  const map = { home:'Home', lessons:'Lessons', profile:'Profile', guide:'Guide' };
+  const map = { home:'Home', lessons:'Lessons', profile:'Profile', guide:'Guide', notifications:'Notifications' };
   const el = document.getElementById('page' + (map[pg] || pg.charAt(0).toUpperCase()+pg.slice(1)));
   if (el) el.classList.add('active');
   document.querySelectorAll(`[data-page="${pg}"]`).forEach(l => l.classList.add('active'));
-  if (pg === 'home')    renderHome();
-  if (pg === 'lessons') renderLessonList();
+  if (pg === 'home')          renderHome();
+  if (pg === 'lessons')       renderLessonList();
+  if (pg === 'notifications') renderNotifications();
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
   l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); });
@@ -289,9 +304,15 @@ async function renderLessonList() {
       lessonList.classList.add('open');
     }
 
-    function loadLessons() {
+    async function loadLessons() {
       if (inner.dataset.loaded) return;
       inner.dataset.loaded = '1';
+
+      // Lấy danh sách yêu thích của user
+      const { data: favData } = await db.from('lesson_favorites')
+        .select('lesson_id').eq('username', currentUser);
+      const favSet = new Set((favData||[]).map(f => f.lesson_id));
+
       lessons.forEach((l, idx) => {
         const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
         const item = document.createElement('div');
@@ -299,11 +320,31 @@ async function renderLessonList() {
         const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx+1;
         const info = document.createElement('div'); info.className = 'group-lesson-info';
         info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">\uD83D\uDCDA</span>${l.name}</div><div class="group-lesson-stats"><span>\uD83C\uDFAC ${vc}</span><span>\uD83D\uDCC4 ${dc}</span></div>`;
+
+        // Nút tim yêu thích
+        const favBtn = document.createElement('button');
+        favBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:1.1rem;padding:.2rem .3rem;flex-shrink:0;line-height:1;transition:transform .15s';
+        favBtn.textContent = favSet.has(l.id) ? '❤️' : '🤍';
+        favBtn.title = favSet.has(l.id) ? 'Bỏ yêu thích' : 'Yêu thích';
+        favBtn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const nowFav = favBtn.textContent === '❤️';
+          favBtn.style.transform = 'scale(1.4)';
+          setTimeout(() => { favBtn.style.transform = ''; }, 200);
+          if (nowFav) {
+            favBtn.textContent = '🤍'; favBtn.title = 'Yêu thích';
+            await db.from('lesson_favorites').delete().eq('username', currentUser).eq('lesson_id', l.id);
+          } else {
+            favBtn.textContent = '❤️'; favBtn.title = 'Bỏ yêu thích';
+            await db.from('lesson_favorites').insert({ username: currentUser, lesson_id: l.id });
+          }
+        });
+
         const openBtn = document.createElement('button');
         openBtn.className = 'group-lesson-open';
         openBtn.textContent = String.fromCharCode(8594);
         openBtn.addEventListener('click', e => { e.stopPropagation(); openLessonDetail(l.id); });
-        item.appendChild(num); item.appendChild(info); item.appendChild(openBtn);
+        item.appendChild(num); item.appendChild(info); item.appendChild(favBtn); item.appendChild(openBtn);
         item.addEventListener('click', () => openLessonDetail(l.id));
         inner.appendChild(item);
       });
@@ -468,27 +509,41 @@ function openViewer(title, url, fileName, fileType) {
   const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
   dl.href=url; dl.download=fileName||title;
 
+  const loadingHTML = `<div id="viewerLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;background:#0f172a;z-index:10;border-radius:10px">
+    <div style="width:40px;height:40px;border:3px solid rgba(99,102,241,.3);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite"></div>
+    <div style="color:rgba(255,255,255,.7);font-size:.88rem;font-weight:600">${isVideo||isLink ? '⏳ Đang tải video...' : '⏳ Đang tải tài liệu...'}</div>
+  </div>`;
+
+  function wrapWithLoading(html) {
+    return `<div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column">${loadingHTML}${html}</div>`;
+  }
+  function hideLoading(el) {
+    const ld = document.getElementById('viewerLoading');
+    if (ld) ld.remove();
+  }
+
   if (isDocLink || isHandwrittenLink) {
     const dlUrl = getDownloadUrl(url);
     if (dlUrl) { dl.style.display=''; dl.href=dlUrl; dl.removeAttribute('download'); dl.target='_blank'; }
     else { dl.style.display='none'; }
     const embed = getEmbedUrl(url);
-    if (embed) body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
-    else body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
+    const src = embed || url;
+    body.innerHTML = wrapWithLoading(`<iframe src="${src}" style="flex:1;width:100%;height:100%;border:none;border-radius:8px" allowfullscreen onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
   } else if (isLink) {
     dl.style.display = 'none';
     const embed = getEmbedUrl(url);
     if (embed) {
-      body.innerHTML=`<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .85rem;border-radius:8px;margin-bottom:.5rem;font-size:.8rem;color:#92400e">💡 Video bị mờ? Nhấn ⚙️ trong góc video → chọn <b>Chất lượng</b> → tăng lên <b>720p hoặc 1080p</b></div><iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+      body.innerHTML = `<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .85rem;border-radius:8px;margin-bottom:.5rem;font-size:.8rem;color:#92400e;flex-shrink:0">💡 Video bị mờ? Nhấn ⚙️ trong góc video → chọn <b>Chất lượng</b> → tăng lên <b>720p hoặc 1080p</b></div>`
+        + wrapWithLoading(`<iframe src="${embed}" style="flex:1;width:100%;height:100%;border:none;border-radius:8px" allowfullscreen onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
     } else {
-      body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
+      body.innerHTML = wrapWithLoading(`<iframe src="${url}" style="flex:1;width:100%;height:100%;border:none;border-radius:8px" onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
     }
   } else if (isVideo) {
     dl.style.display = 'none';
-    body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" style="width:100%;max-height:70vh;background:#000" playsinline></video>`;
+    body.innerHTML = wrapWithLoading(`<video src="${url}" controls controlsList="nodownload noremoteplayback" oncontextmenu="return false" style="flex:1;width:100%;background:#000" playsinline oncanplay="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></video>`);
     if (window.innerWidth < 768 && window.innerHeight > window.innerWidth) {
       const tip = document.createElement('div');
-      tip.style.cssText = 'background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;text-align:center;';
+      tip.style.cssText = 'background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;text-align:center;flex-shrink:0';
       tip.textContent = '📱 Vui lòng chuyển điện thoại sang ngang để có trải nghiệm học tốt nhất';
       body.insertBefore(tip, body.firstChild);
       const onOrient = () => { if (window.innerWidth > window.innerHeight) { tip.remove(); window.removeEventListener('resize', onOrient); } };
@@ -496,10 +551,10 @@ function openViewer(title, url, fileName, fileType) {
     }
   } else if (fileType==='application/pdf') {
     dl.style.display = '';
-    body.innerHTML=`<iframe src="${url}" class="viewer-iframe"></iframe>`;
+    body.innerHTML = wrapWithLoading(`<iframe src="${url}" class="viewer-iframe" onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
   } else if ((fileType||'').startsWith('image/')) {
     dl.style.display = '';
-    body.innerHTML=`<img src="${url}" class="viewer-img" alt="${title}"/>`;
+    body.innerHTML = wrapWithLoading(`<img src="${url}" class="viewer-img" alt="${title}" onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"/>`);
   } else {
     dl.style.display = '';
     body.innerHTML=`<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>`;
@@ -515,7 +570,7 @@ function closeViewer() {
 }
 
 // ---- Init ----
-loadMe().then(() => renderHome());
+loadMe().then(() => { renderHome(); checkNewNotifications(); });
 
 // Realtime: lắng nghe thay đổi active của tài khoản này
 db.channel('student-lock-' + currentUser)
@@ -546,18 +601,91 @@ db.channel('student-lock-' + currentUser)
   .subscribe();
 
 // Realtime: lắng nghe thông báo mới từ admin
-db.channel('announcements-realtime')
-  .on('postgres_changes', {
-    event: '*',
-    schema: 'public',
-    table: 'announcements'
-  }, () => {
-    // Reload thông báo nếu đang ở trang chủ
-    if (document.getElementById('pageHome')?.classList.contains('active')) {
-      renderHome();
+// ============================================================
+// THÔNG BÁO RIÊNG
+// ============================================================
+
+async function renderNotifications() {
+  const [{ data: anns }, { data: reads }] = await Promise.all([
+    db.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
+    db.from('notification_reads').select('announcement_id').eq('username', currentUser)
+  ]);
+
+  const readSet = new Set((reads || []).map(r => r.announcement_id));
+  const myAnns = (anns || []).filter(a => !a.class_name || a.class_name === myClass);
+  const list = document.getElementById('notiPageList');
+  const empty = document.getElementById('notiPageEmpty');
+  if (!list) return;
+
+  if (!myAnns.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = '';
+
+  myAnns.forEach(a => {
+    const isRead = readSet.has(a.id);
+    const card = document.createElement('div');
+    card.style.cssText = `background:${isRead ? 'var(--card)' : (a.pinned ? '#fffbeb' : '#f0f4ff')};border:1.5px solid ${isRead ? 'var(--border)' : (a.pinned ? '#f59e0b' : '#6366f1')};border-radius:14px;padding:1rem 1.1rem;box-shadow:var(--shadow);cursor:pointer;transition:opacity .2s;opacity:${isRead ? '.7' : '1'}`;
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
+        ${a.pinned ? '<span style="background:#fef3c7;color:#d97706;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">📌 Ghim</span>' : ''}
+        ${a.class_name ? `<span class="class-tag" style="font-size:.72rem">${a.class_name}</span>` : '<span style="background:#e0f2fe;color:#0369a1;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Tất cả lớp</span>'}
+        ${!isRead ? '<span style="width:8px;height:8px;background:#ef4444;border-radius:50%;flex-shrink:0;margin-left:2px"></span>' : ''}
+        <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${new Date(a.created_at).toLocaleDateString('vi-VN')}</span>
+      </div>
+      <div style="font-weight:${isRead ? '600' : '800'};font-size:.95rem;margin-bottom:.35rem;color:${isRead ? 'var(--muted)' : 'var(--text)'}">${a.title}</div>
+      <div style="font-size:.85rem;color:var(--text);line-height:1.7">${a.content}</div>
+      ${!isRead ? '<div style="margin-top:.6rem;font-size:.75rem;color:#6366f1;font-weight:600">Nhấn để đánh dấu đã đọc ✓</div>' : '<div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">✓ Đã đọc</div>'}
+    `;
+    if (!isRead) {
+      card.addEventListener('click', async () => {
+        await db.from('notification_reads').upsert({ username: currentUser, announcement_id: a.id }, { onConflict: 'username,announcement_id' });
+        readSet.add(a.id);
+        renderNotifications();
+        checkNewNotifications();
+      });
     }
-    // Hiện toast thông báo mới
-    showAnnouncementToast();
+    list.appendChild(card);
+  });
+
+  updateNotiBadge(false);
+}
+
+function updateNotiBadge(hasNew) {
+  const badge = document.getElementById('notiBadge');
+  const dot = document.getElementById('sidebarNotiDot');
+  if (badge) badge.style.display = hasNew ? 'block' : 'none';
+  if (dot) dot.style.display = hasNew ? 'block' : 'none';
+}
+
+async function checkNewNotifications() {
+  const { data: anns } = await db.from('announcements')
+    .select('id, class_name').order('created_at', { ascending: false });
+  const myAnns = (anns || []).filter(a => !a.class_name || a.class_name === myClass);
+  if (!myAnns.length) { updateNotiBadge(false); return; }
+
+  const { data: reads } = await db.from('notification_reads')
+    .select('announcement_id').eq('username', currentUser);
+  const readSet = new Set((reads || []).map(r => r.announcement_id));
+  const hasUnread = myAnns.some(a => !readSet.has(a.id));
+  updateNotiBadge(hasUnread);
+}
+
+// Nút chuông trên topbar
+document.getElementById('notiBtn').addEventListener('click', () => showPage('notifications'));
+
+// Realtime thông báo
+db.channel('announcements-realtime')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+    if (document.getElementById('pageHome')?.classList.contains('active')) renderHome();
+    if (document.getElementById('pageNotifications')?.classList.contains('active')) renderNotifications();
+    else {
+      updateNotiBadge(true);
+      showAnnouncementToast();
+    }
   })
   .subscribe();
 

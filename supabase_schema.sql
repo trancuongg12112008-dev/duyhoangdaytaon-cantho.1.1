@@ -129,3 +129,66 @@ create table if not exists access_logs (
   accessed_at  timestamptz default now()
 );
 alter table access_logs disable row level security;
+
+-- Bảng đánh dấu video đã xem
+create table if not exists lesson_views (
+  id         bigint generated always as identity primary key,
+  username   text not null,
+  video_id   bigint references lesson_videos(id) on delete cascade,
+  viewed_at  timestamptz default now(),
+  unique(username, video_id)
+);
+alter table lesson_views disable row level security;
+
+-- ============================================================
+-- MIGRATION: Thêm session_token vào students
+-- ============================================================
+alter table students add column if not exists session_token text default null;
+
+-- ============================================================
+-- Bảng thông báo (announcements)
+-- ============================================================
+create table if not exists announcements (
+  id         bigint generated always as identity primary key,
+  title      text not null,
+  content    text not null,
+  class_name text default null,   -- null = gửi tất cả lớp
+  pinned     boolean default false,
+  created_at timestamptz default now()
+);
+alter table announcements disable row level security;
+
+-- ============================================================
+-- Bật Realtime cho các bảng cần cập nhật tức thì
+-- (Chạy trong Supabase Dashboard > Database > Replication)
+-- ============================================================
+-- alter publication supabase_realtime add table students;
+-- alter publication supabase_realtime add table announcements;
+-- alter publication supabase_realtime add table lessons;
+-- alter publication supabase_realtime add table lesson_videos;
+-- alter publication supabase_realtime add table lesson_docs;
+-- alter publication supabase_realtime add table lesson_groups;
+
+-- ============================================================
+-- Bảng yêu thích bài học
+-- ============================================================
+create table if not exists lesson_favorites (
+  id         bigint generated always as identity primary key,
+  username   text not null,
+  lesson_id  bigint references lessons(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique(username, lesson_id)
+);
+alter table lesson_favorites disable row level security;
+
+-- ============================================================
+-- Bảng đánh dấu thông báo đã đọc
+-- ============================================================
+create table if not exists notification_reads (
+  id             bigint generated always as identity primary key,
+  username       text not null,
+  announcement_id bigint references announcements(id) on delete cascade,
+  read_at        timestamptz default now(),
+  unique(username, announcement_id)
+);
+alter table notification_reads disable row level security;

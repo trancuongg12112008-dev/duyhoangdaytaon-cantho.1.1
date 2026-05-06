@@ -1,6 +1,7 @@
 ﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+canvas { display: block; }
 
 :root {
   --primary: #6366f1;
@@ -271,7 +272,11 @@ body.dashboard-page { display: flex; min-height: 100vh; background: var(--bg); }
 .slink-logout:hover { color: #fca5a5; background: rgba(239,68,68,.15); }
 
 /* Main */
-.dash-main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.dash-main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; transition: margin-left .3s; }
+
+/* Sidebar collapsed (desktop) */
+body.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+body.sidebar-collapsed .dash-main { margin-left: 0; }
 
 /* Topbar */
 .topbar {
@@ -296,7 +301,7 @@ body.dashboard-page { display: flex; min-height: 100vh; background: var(--bg); }
   }
 }
 
-.menu-toggle { display: none; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text); }
+.menu-toggle { display: block; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text); }
 .topbar-right { display: flex; align-items: center; gap: 1rem; }
 .avatar-info { display: flex; align-items: center; gap: .75rem; }
 
@@ -672,10 +677,25 @@ body.dashboard-page { display: flex; min-height: 100vh; background: var(--bg); }
 .preview-wrap video { width: 100%; border-radius: 10px; max-height: 200px; background: #000; }
 
 /* Viewer modal */
-.viewer-modal { max-width: 820px; position: relative; }
-.viewer-video { width: 100%; border-radius: 10px; background: #000; max-height: 420px; }
-.viewer-iframe { width: 100%; height: 70vh; border: none; border-radius: 10px; }
-.viewer-img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; }
+.viewer-modal {
+  width: 88vw !important;
+  max-width: 88vw !important;
+  min-width: 0 !important;
+  height: 95vh !important;
+  max-height: 95vh !important;
+  position: relative;
+  padding: .75rem !important;
+  overflow: hidden;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.viewer-modal h2 { font-size: .95rem; margin-bottom: 0; flex-shrink: 0; }
+#viewerBody { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0f172a; border-radius: 10px; overflow: hidden; }
+#viewerBody iframe, #viewerBody video, #viewerBody img { flex: 1; min-height: 0; width: 100%; height: 100% !important; border: none; border-radius: 10px; background: #0f172a; }
+#viewerBody video { background: #000; }
+.viewer-video { width: 100%; border-radius: 10px; background: #000; max-height: 90vh; }
+.viewer-iframe { width: 100%; height: 100% !important; border: none; border-radius: 10px; }
+.viewer-img { width: 100%; max-height: 90vh; object-fit: contain; border-radius: 10px; }
 .muted-center { text-align: center; padding: 3rem 1rem; color: var(--muted); }
 
 /* ===================== MISC ===================== */
@@ -794,6 +814,12 @@ body.dashboard-page { -webkit-user-select: none; user-select: none; }
 @keyframes badgePop {
   0%   { transform: scale(0); }
   70%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
   100% { transform: scale(1); }
 }
 
@@ -1047,7 +1073,6 @@ body.landing { background: #fff; }
 
   /* Modal */
   .modal { padding: 1.25rem; border-radius: 16px; }
-  .viewer-modal { max-width: 100vw !important; width: 100vw !important; max-height: 100vh !important; border-radius: 0; margin: 0; }
 
   /* Profile card */
   .profile-card { flex-direction: column; text-align: center; padding: 1.25rem; }
@@ -1140,4 +1165,278 @@ body.landing { background: #fff; }
 @keyframes slideInRight {
   from { transform: translateX(120%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
+}
+
+
+/* ===================== MOBILE OPTIMIZATION v2 ===================== */
+
+/* --- Topbar --- */
+@media (max-width: 768px) {
+  .topbar {
+    height: 54px;
+    padding: 0 .85rem;
+    gap: .5rem;
+  }
+  .av-name { font-size: .82rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .avatar { width: 34px; height: 34px; font-size: .72rem; }
+}
+
+/* --- Sidebar mobile --- */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 260px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar-nav { padding: .5rem; gap: .1rem; }
+  .slink { padding: .6rem .85rem; font-size: .85rem; }
+  .slink-icon { font-size: .95rem; }
+}
+
+/* --- Pages --- */
+@media (max-width: 768px) {
+  .page { padding: .85rem .85rem 2rem; }
+  .page-title { font-size: 1.15rem; margin-bottom: 1rem; }
+
+  /* Page header buttons stack */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .6rem;
+  }
+  .page-header .page-title { margin-bottom: 0; }
+  .page-header > div,
+  .page-header > button {
+    width: 100%;
+  }
+  .page-header > div { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .page-header > div .btn-primary,
+  .page-header > div .btn-outline { flex: 1; justify-content: center; min-width: 0; }
+}
+
+/* --- Stat cards --- */
+@media (max-width: 480px) {
+  .stat-card { padding: .85rem .9rem; gap: .6rem; border-radius: 12px; }
+}
+
+/* --- Data table mobile --- */
+@media (max-width: 768px) {
+  .data-table { font-size: .78rem; border-radius: 10px; }
+  .data-table th, .data-table td { padding: .55rem .65rem; }
+  /* Ẩn bớt cột ít quan trọng */
+  .data-table th:nth-child(3),
+  .data-table td:nth-child(3),
+  .data-table th:nth-child(6),
+  .data-table td:nth-child(6) { display: none; }
+}
+
+@media (max-width: 480px) {
+  .data-table th:nth-child(4),
+  .data-table td:nth-child(4) { display: none; }
+}
+
+/* --- Filter bar --- */
+@media (max-width: 768px) {
+  .filter-bar { flex-direction: column; gap: .5rem; }
+  .filter-bar input,
+  .filter-bar select { width: 100%; padding: .6rem .9rem; font-size: .88rem; }
+}
+
+/* --- Content rows --- */
+@media (max-width: 480px) {
+  .content-row { padding: .8rem 1rem; gap: .6rem; border-radius: 12px; }
+  .row-actions { gap: .35rem; }
+  .row-actions .btn-sm { padding: .25rem .55rem; font-size: .75rem; }
+}
+
+/* --- Video grid --- */
+@media (max-width: 768px) {
+  .video-grid { grid-template-columns: 1fr; gap: .85rem; }
+  .video-thumb { height: 180px; }
+}
+
+/* --- Modal mobile --- */
+@media (max-width: 768px) {
+  .modal-overlay { padding: .5rem; align-items: flex-end; }
+  .modal {
+    border-radius: 20px 20px 0 0;
+    max-height: 92vh;
+    padding: 1.5rem 1.25rem 2rem;
+    gap: .75rem;
+  }
+  .modal h2 { font-size: 1.05rem; }
+  .modal input, .modal select, .modal textarea { padding: .6rem .85rem; font-size: .9rem; }
+  .modal-actions { flex-direction: column-reverse; gap: .5rem; }
+  .modal-actions .btn-primary,
+  .modal-actions .btn-outline { width: 100%; justify-content: center; }
+
+  /* Viewer modal full screen */
+  .viewer-modal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    padding: .5rem !important;
+  }
+}
+
+/* --- Overview panels --- */
+@media (max-width: 768px) {
+  .overview-panel { padding: 1rem; border-radius: 12px; }
+  .panel-header { font-size: .88rem; }
+}
+
+/* --- Form panel --- */
+@media (max-width: 768px) {
+  .form-panel { padding: 1rem; border-radius: 12px; gap: .6rem; }
+  .form-panel h3 { font-size: .95rem; }
+  .form-panel input,
+  .form-panel select,
+  .form-panel textarea { padding: .6rem .85rem; font-size: .9rem; }
+}
+
+/* --- Mini table --- */
+@media (max-width: 768px) {
+  .mini-table { font-size: .78rem; }
+  .mini-table th, .mini-table td { padding: .5rem .6rem; }
+  /* Ẩn cột SĐT và Gmail trong mini table */
+  .mini-table th:nth-child(3),
+  .mini-table td:nth-child(3),
+  .mini-table th:nth-child(4),
+  .mini-table td:nth-child(4) { display: none; }
+}
+
+/* --- Group accordion mobile --- */
+@media (max-width: 480px) {
+  .group-card-header { padding: .7rem .85rem; gap: .6rem; }
+  .group-card-icon { width: 30px; height: 30px; font-size: .9rem; border-radius: 8px; }
+  .group-card-name { font-size: .85rem; }
+  .group-lesson-item { padding: .5rem .6rem; gap: .55rem; }
+  .group-lesson-title { font-size: .82rem; }
+  .group-lesson-stats { font-size: .68rem; }
+  .group-card-actions { opacity: 1; } /* Luôn hiện trên mobile */
+  .group-lesson-item-actions { opacity: 1; }
+}
+
+/* --- Student page hero banner --- */
+@media (max-width: 768px) {
+  #heroBanner { padding: 1.25rem; border-radius: 14px; margin-bottom: 1rem; }
+  #heroBanner h1.page-title { font-size: 1.2rem !important; }
+  #homeAvatar { width: 52px !important; height: 52px !important; font-size: 1.3rem !important; }
+}
+
+@media (max-width: 480px) {
+  #heroBanner { padding: 1rem; border-radius: 12px; }
+  #heroBanner > div > div:first-child { gap: .85rem !important; margin-bottom: .85rem !important; }
+  /* Quick stats wrap */
+  #heroBanner > div > div:last-child { gap: .5rem !important; }
+  #heroBanner > div > div:last-child > div { padding: .4rem .7rem !important; font-size: .72rem !important; }
+}
+
+/* --- Student home grid (lưu ý + hướng dẫn) --- */
+@media (max-width: 600px) {
+  /* Force stack dọc cho grid 1fr 1fr trong pageHome */
+  #pageHome > div[style*="grid-template-columns:1fr 1fr"],
+  #pageHome > div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Profile page mobile --- */
+@media (max-width: 768px) {
+  /* Profile info grid 2 cột → 1 cột trên rất nhỏ */
+  #pageProfile > div[style*="grid-template-columns:1fr 1fr"],
+  #pageProfile > div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Profile header */
+  #pageProfile > div:first-child { padding: 1.25rem !important; border-radius: 14px !important; }
+  #profileAvatar { width: 58px !important; height: 58px !important; font-size: 1.4rem !important; }
+  #profileName { font-size: 1.1rem !important; }
+}
+
+/* --- Access stats / login history filter bar --- */
+@media (max-width: 768px) {
+  #pageAccessStats .page-header > div,
+  #pageLoginHistory .page-header > div {
+    flex-direction: column;
+    width: 100%;
+  }
+  #pageAccessStats .page-header input[type="date"],
+  #pageAccessStats .page-header select,
+  #pageLoginHistory .page-header input[type="date"],
+  #pageLoginHistory .page-header select {
+    width: 100% !important;
+    font-size: .85rem !important;
+  }
+  #pageAccessStats .page-header .btn-outline,
+  #pageLoginHistory .page-header .btn-outline,
+  #pageLoginHistory .page-header .btn-danger { width: 100%; justify-content: center; }
+
+  /* Stat grid 3 cột → 1 cột */
+  #accessStatGrid,
+  #loginHistoryStats {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Announcements two-col --- */
+@media (max-width: 768px) {
+  #pageAnnouncements .two-col { grid-template-columns: 1fr; }
+}
+
+/* --- Buttons --- */
+@media (max-width: 480px) {
+  .btn-primary, .btn-outline { padding: .55rem .9rem; font-size: .82rem; border-radius: 9px; }
+  .btn-sm { padding: .25rem .55rem; font-size: .75rem; }
+}
+
+/* --- Scrollbar ẩn trên mobile --- */
+@media (max-width: 768px) {
+  .sidebar-nav::-webkit-scrollbar { display: none; }
+  .sidebar-nav { scrollbar-width: none; }
+  .modal::-webkit-scrollbar { width: 4px; }
+  .modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+}
+
+/* --- Touch targets tối thiểu 44px --- */
+@media (max-width: 768px) {
+  .slink { min-height: 44px; }
+  .btn-primary, .btn-outline { min-height: 40px; }
+  .tab-btn { min-height: 40px; }
+  .menu-toggle { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+}
+
+/* --- Prevent horizontal overflow --- */
+@media (max-width: 768px) {
+  body { overflow-x: hidden; }
+  .dash-main { overflow-x: hidden; }
+  .page { overflow-x: hidden; }
+}
+
+/* --- Class grid mobile --- */
+@media (max-width: 768px) {
+  #classGrid { grid-template-columns: 1fr 1fr !important; gap: .75rem; }
+}
+@media (max-width: 480px) {
+  #classGrid { grid-template-columns: 1fr !important; }
+}
+
+/* --- Lesson detail two-col --- */
+@media (max-width: 768px) {
+  #pageLessons .two-col { grid-template-columns: 1fr; gap: 1rem; }
+}
+
+/* --- Online student list wrap --- */
+@media (max-width: 480px) {
+  #onlineStudentList { gap: .35rem !important; }
+}
+
+/* --- Footer mobile --- */
+@media (max-width: 768px) {
+  footer { font-size: .7rem !important; padding: 1.25rem .85rem !important; line-height: 1.7 !important; }
 }

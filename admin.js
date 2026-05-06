@@ -4,6 +4,58 @@ const db = supabase.createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
 );
 
+// ---- Gmail validation ----
+function isValidGmail(val) {
+  return /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i.test(val.trim());
+}
+function attachGmailValidation(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('blur', () => {
+    const val = el.value.trim();
+    if (val && !isValidGmail(val)) {
+      el.style.borderColor = 'var(--danger, #ef4444)';
+      let hint = el.nextElementSibling;
+      if (!hint || !hint.classList.contains('gmail-hint')) {
+        hint = document.createElement('small');
+        hint.className = 'gmail-hint';
+        hint.style.cssText = 'color:var(--danger,#ef4444);font-size:.78rem;margin-top:2px;display:block';
+        el.insertAdjacentElement('afterend', hint);
+      }
+      hint.textContent = 'Gmail không hợp lệ. VD: hocsinh@gmail.com';
+    } else {
+      el.style.borderColor = '';
+      const hint = el.nextElementSibling;
+      if (hint && hint.classList.contains('gmail-hint')) hint.remove();
+    }
+  });
+  el.addEventListener('input', () => {
+    el.style.borderColor = '';
+    const hint = el.nextElementSibling;
+    if (hint && hint.classList.contains('gmail-hint')) hint.remove();
+  });
+}
+
+// ---- Phone input: chỉ cho nhập số, tự bỏ chữ, tối đa 10 số ----
+function enforcePhoneInput(e) {
+  const input = e.target;
+  const pos = input.selectionStart;
+  const cleaned = input.value.replace(/\D/g, '').slice(0, 10);
+  if (input.value !== cleaned) {
+    input.value = cleaned;
+    // giữ vị trí con trỏ
+    const newPos = Math.min(pos, cleaned.length);
+    input.setSelectionRange(newPos, newPos);
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  ['csPhone', 'addPhone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', enforcePhoneInput);
+  });
+  ['csUsername', 'addUsername', 'esUsername'].forEach(attachGmailValidation);
+});
+
 // ---- Custom confirm popup ----
 function showConfirm(message, onOk, { title='Xác nhận xóa', icon='🗑', okText='Xóa' } = {}) {
   document.getElementById('confirmIcon').textContent = icon;
@@ -405,13 +457,18 @@ async function populateCsClassSelect() {
   el.value = cur;
 }
 
-document.getElementById('csGenPwBtn').addEventListener('click', () => {
+document.getElementById('csGenPwBtn') && document.getElementById('csGenPwBtn').addEventListener('click', () => {
   document.getElementById('csPassword').value = Math.random().toString(36).slice(2,8).toUpperCase();
 });
 
-// Mã học viên = mật khẩu tự động
+// Mã học viên = mật khẩu tự động (readonly)
 document.getElementById('csCode').addEventListener('input', () => {
   document.getElementById('csPassword').value = document.getElementById('csCode').value;
+});
+
+// addCode → addPassword sync
+document.getElementById('addCode') && document.getElementById('addCode').addEventListener('input', () => {
+  document.getElementById('addPassword').value = document.getElementById('addCode').value;
 });
 
 // Khi chọn lớp → tự điền ngày hết hạn theo lớp
@@ -428,10 +485,18 @@ document.getElementById('csClassSelect').addEventListener('change', async () => 
 async function genStudentCode() {
   const { data: existing } = await db.from('students').select('student_code');
   const usedCodes = new Set((existing||[]).map(s => s.student_code).filter(Boolean));
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const digits = '0123456789';
   let code;
   do {
-    code = Array.from({length: 5}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    // 5 ký tự in hoa + số, đảm bảo có ít nhất 1 số
+    const arr = Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]);
+    arr.push(digits[Math.floor(Math.random() * digits.length)]);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    code = arr.join('');
   } while (usedCodes.has(code));
   return code;
 }
@@ -451,7 +516,10 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
 
   if (!name)     { err.textContent = 'Vui long nhap ho va ten.'; return; }
   if (!username) { err.textContent = 'Vui long nhap Gmail.'; return; }
+  if (!isValidGmail(username)) { err.textContent = 'Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
+  if (!cls)      { err.textContent = 'Vui lòng chọn lớp.'; return; }
   if (!password) { err.textContent = 'Vui long nhap mat khau.'; return; }
+  if (!/\d/.test(password)) { err.textContent = 'Mã học viên / mật khẩu phải chứa ít nhất 1 số.'; return; }
 
   const { error } = await db.from('students').insert({
     student_code: code || null,
@@ -474,11 +542,11 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   // Lay ngay khai giang va ket thuc cua lop
   if (cls) {
     const { data: clsInfo } = await db.from('classes').select('start_date,end_date').eq('name', cls).single();
-    document.getElementById('naStartDate').textContent = clsInfo?.start_date ? fmtDate(clsInfo.start_date) : '';
-    document.getElementById('naEndDate').textContent   = clsInfo?.end_date   ? fmtDate(clsInfo.end_date)   : '';
+    document.getElementById('naStartDate').textContent = clsInfo?.start_date ? fmtDate(clsInfo.start_date) : 'Chưa có';
+    document.getElementById('naEndDate').textContent   = clsInfo?.end_date   ? fmtDate(clsInfo.end_date)   : 'Chưa có';
   } else {
-    document.getElementById('naStartDate').textContent = '';
-    document.getElementById('naEndDate').textContent   = '';
+    document.getElementById('naStartDate').textContent = 'Chưa có';
+    document.getElementById('naEndDate').textContent   = 'Chưa có';
   }
   document.getElementById('newAccountModal').classList.add('open');
 
@@ -514,6 +582,9 @@ document.getElementById('goToStudentListBtn').addEventListener('click', () => sh
 document.getElementById('naCloseBtn').addEventListener('click', () => {
   document.getElementById('newAccountModal').classList.remove('open');
 });
+document.getElementById('naCancelBtn').addEventListener('click', () => {
+  document.getElementById('newAccountModal').classList.remove('open');
+});
 document.getElementById('naCopyBtn').addEventListener('click', () => {
   const name  = document.getElementById('naName').textContent;
   const code  = document.getElementById('naCode').textContent;
@@ -529,6 +600,25 @@ document.getElementById('naCopyBtn').addEventListener('click', () => {
     btn.textContent = '✅ Đã sao chép!';
     setTimeout(() => { btn.textContent = '📋 Sao chép'; }, 2000);
   });
+});
+document.getElementById('naShareBtn').addEventListener('click', async () => {
+  const card = document.getElementById('naInfoCard');
+  try {
+    const canvas = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#f8faff' });
+    canvas.toBlob(async (blob) => {
+      const file = new File([blob], 'tai-khoan-hoc-vien.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Tài khoản học viên' });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'tai-khoan-hoc-vien.png'; a.click();
+        URL.revokeObjectURL(url);
+      }
+    }, 'image/png');
+  } catch(e) {
+    console.error(e);
+  }
 });
 let miniPage=1; const miniPerPage=8;
 async function renderMiniStudents() {
@@ -764,16 +854,16 @@ document.getElementById('exportStudentsBtn').addEventListener('click', async () 
 });
 
 document.getElementById('openAddStudentBtn').addEventListener('click', () => {
-  ['addCode','addName','addPhone','addUsername','addPassword'].forEach(id => document.getElementById(id).value='');
+  ['addName','addPhone','addUsername','addPassword'].forEach(id => document.getElementById(id).value='');
   document.getElementById('addStudentError').textContent='';
   populateClassFilters().then(() => { document.getElementById('addClass').value=''; });
+  genStudentCode().then(code => {
+    document.getElementById('addCode').value = code;
+    document.getElementById('addPassword').value = code;
+  });
   document.getElementById('addStudentModal').classList.add('open');
 });
 
-// Tự động điền mật khẩu = mã học viên
-document.getElementById('addCode').addEventListener('input', () => {
-  document.getElementById('addPassword').value = document.getElementById('addCode').value;
-});
 document.getElementById('addStudentCancelBtn').addEventListener('click', () => document.getElementById('addStudentModal').classList.remove('open'));
 document.getElementById('addStudentSaveBtn').addEventListener('click', async () => {
   const name=document.getElementById('addName').value.trim(), phone=document.getElementById('addPhone').value.trim();
@@ -784,6 +874,9 @@ document.getElementById('addStudentSaveBtn').addEventListener('click', async () 
   const err=document.getElementById('addStudentError');
   err.textContent='';
   if (!name||!username||!password) { err.textContent='Vui lòng điền đầy đủ họ tên, Gmail và số báo danh.'; return; }
+  if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
+  if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
+  if (!/\d/.test(password)) { err.textContent='Mật khẩu phải chứa ít nhất 1 số.'; return; }
   const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password, class_name:cls, active:true, expiry_date:expiry, notes });
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('addStudentModal').classList.remove('open');
@@ -796,23 +889,31 @@ function openEditStudent(s) {
   document.getElementById('esCode').value=s.student_code||'';
   document.getElementById('esName').value=s.full_name;
   document.getElementById('esUsername').value=s.username;
-  document.getElementById('esPassword').value='';
+  document.getElementById('esPassword').value=s.student_code||''; // mật khẩu = mã học viên
   document.getElementById('esExpiry').value=s.expiry_date||'';
   document.getElementById('esNotes').value=s.notes||'';
   document.getElementById('esError').textContent='';
   populateClassFilters().then(() => { document.getElementById('esClass').value=s.class_name||''; });
   document.getElementById('editStudentModal').classList.add('open');
 }
+
+// esCode → esPassword sync
+document.getElementById('esCode').addEventListener('input', () => {
+  document.getElementById('esPassword').value = document.getElementById('esCode').value;
+});
+
 document.getElementById('esCancelBtn').addEventListener('click', () => document.getElementById('editStudentModal').classList.remove('open'));
 document.getElementById('esSaveBtn').addEventListener('click', async () => {
   const name=document.getElementById('esName').value.trim(), username=document.getElementById('esUsername').value.trim();
-  const password=document.getElementById('esPassword').value, cls=document.getElementById('esClass').value.trim();
   const code=document.getElementById('esCode').value.trim(), err=document.getElementById('esError');
+  const cls=document.getElementById('esClass').value.trim();
   const expiry=document.getElementById('esExpiry').value || null;
   const notes=document.getElementById('esNotes').value.trim() || null;
   if (!name||!username) { err.textContent='Vui lòng điền đầy đủ.'; return; }
-  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes };
-  if (password) updates.password=password;
+  if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
+  if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
+  if (code && !/\d/.test(code)) { err.textContent='Mã học viên phải chứa ít nhất 1 số.'; return; }
+  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes, password:code };
   const { error } = await db.from('students').update(updates).eq('id',editingStudentId);
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('editStudentModal').classList.remove('open');
@@ -1695,12 +1796,53 @@ function stopStudentAutoRefresh() {
   if (_studentRefreshTimer) { clearInterval(_studentRefreshTimer); _studentRefreshTimer = null; }
 }
 
-// Auto-refresh online panel trên tổng quan mỗi 20s
+// Auto-refresh online panel trên tổng quan mỗi 20s (fallback)
 setInterval(() => {
   if (document.getElementById('pageOverview')?.classList.contains('active')) {
     renderOnlineStudents();
   }
 }, 20000);
+
+// ── Realtime: online students ──
+db.channel('realtime-online')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+    if (document.getElementById('pageOverview')?.classList.contains('active')) {
+      renderOnlineStudents();
+    }
+  })
+  .subscribe();
+
+// ── Realtime: announcements ──
+db.channel('realtime-announcements')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+    if (document.getElementById('pageAnnouncements')?.classList.contains('active')) {
+      renderAnnouncements();
+    }
+  })
+  .subscribe();
+
+// ── Realtime: lessons, videos, docs, groups ──
+db.channel('realtime-lessons')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'lessons' }, () => {
+    if (document.getElementById('pageLessons')?.classList.contains('active')) renderLessons();
+    if (document.getElementById('pageLessonGroups')?.classList.contains('active')) renderGroups();
+  })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_videos' }, () => {
+    if (currentLessonId && document.getElementById('lessonDetailView')?.style.display !== 'none') {
+      renderLessonVideos(currentLessonId);
+    }
+    if (document.getElementById('pageLessons')?.classList.contains('active')) renderLessons();
+  })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_docs' }, () => {
+    if (currentLessonId && document.getElementById('lessonDetailView')?.style.display !== 'none') {
+      renderLessonDocs(currentLessonId);
+    }
+    if (document.getElementById('pageLessons')?.classList.contains('active')) renderLessons();
+  })
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'lesson_groups' }, () => {
+    if (document.getElementById('pageLessonGroups')?.classList.contains('active')) renderGroups();
+  })
+  .subscribe();
 
 // ============================================================
 // THỐNG KÊ TRUY CẬP
