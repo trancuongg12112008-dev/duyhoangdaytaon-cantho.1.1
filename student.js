@@ -189,7 +189,8 @@ async function renderHome() {
   const annSection = document.getElementById('announcementSection');
   const annList    = document.getElementById('announcementList');
   if (annSection && annList) {
-    const myAnns = (anns||[]).filter(a => !a.class_name || a.class_name === myClass);
+    const now = new Date();
+    const myAnns = (anns||[]).filter(a => (!a.class_name || a.class_name === myClass) && (!a.expires_at || new Date(a.expires_at) > now));
     if (myAnns.length) {
       annSection.style.display = '';
       annList.innerHTML = myAnns.map(a => `
@@ -612,7 +613,8 @@ async function renderNotifications() {
   ]);
 
   const readSet = new Set((reads || []).map(r => r.announcement_id));
-  const myAnns = (anns || []).filter(a => !a.class_name || a.class_name === myClass);
+  const now = new Date();
+  const myAnns = (anns || []).filter(a => (!a.class_name || a.class_name === myClass) && (!a.expires_at || new Date(a.expires_at) > now));
   const list = document.getElementById('notiPageList');
   const empty = document.getElementById('notiPageEmpty');
   if (!list) return;
@@ -663,9 +665,8 @@ function updateNotiBadge(hasNew) {
 
 async function checkNewNotifications() {
   const { data: anns } = await db.from('announcements')
-    .select('id, class_name').order('created_at', { ascending: false });
-  const myAnns = (anns || []).filter(a => !a.class_name || a.class_name === myClass);
-  if (!myAnns.length) { updateNotiBadge(false); return; }
+    .select('id, class_name, expires_at').order('created_at', { ascending: false });
+  const myAnns = (anns || []).filter(a => (!a.class_name || a.class_name === myClass) && (!a.expires_at || new Date(a.expires_at) > new Date()));
 
   const { data: reads } = await db.from('notification_reads')
     .select('announcement_id').eq('username', currentUser);

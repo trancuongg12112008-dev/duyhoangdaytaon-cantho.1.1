@@ -1651,7 +1651,7 @@ async function renderAnnouncements() {
         </div>
       </div>
       <div style="font-size:.83rem;color:var(--muted);padding-left:1.75rem;line-height:1.6">${a.content}</div>
-      <div style="font-size:.75rem;color:#94a3b8;padding-left:1.75rem">${new Date(a.created_at).toLocaleString('vi-VN')}</div>
+      <div style="font-size:.75rem;color:#94a3b8;padding-left:1.75rem">${new Date(a.created_at).toLocaleString('vi-VN')}${a.expires_at ? ` • ⏱ Hết hạn: ${new Date(a.expires_at).toLocaleString('vi-VN')}` : ''}</div>
     `;
     row.querySelector('[data-action="edit"]').addEventListener('click', () => {
       editingAnnId = a.id;
@@ -1676,15 +1676,18 @@ document.getElementById('annSaveBtn').addEventListener('click', async () => {
   const content = document.getElementById('annContent').value.trim();
   const cls     = document.getElementById('annClass').value;
   const pinned  = document.getElementById('annPinned').checked;
+  const expire24h = document.getElementById('annExpire24h')?.checked;
   const err     = document.getElementById('annError');
   err.textContent = '';
   if (!title)   { err.textContent = 'Vui lòng nhập tiêu đề.'; return; }
   if (!content) { err.textContent = 'Vui lòng nhập nội dung.'; return; }
 
+  const expires_at = expire24h ? new Date(Date.now() + 24*60*60*1000).toISOString() : null;
+
   if (editingAnnId) {
-    await db.from('announcements').update({ title, content, class_name: cls||null, pinned }).eq('id', editingAnnId);
+    await db.from('announcements').update({ title, content, class_name: cls||null, pinned, expires_at }).eq('id', editingAnnId);
   } else {
-    await db.from('announcements').insert({ title, content, class_name: cls||null, pinned });
+    await db.from('announcements').insert({ title, content, class_name: cls||null, pinned, expires_at });
   }
   editingAnnId = null;
   document.getElementById('annFormTitle').textContent = '✏️ Tạo thông báo mới';
@@ -1692,6 +1695,7 @@ document.getElementById('annSaveBtn').addEventListener('click', async () => {
   document.getElementById('annContent').value = '';
   document.getElementById('annClass').value = '';
   document.getElementById('annPinned').checked = false;
+  if (document.getElementById('annExpire24h')) document.getElementById('annExpire24h').checked = false;
   renderAnnouncements();
 });
 

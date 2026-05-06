@@ -154,9 +154,13 @@ create table if not exists announcements (
   content    text not null,
   class_name text default null,   -- null = gửi tất cả lớp
   pinned     boolean default false,
+  expires_at timestamptz default null, -- null = không hết hạn
   created_at timestamptz default now()
 );
 alter table announcements disable row level security;
+
+-- Thêm cột expires_at nếu bảng đã tồn tại (chạy 1 lần)
+-- alter table announcements add column if not exists expires_at timestamptz default null;
 
 -- ============================================================
 -- Bật Realtime cho các bảng cần cập nhật tức thì
