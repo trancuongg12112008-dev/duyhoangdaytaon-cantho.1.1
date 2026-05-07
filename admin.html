@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quản Trị - Duy Hoàng Dạy Toán v1.2.1</title>
+  <title>Quản Trị - DHDTCT LMS v1.2.1</title>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -12,10 +12,11 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="Duy Hoang DTCT"/>
+  <meta name="apple-mobile-web-app-title" content="DHDTCT LMS"/>
   <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body class="dashboard-page">
 
@@ -24,10 +25,10 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon"><img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
-      <span class="sidebar-brand-text">htql</span>
+      <span class="sidebar-brand-text">DHDTCT LMS</span>
     </div>
     <nav class="sidebar-nav">
-      <a href="#" class="slink active" data-page="overview"><span class="slink-icon">📊</span><span class="slink-label">Tổng quan</span></a>
+      <a href="#" class="slink active" data-page="overview"><span class="slink-icon">📊</span><span class="slink-label">Tổng quan</span><span id="sidebarOnlineBadge" style="display:none;background:#10b981;color:#fff;font-size:.65rem;font-weight:700;padding:.1rem .45rem;border-radius:20px;margin-left:auto">0</span></a>
       <a href="#" class="slink" data-page="lessons"><span class="slink-icon">📚</span><span class="slink-label">Bài học</span></a>
       <a href="#" class="slink" data-page="lesson-groups"><span class="slink-icon">📂</span><span class="slink-label">Nhóm bài học</span></a>
       <a href="#" class="slink" data-page="create-student"><span class="slink-icon">➕</span><span class="slink-label">Thêm học viên mới</span></a>
@@ -50,7 +51,20 @@
     <!-- TOPBAR -->
     <header class="topbar">
       <button class="menu-toggle" id="menuToggle">☰</button>
+
+      <!-- Tìm kiếm toàn cục -->
+      <div style="flex:1;max-width:320px;position:relative;margin:0 1rem">
+        <span style="position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.95rem;pointer-events:none">🔍</span>
+        <input id="globalSearch" type="text" placeholder="Tìm học sinh..." autocomplete="off"
+          style="width:100%;padding:.5rem 1rem .5rem 2.2rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.87rem;background:var(--bg);color:var(--text);transition:border-color .2s,box-shadow .2s"
+          onfocus="this.style.borderColor='var(--primary)';this.style.boxShadow='0 0 0 3px rgba(99,102,241,.1)'"
+          onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"/>
+        <div id="globalSearchDropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:999;max-height:320px;overflow-y:auto"></div>
+      </div>
+
       <div class="topbar-right">
+        <!-- Nút Dark Mode -->
+        <button id="darkModeBtn" title="Chế độ tối" style="background:none;border:1.5px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;transition:all .2s">🌙</button>
         <div class="avatar-info">
           <div class="avatar">GV</div>
           <div>
@@ -63,6 +77,13 @@
 
     <!-- PAGE: TỔNG QUAN -->
     <section class="page active" id="pageOverview">
+      <div id="greetingBanner" style="background:linear-gradient(135deg,#1e1b4b,#4338ca);border-radius:16px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem">
+        <div>
+          <div id="greetingText" style="font-size:1.15rem;font-weight:900;letter-spacing:-.3px"></div>
+          <div id="greetingDate" style="font-size:.8rem;opacity:.65;margin-top:.2rem"></div>
+        </div>
+        <div id="greetingTime" style="font-size:1.5rem;font-weight:900;font-variant-numeric:tabular-nums;opacity:.9"></div>
+      </div>
       <h1 class="page-title">Tổng quan</h1>
       <div class="stat-grid">
         <div class="stat-card blue"><div class="stat-icon">📄</div><div><div class="stat-num" id="statExams">0</div><div class="stat-label">Tài liệu</div></div></div>
@@ -220,11 +241,20 @@
       <div class="filter-bar">
         <input type="text" id="studentSearch" placeholder="🔍 Tìm kiếm học sinh..."/>
         <select id="studentFilterClass"><option value="">Tất cả lớp</option></select>
+        <select id="studentFilterExpiry" style="padding:.5rem .9rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem">
+          <option value="">Tất cả trạng thái</option>
+          <option value="7">⚠️ Hết hạn trong 7 ngày</option>
+          <option value="14">⚠️ Hết hạn trong 14 ngày</option>
+          <option value="30">⚠️ Hết hạn trong 30 ngày</option>
+          <option value="expired">🔴 Đã hết hạn</option>
+        </select>
       </div>
-      <table class="data-table">
-        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Ngày tạo</th><th>Trạng thái</th><th>Học tập</th><th>Hành động</th></tr></thead>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius)">
+      <table class="data-table" style="min-width:900px">
+        <thead><tr><th>Mã HV</th><th>Họ Tên</th><th>SĐT</th><th>Gmail</th><th>Lớp</th><th>Ngày tạo</th><th>Hết hạn</th><th>Trạng thái</th><th>Học tập</th><th style="width:48px"></th></tr></thead>
         <tbody id="studentBody"></tbody>
       </table>
+      </div>
       <div class="empty-state" id="emptyStudents">Chưa có học sinh nào.</div>
     </section>
 
@@ -236,7 +266,7 @@
           <h1 class="page-title">Lớp học</h1>
           <button class="btn-primary" id="openAddClassBtn">➕ Tạo lớp</button>
         </div>
-        <div class="stat-grid" id="classGrid"></div>
+        <div class="stat-grid" id="classGrid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))"></div>
         <div class="empty-state" id="emptyClasses">Chưa có lớp nào. Hãy thêm học sinh và gán lớp.</div>
       </div>
       <!-- View: học sinh trong lớp -->
@@ -249,7 +279,7 @@
           </div>
         </div>
         <table class="data-table">
-          <thead><tr><th>Mã HV</th><th>Họ tên</th><th>SĐT</th><th>Gmail</th><th>Trạng thái</th></tr></thead>
+          <thead><tr><th>Mã HV</th><th>Họ tên</th><th>SĐT</th><th>Gmail</th><th>Trạng thái</th><th>Hành động</th></tr></thead>
           <tbody id="classStudentBody"></tbody>
         </table>
         <div class="empty-state" id="emptyClassStudents">Không có học sinh nào trong lớp này.</div>
@@ -304,6 +334,18 @@
 
       <!-- Stat tổng -->
       <div class="stat-grid" id="accessStatGrid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem"></div>
+
+      <!-- Biểu đồ lượt xem theo ngày -->
+      <div class="overview-panel" style="margin-bottom:1.5rem">
+        <div class="panel-header">
+          <span>📊 Lượt xem theo ngày (7 ngày gần nhất)</span>
+        </div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <div style="min-width:520px;padding:.5rem 0">
+            <canvas id="accessChart" height="80"></canvas>
+          </div>
+        </div>
+      </div>
 
       <!-- Top bài học được xem nhiều -->
       <div class="overview-grid" style="margin-bottom:1.5rem">
@@ -365,6 +407,13 @@
           <textarea id="annContent" rows="4" placeholder="Nội dung thông báo..." style="resize:vertical"></textarea>
           <label>Gửi đến lớp <span class="muted">(để trống = tất cả)</span></label>
           <select id="annClass"><option value="">-- Tất cả học sinh --</option></select>
+          <label>Hoặc gửi cho học sinh cụ thể <span class="muted">(ưu tiên hơn lớp)</span></label>
+          <input type="text" id="annStudentSearch" placeholder="🔍 Tìm tên học sinh..." autocomplete="off"/>
+          <div id="annStudentDropdown" style="display:none;border:1.5px solid var(--border);border-radius:10px;max-height:160px;overflow-y:auto;background:var(--card);margin-top:-.5rem"></div>
+          <div id="annStudentSelected" style="display:none;background:#eef2ff;border-radius:8px;padding:.4rem .75rem;font-size:.83rem;color:#3730a3;display:flex;align-items:center;gap:.5rem">
+            <span id="annStudentSelectedName"></span>
+            <button id="annStudentClearBtn" style="background:none;border:none;cursor:pointer;color:#6366f1;font-size:1rem;padding:0;margin-left:auto">✕</button>
+          </div>
           <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
             <input type="checkbox" id="annPinned"/> Ghim thông báo (hiện nổi bật)
           </label>

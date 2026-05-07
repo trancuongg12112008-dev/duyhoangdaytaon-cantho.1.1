@@ -24,6 +24,26 @@ canvas { display: block; }
   --shadow-lg: 0 8px 40px rgba(0,0,0,.14);
 }
 
+/* ===================== DARK MODE ===================== */
+body.dark-mode {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #334155;
+  --primary-light: #1e1b4b;
+  --shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+  --shadow-md: 0 4px 24px rgba(0,0,0,.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.5);
+}
+body.dark-mode .data-table tbody tr:hover { background: #263548; }
+body.dark-mode input:not([type="checkbox"]),
+body.dark-mode select,
+body.dark-mode textarea { background: #0f172a !important; color: var(--text) !important; border-color: var(--border) !important; }
+body.dark-mode .mini-table th,
+body.dark-mode .data-table th { background: #0f172a; }
+body.dark-mode #darkModeBtn { background: #334155 !important; border-color: #475569 !important; }
+
 body { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
 a { text-decoration: none; color: inherit; }
 input, select, button, textarea { font-family: inherit; font-size: 0.95rem; }
@@ -1082,8 +1102,22 @@ body.landing { background: #fff; }
 
   /* Auth */
   .auth-left { display: none; }
-  .auth-right { padding: 1.25rem; }
-  .auth-box { padding: 1.75rem 1.25rem; border-radius: 18px; }
+  .auth-right {
+    padding: 1rem;
+    align-items: flex-start;
+    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 45%, #0f3460 100%);
+    min-height: 100vh;
+  }
+  .auth-box {
+    padding: 1.75rem 1.25rem;
+    border-radius: 18px;
+    max-width: 100%;
+    margin: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  }
+  .auth-box-header h2 { font-size: 1.4rem; }
+  .auth-wrap { min-height: 100vh; }
+  body.auth-page { align-items: stretch; }
 
   /* Sidebar brand */
   .sidebar-brand { padding: 0 1rem; height: 56px; font-size: .9rem; }
@@ -1440,3 +1474,74 @@ body.landing { background: #fff; }
 @media (max-width: 768px) {
   footer { font-size: .7rem !important; padding: 1.25rem .85rem !important; line-height: 1.7 !important; }
 }
+
+/* ===================== AUTH MOBILE OPTIMIZE ===================== */
+@media (max-width: 768px) {
+  body.auth-page {
+    background:
+      radial-gradient(ellipse at 15% 15%, rgba(139,92,246,.5) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 75%, rgba(6,182,212,.35) 0%, transparent 45%),
+      radial-gradient(ellipse at 70% 20%, rgba(99,102,241,.3) 0%, transparent 40%),
+      radial-gradient(ellipse at 30% 80%, rgba(236,72,153,.2) 0%, transparent 40%),
+      linear-gradient(160deg, #060612 0%, #0d1225 50%, #0a1628 100%);
+  }
+  .auth-wrap { flex-direction: column; }
+  .auth-right {
+    flex: 1;
+    padding: 1.25rem 1rem 2rem;
+    background: transparent;
+    justify-content: flex-start;
+  }
+  .auth-box {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1.75rem 1.25rem;
+    border-radius: 24px;
+    gap: .75rem;
+    background: rgba(255,255,255,.96);
+    backdrop-filter: blur(20px);
+    box-shadow:
+      0 24px 60px rgba(0,0,0,.4),
+      0 0 0 1px rgba(255,255,255,.12),
+      inset 0 1px 0 rgba(255,255,255,.8);
+  }
+  .auth-box-header h2 { font-size: 1.4rem; }
+  .auth-box-header p { font-size: .82rem; }
+  .tab-row { gap: .35rem; }
+  .tab-btn { font-size: .82rem; padding: .5rem .75rem; }
+  .input-icon input { font-size: .9rem; padding: .7rem .5rem .7rem 0; }
+  .auth-row { font-size: .8rem; }
+}
+
+@media (max-width: 390px) {
+  .auth-right { padding: 1rem .75rem 1.5rem; }
+  .auth-box { padding: 1.5rem 1rem; border-radius: 18px; }
+  .auth-box-header h2 { font-size: 1.25rem; }
+  .input-icon span { padding: 0 .6rem; font-size: .9rem; }
+  .input-icon input { font-size: .85rem; }
+  .btn-primary.btn-block { font-size: .88rem; padding: .75rem; }
+}
+
+/* Online pulse */
+@keyframes onlinePulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
+  50%       { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+}
+
+/* ── Student action dropdown menu ── */
+.smenu-item {
+  display: block;
+  width: 100%;
+  padding: .6rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: .85rem;
+  cursor: pointer;
+  color: var(--text);
+  transition: background .15s;
+  white-space: nowrap;
+}
+.smenu-item:hover { background: var(--primary-light); }
+.smenu-item + .smenu-item { border-top: 1px solid var(--border); }

@@ -155,6 +155,7 @@ create table if not exists announcements (
   class_name text default null,   -- null = gửi tất cả lớp
   pinned     boolean default false,
   expires_at timestamptz default null, -- null = không hết hạn
+  target_username text default null,   -- null = gửi theo lớp/tất cả
   created_at timestamptz default now()
 );
 alter table announcements disable row level security;

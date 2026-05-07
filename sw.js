@@ -1,4 +1,4 @@
-const CACHE = 'htql-v1.2.1';
+const CACHE = 'dhdtct-lms-v1.2.1';
 const BASE = '/duyhoangdaytaon-cantho.1.1';
 const STATIC = [
   `${BASE}/index.html`,

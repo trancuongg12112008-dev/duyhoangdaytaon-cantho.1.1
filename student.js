@@ -42,7 +42,20 @@ async function loadMe() {
   }
 
   if (el('profileStartDate')) el('profileStartDate').textContent = clsData?.start_date ? fmt(clsData.start_date) : '—';
-  if (el('profileEndDate'))   el('profileEndDate').textContent   = clsData?.end_date   ? fmt(clsData.end_date)   : '—';
+  if (el('profileEndDate')) {
+    if (clsData?.end_date) {
+      const end = new Date(clsData.end_date); end.setHours(0,0,0,0);
+      const daysLeft = Math.round((end - today) / 86400000);
+      let badge = '';
+      if (daysLeft < 0)        badge = `<span style="margin-left:.4rem;font-size:.72rem;background:#fee2e2;color:#991b1b;padding:.15rem .5rem;border-radius:6px;font-weight:700">Đã kết thúc</span>`;
+      else if (daysLeft === 0) badge = `<span style="margin-left:.4rem;font-size:.72rem;background:#fef3c7;color:#92400e;padding:.15rem .5rem;border-radius:6px;font-weight:700">Hôm nay</span>`;
+      else if (daysLeft <= 7)  badge = `<span style="margin-left:.4rem;font-size:.72rem;background:#fef3c7;color:#92400e;padding:.15rem .5rem;border-radius:6px;font-weight:700">Còn ${daysLeft} ngày</span>`;
+      else                     badge = `<span style="margin-left:.4rem;font-size:.72rem;background:#d1fae5;color:#065f46;padding:.15rem .5rem;border-radius:6px;font-weight:700">Còn ${daysLeft} ngày</span>`;
+      el('profileEndDate').innerHTML = `${fmt(clsData.end_date)}${badge}`;
+    } else {
+      el('profileEndDate').textContent = '—';
+    }
+  }
 
   // Kiểm tra hết hạn và tự khóa
   const banner = document.getElementById('expiryBanner');
@@ -109,15 +122,24 @@ document.getElementById('logoutBtn').addEventListener('click', async e => {
 
 // Set offline khi đóng tab/thoát
 window.addEventListener('beforeunload', () => {
-  navigator.sendBeacon && navigator.sendBeacon('', ''); // trigger để chạy sync
   db.from('students').update({ is_online: false, last_seen: new Date().toISOString() }).eq('username', currentUser);
 });
+// Mobile: ẩn tab cũng set offline
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    db.from('students').update({ is_online: false, last_seen: new Date().toISOString() }).eq('username', currentUser);
+  } else {
+    db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
+  }
+});
 
-// Heartbeat mỗi 15s để giữ trạng thái online
+// Heartbeat mỗi 20s để giữ trạng thái online
 db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
 setInterval(() => {
-  db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
-}, 15000);
+  if (document.visibilityState !== 'hidden') {
+    db.from('students').update({ is_online: true, last_seen: new Date().toISOString() }).eq('username', currentUser);
+  }
+}, 20000);
 document.getElementById('menuToggle').addEventListener('click', () => {
   const isMobile = window.innerWidth <= 768;
   if (isMobile) {
@@ -190,7 +212,10 @@ async function renderHome() {
   const annList    = document.getElementById('announcementList');
   if (annSection && annList) {
     const now = new Date();
-    const myAnns = (anns||[]).filter(a => (!a.class_name || a.class_name === myClass) && (!a.expires_at || new Date(a.expires_at) > now));
+    const myAnns = (anns||[]).filter(a =>
+      (!a.expires_at || new Date(a.expires_at) > now) &&
+      (a.target_username ? a.target_username === currentUser : (!a.class_name || a.class_name === myClass))
+    );
     if (myAnns.length) {
       annSection.style.display = '';
       annList.innerHTML = myAnns.map(a => `
@@ -614,7 +639,10 @@ async function renderNotifications() {
 
   const readSet = new Set((reads || []).map(r => r.announcement_id));
   const now = new Date();
-  const myAnns = (anns || []).filter(a => (!a.class_name || a.class_name === myClass) && (!a.expires_at || new Date(a.expires_at) > now));
+  const myAnns = (anns || []).filter(a =>
+    (!a.expires_at || new Date(a.expires_at) > now) &&
+    (a.target_username ? a.target_username === currentUser : (!a.class_name || a.class_name === myClass))
+  );
   const list = document.getElementById('notiPageList');
   const empty = document.getElementById('notiPageEmpty');
   if (!list) return;
@@ -666,7 +694,10 @@ function updateNotiBadge(hasNew) {
 async function checkNewNotifications() {
   const { data: anns } = await db.from('announcements')
     .select('id, class_name, expires_at').order('created_at', { ascending: false });
-  const myAnns = (anns || []).filter(a => (!a.class_name || a.class_name === myClass) && (!a.expires_at || new Date(a.expires_at) > new Date()));
+  const myAnns = (anns || []).filter(a =>
+    (!a.expires_at || new Date(a.expires_at) > new Date()) &&
+    (a.target_username ? a.target_username === currentUser : (!a.class_name || a.class_name === myClass))
+  );
 
   const { data: reads } = await db.from('notification_reads')
     .select('announcement_id').eq('username', currentUser);
@@ -757,3 +788,89 @@ setInterval(async () => {
 
 
 
+
+// ============================================================
+// TỰ ĐỘNG ĐĂNG XUẤT SAU 30 PHÚT KHÔNG THAO TÁC
+// ============================================================
+(function autoLogout() {
+  const TIMEOUT = 30 * 60 * 1000; // 30 phút
+  const WARN    = 60 * 1000;       // cảnh báo trước 60 giây
+  let timer, warnTimer;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'autoLogoutOverlay';
+  overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:2rem 2.5rem;text-align:center;max-width:340px;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">⏱️</div>
+      <div style="font-weight:800;font-size:1.1rem;margin-bottom:.5rem;color:#0f172a">Phiên sắp hết hạn</div>
+      <div style="font-size:.88rem;color:#64748b;margin-bottom:1.25rem">Bạn không hoạt động trong 30 phút.<br>Tự động đăng xuất sau <b id="alCountdown" style="color:#ef4444">60</b> giây.</div>
+      <button id="alStayBtn" style="width:100%;padding:.75rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:12px;font-size:.92rem;font-weight:700;cursor:pointer">Tiếp tục học</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  let countdown;
+  function showWarning() {
+    overlay.style.display = 'flex';
+    let secs = 60;
+    document.getElementById('alCountdown').textContent = secs;
+    countdown = setInterval(() => {
+      secs--;
+      const el = document.getElementById('alCountdown');
+      if (el) el.textContent = secs;
+      if (secs <= 0) { clearInterval(countdown); logout(); }
+    }, 1000);
+  }
+
+  async function logout() {
+    clearInterval(countdown);
+    overlay.style.display = 'none';
+    await db.from('students').update({ is_online: false, last_seen: new Date().toISOString() }).eq('username', currentUser);
+    sessionStorage.clear();
+    location.href = 'index.html';
+  }
+
+  function reset() {
+    clearTimeout(timer);
+    clearTimeout(warnTimer);
+    clearInterval(countdown);
+    overlay.style.display = 'none';
+    warnTimer = setTimeout(showWarning, TIMEOUT - WARN);
+    timer     = setTimeout(logout, TIMEOUT);
+  }
+
+  document.getElementById('alStayBtn').addEventListener('click', reset);
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(e => document.addEventListener(e, reset, { passive: true }));
+  reset();
+})();
+
+// ============================================================
+// BANNER CẬP NHẬT APP
+// ============================================================
+(function checkAppUpdate() {
+  const CURRENT = 'v1.2.1';
+  const dismissed = localStorage.getItem('dh_update_dismissed');
+  if (dismissed === CURRENT) return; // Đã bấm ✕ rồi thì không hiện lại
+
+  const banner = document.getElementById('updateAppBanner');
+  if (banner) banner.style.display = 'flex';
+
+  document.getElementById('dismissUpdateBtn')?.addEventListener('click', () => {
+    banner.style.display = 'none';
+    localStorage.setItem('dh_update_dismissed', CURRENT);
+  });
+
+  document.getElementById('showUpdateGuideBtn')?.addEventListener('click', () => {
+    document.getElementById('updateGuideModal').style.display = 'flex';
+  });
+
+  document.getElementById('closeUpdateGuideBtn')?.addEventListener('click', () => {
+    document.getElementById('updateGuideModal').style.display = 'none';
+  });
+
+  document.getElementById('updateGuideModal')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('updateGuideModal')) {
+      document.getElementById('updateGuideModal').style.display = 'none';
+    }
+  });
+})();

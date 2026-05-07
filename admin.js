@@ -420,7 +420,7 @@ async function renderOverview() {
 }
 
 async function renderOnlineStudents() {
-  const cutoff = new Date(Date.now() - 60000).toISOString();
+  const cutoff = new Date(Date.now() - 90 * 1000).toISOString(); // 90 giây (heartbeat 20s + buffer)
   const { data: online } = await db.from('students')
     .select('full_name, class_name, last_seen')
     .eq('is_online', true)
@@ -431,17 +431,32 @@ async function renderOnlineStudents() {
   const countEl = document.getElementById('onlineCount');
   if (!el) return;
   const list = online || [];
-  if (countEl) countEl.textContent = list.length + ' online';
+  if (countEl) {
+    countEl.textContent = list.length + ' online';
+    countEl.style.background = list.length ? '#dcfce7' : '#f1f5f9';
+    countEl.style.color = list.length ? '#15803d' : '#64748b';
+  }
+  // Cập nhật badge sidebar
+  const sideBadge = document.getElementById('sidebarOnlineBadge');
+  if (sideBadge) {
+    sideBadge.textContent = list.length;
+    sideBadge.style.display = list.length ? 'inline' : 'none';
+  }
   if (!list.length) {
     el.innerHTML = '<p class="muted-sm">Chưa có học sinh nào online.</p>';
     return;
   }
-  el.innerHTML = list.map(s => `
-    <div style="display:flex;align-items:center;gap:.5rem;background:var(--bg);padding:.4rem .75rem;border-radius:20px;font-size:.82rem;border:1px solid #d1fae5">
-      <span style="width:8px;height:8px;background:#10b981;border-radius:50%;flex-shrink:0;animation:badgePop .3s ease"></span>
-      <span style="font-weight:600">${s.full_name}</span>
+  el.innerHTML = list.map(s => {
+    const mins = Math.floor((Date.now() - new Date(s.last_seen).getTime()) / 60000);
+    const timeLabel = mins < 1 ? 'vừa xong' : `${mins} phút trước`;
+    return `
+    <div style="display:flex;align-items:center;gap:.5rem;background:#f0fdf4;padding:.45rem .85rem;border-radius:20px;font-size:.82rem;border:1px solid #bbf7d0;box-shadow:0 1px 3px rgba(16,185,129,.08)">
+      <span style="width:8px;height:8px;background:#10b981;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(16,185,129,.2);animation:onlinePulse 2s ease-in-out infinite"></span>
+      <span style="font-weight:700;color:#065f46">${s.full_name}</span>
       ${s.class_name ? `<span class="class-tag" style="font-size:.7rem">${s.class_name}</span>` : ''}
-    </div>`).join('');
+      <span style="font-size:.7rem;color:#6ee7b7;margin-left:auto">${timeLabel}</span>
+    </div>`;
+  }).join('');
 }
 
 // ============================================================
@@ -485,13 +500,20 @@ document.getElementById('csClassSelect').addEventListener('change', async () => 
 async function genStudentCode() {
   const { data: existing } = await db.from('students').select('student_code');
   const usedCodes = new Set((existing||[]).map(s => s.student_code).filter(Boolean));
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const upper  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lower  = 'abcdefghijklmnopqrstuvwxyz';
   const digits = '0123456789';
+  const all    = upper + lower + digits;
   let code;
   do {
-    // 5 ký tự in hoa + số, đảm bảo có ít nhất 1 số
-    const arr = Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]);
-    arr.push(digits[Math.floor(Math.random() * digits.length)]);
+    // Đảm bảo có ít nhất 1 chữ hoa, 1 chữ thường, 1 số trong 6 ký tự
+    const arr = [
+      upper[Math.floor(Math.random() * upper.length)],
+      lower[Math.floor(Math.random() * lower.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      ...Array.from({length: 2}, () => all[Math.floor(Math.random() * all.length)])
+    ];
+    // Xáo trộn
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -650,8 +672,9 @@ async function renderMiniStudents() {
 // STUDENTS LIST
 // ============================================================
 async function renderStudents() {
-  const q   = (document.getElementById('studentSearch').value||'').toLowerCase();
-  const cls = document.getElementById('studentFilterClass').value;
+  const q      = (document.getElementById('studentSearch').value||'').toLowerCase();
+  const cls    = document.getElementById('studentFilterClass').value;
+  const expiry = document.getElementById('studentFilterExpiry')?.value || '';
   let query = db.from('students').select('*').order('full_name');
   if (cls) query = query.eq('class_name', cls);
   const { data: list } = await query;
@@ -669,7 +692,16 @@ async function renderStudents() {
     expired.forEach(s => { s.active = false; });
   }
 
-  const filtered = (list||[]).filter(s => !q || s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q));
+  let filtered = (list||[]).filter(s => !q || s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q));
+
+  // Lọc theo hết hạn
+  if (expiry === 'expired') {
+    filtered = filtered.filter(s => s.expiry_date && new Date(s.expiry_date) < today);
+  } else if (expiry) {
+    const days = parseInt(expiry);
+    const future = new Date(today); future.setDate(future.getDate() + days);
+    filtered = filtered.filter(s => s.expiry_date && new Date(s.expiry_date) >= today && new Date(s.expiry_date) <= future);
+  }
   const tbody = document.getElementById('studentBody');
   tbody.innerHTML = '';
   document.getElementById('emptyStudents').style.display = filtered.length?'none':'block';
@@ -677,7 +709,17 @@ async function renderStudents() {
     const tr = document.createElement('tr');
     const loginAttempts = s.login_attempts || 0;
     const attemptsBadge = loginAttempts > 0 ? `<span class="status-pill orange" style="font-size:.7rem">⚠️ ${loginAttempts} lần sai</span>` : '';
-    const actions = `<button class="btn-sm" data-action="edit" title="${s.notes?'📝 '+s.notes:''}">✏️ Sửa</button> <button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button> ${loginAttempts>0?`<button class="btn-sm btn-success" data-action="reset-attempts" title="Reset số lần sai">🔄</button>`:''} <button class="btn-sm btn-danger" data-action="delete">🗑</button>`;
+    const actions = `<div style="position:relative">
+      <button class="btn-sm smenu-toggle" style="font-size:1.2rem;padding:.2rem .6rem;font-weight:700;letter-spacing:.1em">⋯</button>
+      <div class="student-menu" style="display:none;position:absolute;right:0;top:110%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;min-width:170px;overflow:hidden">
+        <button class="smenu-item" data-action="edit">✏️ Sửa thông tin</button>
+        <button class="smenu-item" data-action="toggle">${s.active?'🔒 Khóa tài khoản':'🔓 Mở khóa'}</button>
+        <button class="smenu-item" data-action="copy">📋 Copy tài khoản</button>
+        <button class="smenu-item" data-action="export-img">�️ Xuất ảnh</button>
+        ${loginAttempts>0?`<button class="smenu-item" data-action="reset-attempts">🔄 Reset lần sai</button>`:''}
+        <button class="smenu-item" data-action="delete" style="color:#ef4444;border-top:1px solid var(--border)">🗑 Xóa</button>
+      </div>
+    </div>`;
 
     // Trạng thái học tập
     let studyStatus;
@@ -689,13 +731,29 @@ async function renderStudents() {
       } else {
         studyStatus = '<span class="status-pill orange">🔒 Đã khóa</span>';
       }
-    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 60000) {
+    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 90000) {
       studyStatus = '<span class="status-pill green">🟢 Online</span>';
     } else {
       studyStatus = '<span class="status-pill gray">⚫ Offline</span>';
     }
 
-    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}${loginAttempts>0?' '+attemptsBadge:''}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
+    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}${loginAttempts>0?' '+attemptsBadge:''}</td><td>${s.phone||'—'}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td>${(() => {
+      if (!s.expiry_date) return '<span style="color:var(--muted);font-size:.8rem">—</span>';
+      const exp = new Date(s.expiry_date); exp.setHours(0,0,0,0);
+      const daysLeft = Math.round((exp - today) / 86400000);
+      if (daysLeft < 0) return `<span style="background:#fee2e2;color:#991b1b;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Hết hạn</span>`;
+      if (daysLeft === 0) return `<span style="background:#fef3c7;color:#92400e;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Hôm nay</span>`;
+      if (daysLeft <= 7) return `<span style="background:#fef3c7;color:#92400e;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Còn ${daysLeft}n</span>`;
+      return `<span style="font-size:.8rem;color:var(--muted)">${fmtDate(s.expiry_date)}</span>`;
+    })()}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
+    tr.querySelector('.smenu-toggle').addEventListener('click', e => {
+      e.stopPropagation();
+      document.querySelectorAll('.student-menu').forEach(m => {
+        if (m !== tr.querySelector('.student-menu')) m.style.display = 'none';
+      });
+      const menu = tr.querySelector('.student-menu');
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
     tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
       const newActive = !s.active;
@@ -711,6 +769,15 @@ async function renderStudents() {
         renderStudents();
       });
     }
+    tr.querySelector('[data-action="copy"]').addEventListener('click', () => {
+      const text = `Họ tên: ${s.full_name}\nMã HV: ${s.student_code||''}\nGmail: ${s.username}\nMật khẩu: ${s.student_code||''}\nLớp: ${s.class_name||''}`;
+      navigator.clipboard?.writeText(text).then(() => {
+        const btn = tr.querySelector('[data-action="copy"]');
+        btn.textContent = '✅ Đã copy!';
+        setTimeout(() => { btn.textContent = '📋 Copy tài khoản'; }, 2000);
+      });
+    });
+    tr.querySelector('[data-action="export-img"]').addEventListener('click', () => exportStudentCard(s));
     tr.querySelector('[data-action="delete"]').addEventListener('click', async () => {
       showConfirm(`Xóa học sinh "${s.full_name}"?`, async () => {
         await db.from('students').delete().eq('id',s.id); renderStudents(); renderMiniStudents(); populateClassFilters();
@@ -721,6 +788,7 @@ async function renderStudents() {
 }
 document.getElementById('studentSearch').addEventListener('input', renderStudents);
 document.getElementById('studentFilterClass').addEventListener('change', renderStudents);
+document.getElementById('studentFilterExpiry')?.addEventListener('change', renderStudents);
 
 document.getElementById('exportStudentsBtn').addEventListener('click', async () => {
   const cls = document.getElementById('studentFilterClass').value;
@@ -745,7 +813,7 @@ document.getElementById('exportStudentsBtn').addEventListener('click', async () 
     const wsData = [];
 
     // Tiêu đề
-    wsData.push(['DUY HOÀNG DẠY TOÁN CẦN THƠ']);
+    wsData.push(['DHDTCT LMS Education System']);
     wsData.push([`DANH SÁCH HỌC VIÊN - ${clsName.toUpperCase()}`]);
     wsData.push([`Xuất ngày: ${today}  |  Tổng: ${students.length} học viên`]);
     wsData.push([]); // dòng trống
@@ -884,6 +952,63 @@ document.getElementById('addStudentSaveBtn').addEventListener('click', async () 
 });
 
 let editingStudentId=null;
+
+async function exportStudentCard(s) {
+  // Lấy thông tin lớp
+  let startDate = '—', endDate = '—';
+  if (s.class_name) {
+    const { data: cls } = await db.from('classes').select('start_date,end_date').eq('name', s.class_name).single();
+    if (cls?.start_date) startDate = new Date(cls.start_date).toLocaleDateString('vi-VN');
+    if (cls?.end_date)   endDate   = new Date(cls.end_date).toLocaleDateString('vi-VN');
+  }
+
+  // Tạo card tạm thời
+  const card = document.createElement('div');
+  card.style.cssText = 'position:fixed;left:-9999px;top:0;width:420px;background:#f8faff;border-radius:16px;overflow:hidden;font-family:Inter,sans-serif;border:1.5px solid #e0e7ff';
+  card.innerHTML = `
+    <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:1.5rem;text-align:center;color:#fff">
+      <div style="font-weight:900;font-size:1.1rem;margin-bottom:.2rem">THONG TIN TAI KHOAN HOC VIEN</div>
+      <div style="font-size:.75rem;opacity:.7">DHDTCT LMS Education System</div>
+    </div>
+    <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.65rem">
+      ${[
+        ['Ho ten', s.full_name],
+        ['Ma hoc vien', s.student_code||'—'],
+        ['Gmail dang nhap', s.username],
+        ['Mat khau', s.student_code||'—'],
+        ['Lop', s.class_name||'—'],
+        ['Khai giang', startDate],
+        ['Ket thuc', endDate],
+        ['SDT', s.phone||'—'],
+      ].map(([label, val]) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:10px;padding:.6rem .9rem;border:1px solid #e0e7ff">
+          <span style="font-size:.78rem;color:#64748b;font-weight:600">${label}</span>
+          <span style="font-weight:700;font-size:.88rem;color:#1e1b4b">${val}</span>
+        </div>`).join('')}
+      <div style="text-align:center;font-size:.72rem;color:#94a3b8;margin-top:.25rem">Vui long bao mat thong tin tai khoan</div>
+    </div>`;
+  document.body.appendChild(card);
+
+  try {
+    const canvas = await html2canvas(card, { scale: 2, useCORS: true, backgroundColor: '#f8faff' });
+    canvas.toBlob(async blob => {
+      const file = new File([blob], `taikhoan-${s.student_code||s.full_name}.png`, { type: 'image/png' });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Tài khoản ${s.full_name}` });
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `taikhoan-${s.student_code||s.full_name}.png`;
+        a.click();
+      }
+    }, 'image/png');
+  } catch(e) {
+    alert('Không thể xuất ảnh. Vui lòng thử lại.');
+  } finally {
+    document.body.removeChild(card);
+  }
+}
+
 function openEditStudent(s) {
   editingStudentId=s.id;
   document.getElementById('esCode').value=s.student_code||'';
@@ -1384,28 +1509,72 @@ async function renderClasses() {
   document.getElementById('classListView').style.display='';
   document.getElementById('classDetailView').style.display='none';
   const allNames=await getClasses();
-  const { data:allStudents }=await db.from('students').select('class_name');
   const { data:clsData }=await db.from('classes').select('name,start_date,end_date');
   const clsMap=Object.fromEntries((clsData||[]).map(c=>[c.name,c]));
   const grid=document.getElementById('classGrid');
   grid.innerHTML='';
   document.getElementById('emptyClasses').style.display=allNames.length?'none':'block';
   const today = new Date(); today.setHours(0,0,0,0);
-  const { data: allStudentsFull } = await db.from('students').select('class_name, active');
-  allNames.forEach(cls=>{
-    const count=(allStudentsFull||[]).filter(s=>s.class_name===cls).length;
-    const info=clsMap[cls]||{};
+  const { data: allStudentsFull } = await db.from('students').select('class_name, active, is_online, last_seen');
+  const colors = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899'];
+  allNames.forEach((cls, idx)=>{
+    const students = (allStudentsFull||[]).filter(s=>s.class_name===cls);
+    const count = students.length;
+    const activeCount = students.filter(s=>s.active).length;
+    const onlineCount = students.filter(s=>s.is_online && s.last_seen && (Date.now()-new Date(s.last_seen).getTime())<90000).length;
+    const info = clsMap[cls]||{};
     const isExpired = info.end_date && new Date(info.end_date) < today;
-    const dateInfo = (info.start_date||info.end_date)
-      ? `<div style="font-size:.75rem;color:#888;margin-top:.25rem">${info.start_date?'📅 '+fmtDate(info.start_date):''}${info.start_date&&info.end_date?' → ':''}${info.end_date?fmtDate(info.end_date):''}</div>`
-      : '';
-    const expiredBadge = isExpired
-      ? `<span class="status-pill red" style="font-size:.7rem;margin-top:.3rem;display:inline-block">🔴 Đã kết thúc</span>`
-      : '';
-    const card=document.createElement('div');
-    card.className=`stat-card ${isExpired?'red':'blue'} clickable`;
-    card.style.cursor='pointer';
-    card.innerHTML=`<div class="stat-icon">🏫</div><div style="flex:1"><div class="stat-num">${count}</div><div class="stat-label">${cls}</div>${dateInfo}<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.25rem">${expiredBadge}</div></div><div style="display:flex;flex-direction:column;gap:.25rem;align-self:flex-start"><button class="btn-sm" data-edit="${cls}">✏️</button><button class="btn-sm btn-danger" data-del="${cls}">🗑</button></div>`;
+    const color = isExpired ? '#94a3b8' : colors[idx % colors.length];
+
+    // Tính số ngày còn lại
+    let daysLabel = '';
+    if (info.end_date) {
+      const daysLeft = Math.round((new Date(info.end_date) - today) / 86400000);
+      if (isExpired) daysLabel = `<span style="background:#fee2e2;color:#991b1b;font-size:.7rem;font-weight:700;padding:.2rem .55rem;border-radius:6px">Đã kết thúc</span>`;
+      else if (daysLeft <= 7) daysLabel = `<span style="background:#fef3c7;color:#92400e;font-size:.7rem;font-weight:700;padding:.2rem .55rem;border-radius:6px">Còn ${daysLeft} ngày</span>`;
+      else daysLabel = `<span style="background:#d1fae5;color:#065f46;font-size:.7rem;font-weight:700;padding:.2rem .55rem;border-radius:6px">Còn ${daysLeft} ngày</span>`;
+    }
+
+    const card = document.createElement('div');
+    card.style.cssText = `background:var(--card);border-radius:16px;border:1.5px solid var(--border);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s`;
+    card.onmouseover = () => { card.style.transform='translateY(-2px)'; card.style.boxShadow='0 8px 24px rgba(0,0,0,.12)'; };
+    card.onmouseout  = () => { card.style.transform=''; card.style.boxShadow='var(--shadow)'; };
+    card.innerHTML = `
+      <!-- Header màu -->
+      <div style="background:${color};padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <div style="width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem">🏫</div>
+          <div>
+            <div style="font-weight:900;font-size:1rem;color:#fff;letter-spacing:-.2px">${cls}</div>
+            <div style="font-size:.72rem;color:rgba(255,255,255,.75);margin-top:.1rem">${count} học viên</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:.3rem">
+          <button class="btn-sm" data-edit="${cls}" style="background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff;font-size:.8rem" onclick="event.stopPropagation()">✏️</button>
+          <button class="btn-sm" data-del="${cls}" style="background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;font-size:.8rem" onclick="event.stopPropagation()">🗑</button>
+        </div>
+      </div>
+      <!-- Body thống kê -->
+      <div style="padding:1rem 1.25rem;display:flex;flex-direction:column;gap:.6rem">
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <div style="flex:1;background:var(--bg);border-radius:10px;padding:.55rem .75rem;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--text)">${activeCount}</div>
+            <div style="font-size:.7rem;color:var(--muted)">Hoạt động</div>
+          </div>
+          <div style="flex:1;background:var(--bg);border-radius:10px;padding:.55rem .75rem;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:#10b981">${onlineCount}</div>
+            <div style="font-size:.7rem;color:var(--muted)">Online</div>
+          </div>
+          <div style="flex:1;background:var(--bg);border-radius:10px;padding:.55rem .75rem;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--text)">${count-activeCount}</div>
+            <div style="font-size:.7rem;color:var(--muted)">Đã khóa</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:.78rem;color:var(--muted)">
+          <span>${info.start_date ? '📅 '+fmtDate(info.start_date) : ''}${info.start_date&&info.end_date?' → ':''}${info.end_date ? fmtDate(info.end_date) : ''}</span>
+          ${daysLabel}
+        </div>
+      </div>`;
     card.addEventListener('click', e=>{ if(!e.target.closest('[data-edit],[data-del]')) openClassDetail(cls); });
     card.querySelector('[data-edit]').addEventListener('click', e=>{ e.stopPropagation(); openEditClassModal(cls, info); });
     card.querySelector('[data-del]').addEventListener('click', async e=>{
@@ -1436,13 +1605,22 @@ async function openClassDetail(cls) {
         statusHtml = '<span class="status-pill red">⏰ Hết hạn</span>';
       else
         statusHtml = '<span class="status-pill orange">🔒 Đã khóa</span>';
-    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 60000) {
+    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 90000) {
       statusHtml = '<span class="status-pill green">🟢 Online</span>';
     } else {
       statusHtml = '<span class="status-pill gray">⚫ Offline</span>';
     }
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${s.student_code||'—'}</td><td>${s.full_name}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${statusHtml}</td>`;
+    tr.innerHTML=`<td>${s.student_code||'—'}</td><td>${s.full_name}</td><td>${s.phone||'—'}</td><td>${s.username}</td><td>${statusHtml}</td>
+      <td><button class="btn-sm ${s.active?'btn-danger':'btn-success'}" data-action="toggle">${s.active?'🔒 Khóa':'🔓 Mở'}</button></td>`;
+    tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
+      const newActive = !s.active;
+      const updates = { active: newActive, login_attempts: 0 };
+      if (newActive) updates.manually_unlocked = true;
+      else updates.manually_unlocked = false;
+      await db.from('students').update(updates).eq('id', s.id);
+      openClassDetail(cls);
+    });
     tbody.appendChild(tr);
   });
 }
@@ -1644,7 +1822,7 @@ async function renderAnnouncements() {
       <div style="display:flex;align-items:center;gap:.5rem;width:100%">
         ${a.pinned ? '<span style="color:#f59e0b;font-size:1rem">📌</span>' : '<span style="font-size:1rem">📢</span>'}
         <div style="flex:1;font-weight:700;font-size:.92rem">${a.title}</div>
-        ${a.class_name ? `<span class="class-tag">${a.class_name}</span>` : '<span class="class-tag" style="background:#e0f2fe;color:#0369a1">Tất cả</span>'}
+        ${a.class_name ? `<span class="class-tag">${a.class_name}</span>` : a.target_username ? `<span class="class-tag" style="background:#d1fae5;color:#065f46">👤 Cá nhân</span>` : '<span class="class-tag" style="background:#e0f2fe;color:#0369a1">Tất cả</span>'}
         <div style="display:flex;gap:.3rem">
           <button class="btn-sm" data-action="edit">✏️</button>
           <button class="btn-sm btn-danger" data-action="delete">🗑</button>
@@ -1684,10 +1862,15 @@ document.getElementById('annSaveBtn').addEventListener('click', async () => {
 
   const expires_at = expire24h ? new Date(Date.now() + 24*60*60*1000).toISOString() : null;
 
+  // Ưu tiên gửi cho học sinh cụ thể nếu có chọn
+  const selectedUsername = document.getElementById('annStudentSearch')?.dataset.selectedUsername || '';
+  const finalClass = selectedUsername ? null : (cls || null);
+  const target_username = selectedUsername || null;
+
   if (editingAnnId) {
-    await db.from('announcements').update({ title, content, class_name: cls||null, pinned, expires_at }).eq('id', editingAnnId);
+    await db.from('announcements').update({ title, content, class_name: finalClass, pinned, expires_at, target_username }).eq('id', editingAnnId);
   } else {
-    await db.from('announcements').insert({ title, content, class_name: cls||null, pinned, expires_at });
+    await db.from('announcements').insert({ title, content, class_name: finalClass, pinned, expires_at, target_username });
   }
   editingAnnId = null;
   document.getElementById('annFormTitle').textContent = '✏️ Tạo thông báo mới';
@@ -1696,6 +1879,10 @@ document.getElementById('annSaveBtn').addEventListener('click', async () => {
   document.getElementById('annClass').value = '';
   document.getElementById('annPinned').checked = false;
   if (document.getElementById('annExpire24h')) document.getElementById('annExpire24h').checked = false;
+  // Reset student search
+  const annSearch = document.getElementById('annStudentSearch');
+  if (annSearch) { annSearch.value = ''; annSearch.dataset.selectedUsername = ''; }
+  document.getElementById('annStudentSelected').style.display = 'none';
   renderAnnouncements();
 });
 
@@ -1707,6 +1894,48 @@ document.getElementById('annCancelBtn').addEventListener('click', () => {
   document.getElementById('annClass').value = '';
   document.getElementById('annPinned').checked = false;
   document.getElementById('annError').textContent = '';
+  const annSearch = document.getElementById('annStudentSearch');
+  if (annSearch) { annSearch.value = ''; annSearch.dataset.selectedUsername = ''; }
+  document.getElementById('annStudentSelected').style.display = 'none';
+});
+
+// ── Tìm kiếm học sinh cho thông báo ──
+let _annStudentList = [];
+(async () => {
+  const { data } = await db.from('students').select('full_name,username,class_name').order('full_name');
+  _annStudentList = data || [];
+})();
+
+document.getElementById('annStudentSearch')?.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  const dd = document.getElementById('annStudentDropdown');
+  if (!q) { dd.style.display = 'none'; return; }
+  const matches = _annStudentList.filter(s => s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q)).slice(0, 8);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = matches.map(s => `
+    <div data-username="${s.username}" data-name="${s.full_name}" style="padding:.55rem .85rem;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background='var(--primary-light)'" onmouseout="this.style.background=''">
+      <div style="font-weight:600">${s.full_name}</div>
+      <div style="font-size:.75rem;color:var(--muted)">${s.username} ${s.class_name?`• ${s.class_name}`:''}</div>
+    </div>`).join('');
+  dd.querySelectorAll('[data-username]').forEach(el => {
+    el.addEventListener('click', () => {
+      const input = document.getElementById('annStudentSearch');
+      input.value = el.dataset.name;
+      input.dataset.selectedUsername = el.dataset.username;
+      dd.style.display = 'none';
+      const sel = document.getElementById('annStudentSelected');
+      document.getElementById('annStudentSelectedName').textContent = `👤 ${el.dataset.name}`;
+      sel.style.display = 'flex';
+      document.getElementById('annClass').value = '';
+    });
+  });
+});
+
+document.getElementById('annStudentClearBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('annStudentSearch');
+  input.value = ''; input.dataset.selectedUsername = '';
+  document.getElementById('annStudentSelected').style.display = 'none';
 });
 
 // ============================================================
@@ -1878,6 +2107,64 @@ async function renderAccessStats() {
     <div class="stat-card purple"><div class="stat-icon">🎬</div><div><div class="stat-num">${videoViews}</div><div class="stat-label">Lượt xem video</div></div></div>
   `;
 
+  // Biểu đồ 7 ngày gần nhất
+  const days = Array.from({length: 7}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
+  });
+  const dayLabels = days.map(d => { const [,m,day] = d.split('-'); return `${day}/${m}`; });
+  const videoByDay = days.map(d => all.filter(l => l.content_type==='video' && (l.accessed_at||'').startsWith(d)).length);
+  const docByDay   = days.map(d => all.filter(l => l.content_type==='doc'   && (l.accessed_at||'').startsWith(d)).length);
+
+  const canvas = document.getElementById('accessChart');
+  if (canvas) {
+    if (window._accessChart) window._accessChart.destroy();
+    window._accessChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: dayLabels,
+        datasets: [
+          {
+            label: 'Video',
+            data: videoByDay,
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,.12)',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#6366f1',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.4,
+            fill: true
+          },
+          {
+            label: 'Tài liệu',
+            data: docByDay,
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6,182,212,.08)',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#06b6d4',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.4,
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 12, usePointStyle: true } },
+          tooltip: { backgroundColor: '#1e293b', titleFont: { size: 12 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8 }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.05)' } }
+        }
+      }
+    });
+  }
+
   // Top bài học
   const lessonCount = {};
   all.forEach(l => { lessonCount[l.lesson_name] = (lessonCount[l.lesson_name]||0)+1; });
@@ -1952,3 +2239,170 @@ document.getElementById('exportAccessBtn').addEventListener('click', async () =>
 
 
 
+
+// ============================================================
+// TÌM KIẾM TOÀN CỤC
+// ============================================================
+let _globalStudentCache = [];
+(async () => {
+  const { data } = await db.from('students').select('student_code,full_name,username,class_name,active,phone').order('full_name');
+  _globalStudentCache = data || [];
+})();
+
+// Refresh cache khi có thay đổi realtime
+db.channel('global-search-cache')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, async () => {
+    const { data } = await db.from('students').select('student_code,full_name,username,class_name,active,phone').order('full_name');
+    _globalStudentCache = data || [];
+  }).subscribe();
+
+const globalSearchInput = document.getElementById('globalSearch');
+const globalSearchDD    = document.getElementById('globalSearchDropdown');
+
+globalSearchInput?.addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  if (!q) { globalSearchDD.style.display = 'none'; return; }
+
+  const matches = _globalStudentCache.filter(s =>
+    s.full_name.toLowerCase().includes(q) ||
+    (s.username||'').toLowerCase().includes(q) ||
+    (s.student_code||'').toLowerCase().includes(q) ||
+    (s.phone||'').includes(q)
+  ).slice(0, 8);
+
+  if (!matches.length) {
+    globalSearchDD.innerHTML = '<div style="padding:.85rem 1rem;font-size:.85rem;color:var(--muted)">Không tìm thấy học sinh nào.</div>';
+    globalSearchDD.style.display = 'block';
+    return;
+  }
+
+  globalSearchDD.style.display = 'block';
+  globalSearchDD.innerHTML = matches.map(s => `
+    <div class="gs-item" data-username="${s.username}" style="display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s"
+      onmouseover="this.style.background='var(--primary-light)'" onmouseout="this.style.background=''">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0">
+        ${s.full_name.charAt(0).toUpperCase()}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.88rem;color:var(--text)">${s.full_name}</div>
+        <div style="font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.username} ${s.class_name?`• ${s.class_name}`:''}</div>
+      </div>
+      <span style="font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px;background:${s.active?'#d1fae5':'#fee2e2'};color:${s.active?'#065f46':'#991b1b'}">${s.active?'Hoạt động':'Khóa'}</span>
+    </div>`).join('');
+
+  globalSearchDD.querySelectorAll('.gs-item').forEach(el => {
+    el.addEventListener('click', () => {
+      globalSearchInput.value = '';
+      globalSearchDD.style.display = 'none';
+      // Chuyển sang trang học sinh và tìm kiếm
+      showPage('students');
+      const searchEl = document.getElementById('studentSearch');
+      if (searchEl) {
+        searchEl.value = el.querySelector('div > div:first-child').textContent.trim();
+        renderStudents();
+      }
+    });
+  });
+});
+
+// Đóng global search dropdown khi click ra ngoài
+document.addEventListener('click', e => {
+  if (!globalSearchInput?.contains(e.target) && !globalSearchDD?.contains(e.target)) {
+    globalSearchDD.style.display = 'none';
+  }
+  if (!e.target.closest?.('.smenu-toggle') && !e.target.closest?.('.student-menu')) {
+    document.querySelectorAll('.student-menu').forEach(m => m.style.display = 'none');
+  }
+});
+
+// ============================================================
+// DARK MODE
+// ============================================================
+const darkBtn = document.getElementById('darkModeBtn');
+const isDark  = localStorage.getItem('dh_dark') === '1';
+if (isDark) { document.body.classList.add('dark-mode'); darkBtn.textContent = '☀️'; }
+
+darkBtn?.addEventListener('click', () => {
+  const on = document.body.classList.toggle('dark-mode');
+  darkBtn.textContent = on ? '☀️' : '🌙';
+  localStorage.setItem('dh_dark', on ? '1' : '0');
+});
+
+// ============================================================
+// TỰ ĐỘNG ĐĂNG XUẤT SAU 15 PHÚT KHÔNG THAO TÁC
+// ============================================================
+(function autoLogout() {
+  const TIMEOUT = 15 * 60 * 1000; // 15 phút
+  const WARN    = 60 * 1000;       // cảnh báo trước 60 giây
+  let timer, warnTimer;
+
+  // Tạo overlay cảnh báo
+  const overlay = document.createElement('div');
+  overlay.id = 'autoLogoutOverlay';
+  overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  overlay.innerHTML = `
+    <div style="background:var(--card);border-radius:20px;padding:2rem 2.5rem;text-align:center;max-width:360px;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+      <div style="font-size:2.5rem;margin-bottom:.75rem">⏱️</div>
+      <div style="font-weight:800;font-size:1.1rem;margin-bottom:.5rem;color:var(--text)">Phiên sắp hết hạn</div>
+      <div style="font-size:.9rem;color:var(--muted);margin-bottom:1.25rem">Bạn không hoạt động trong 15 phút.<br>Tự động đăng xuất sau <b id="alCountdown" style="color:#ef4444">60</b> giây.</div>
+      <button id="alStayBtn" style="width:100%;padding:.75rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:12px;font-size:.95rem;font-weight:700;cursor:pointer">Tiếp tục làm việc</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  let countdown;
+  function showWarning() {
+    overlay.style.display = 'flex';
+    let secs = 60;
+    document.getElementById('alCountdown').textContent = secs;
+    countdown = setInterval(() => {
+      secs--;
+      const el = document.getElementById('alCountdown');
+      if (el) el.textContent = secs;
+      if (secs <= 0) { clearInterval(countdown); logout(); }
+    }, 1000);
+  }
+
+  function logout() {
+    clearInterval(countdown);
+    overlay.style.display = 'none';
+    sessionStorage.clear();
+    location.href = 'index.html';
+  }
+
+  function reset() {
+    clearTimeout(timer);
+    clearTimeout(warnTimer);
+    clearInterval(countdown);
+    overlay.style.display = 'none';
+    warnTimer = setTimeout(showWarning, TIMEOUT - WARN);
+    timer     = setTimeout(logout, TIMEOUT);
+  }
+
+  document.getElementById('alStayBtn').addEventListener('click', reset);
+  ['mousemove','keydown','click','touchstart','scroll'].forEach(e => document.addEventListener(e, reset, { passive: true }));
+  reset();
+})();
+
+// ============================================================
+// GREETING + ĐỒNG HỒ TỔNG QUAN
+// ============================================================
+(function initGreeting() {
+  function update() {
+    const now  = new Date();
+    const h    = now.getHours();
+    const name = sessionStorage.getItem('dh_name') || 'Admin';
+    const greet = h < 12 ? '☀️ Chào buổi sáng' : h < 18 ? '🌤 Chào buổi chiều' : '🌙 Chào buổi tối';
+    const days  = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+    const dateStr = `${days[now.getDay()]}, ${now.toLocaleDateString('vi-VN')}`;
+    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const gt = document.getElementById('greetingText');
+    const gd = document.getElementById('greetingDate');
+    const gtime = document.getElementById('greetingTime');
+    if (gt) gt.textContent = `${greet}, ${name}!`;
+    if (gd) gd.textContent = dateStr;
+    if (gtime) gtime.textContent = timeStr;
+  }
+  update();
+  setInterval(update, 1000);
+})();
