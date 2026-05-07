@@ -844,33 +844,3 @@ setInterval(async () => {
   reset();
 })();
 
-// ============================================================
-// BANNER CẬP NHẬT APP
-// ============================================================
-(function checkAppUpdate() {
-  const CURRENT = 'v1.2.1';
-  const dismissed = localStorage.getItem('dh_update_dismissed');
-  if (dismissed === CURRENT) return; // Đã bấm ✕ rồi thì không hiện lại
-
-  const banner = document.getElementById('updateAppBanner');
-  if (banner) banner.style.display = 'flex';
-
-  document.getElementById('dismissUpdateBtn')?.addEventListener('click', () => {
-    banner.style.display = 'none';
-    localStorage.setItem('dh_update_dismissed', CURRENT);
-  });
-
-  document.getElementById('showUpdateGuideBtn')?.addEventListener('click', () => {
-    document.getElementById('updateGuideModal').style.display = 'flex';
-  });
-
-  document.getElementById('closeUpdateGuideBtn')?.addEventListener('click', () => {
-    document.getElementById('updateGuideModal').style.display = 'none';
-  });
-
-  document.getElementById('updateGuideModal')?.addEventListener('click', e => {
-    if (e.target === document.getElementById('updateGuideModal')) {
-      document.getElementById('updateGuideModal').style.display = 'none';
-    }
-  });
-})();
