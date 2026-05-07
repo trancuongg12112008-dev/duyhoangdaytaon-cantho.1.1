@@ -40,6 +40,7 @@ create table if not exists lesson_groups (
   id         bigint generated always as identity primary key,
   name       text not null unique,
   class_name text,
+  parent_id  bigint references lesson_groups(id) on delete cascade,
   created_at timestamptz default now()
 );
 alter table lesson_groups disable row level security;
@@ -51,12 +52,15 @@ create table if not exists lessons (
   class_name   text,
   description  text,
   group_name   text default null,
+  group_id     bigint references lesson_groups(id) on delete set null,
   created_at   timestamptz default now()
 );
 
 -- Migration nếu bảng đã tồn tại:
 -- alter table lessons add column if not exists group_name text default null;
--- create table if not exists lesson_groups (id bigint generated always as identity primary key, name text not null unique, class_name text, created_at timestamptz default now());
+-- alter table lessons add column if not exists group_id bigint references lesson_groups(id) on delete set null;
+-- alter table lesson_groups add column if not exists parent_id bigint references lesson_groups(id) on delete cascade;
+-- create table if not exists lesson_groups (id bigint generated always as identity primary key, name text not null unique, class_name text, parent_id bigint references lesson_groups(id) on delete cascade, created_at timestamptz default now());
 -- alter table lesson_groups disable row level security;
 
 -- Bảng video trong bài học
@@ -144,6 +148,24 @@ alter table lesson_views disable row level security;
 -- MIGRATION: Thêm session_token vào students
 -- ============================================================
 alter table students add column if not exists session_token text default null;
+
+-- ============================================================
+-- MIGRATION: Thêm login_attempts, last_login vào students
+-- ============================================================
+alter table students add column if not exists login_attempts int default 0;
+alter table students add column if not exists last_login timestamptz default null;
+
+-- ============================================================
+-- Bảng lịch sử đăng nhập
+-- ============================================================
+create table if not exists login_logs (
+  id           bigint generated always as identity primary key,
+  username     text not null,
+  student_name text,
+  class_name   text,
+  logged_in_at timestamptz default now()
+);
+alter table login_logs disable row level security;
 
 -- ============================================================
 -- Bảng thông báo (announcements)

@@ -243,12 +243,41 @@ async function renderHome() {
   (vids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
   (docs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
 
-  list.forEach(l => {
-    const row = document.createElement('div');
-    row.className = 'list-row clickable';
-    row.innerHTML = `<span class="list-icon">📚</span><div class="list-info"><div class="list-title">${l.name}</div><div class="list-meta">${l.class_name?`<span class="class-tag">${l.class_name}</span>`:''} 🎬 ${vcMap[l.id]||0} video • 📄 ${dcMap[l.id]||0} tài liệu</div></div>`;
-    row.addEventListener('click', () => { showPage('lessons'); openLessonDetail(l.id); });
-    el.appendChild(row);
+  const colors = [
+    { bg: 'linear-gradient(135deg,#6366f1,#4f46e5)', light: '#eef2ff', icon: '📐' },
+    { bg: 'linear-gradient(135deg,#0ea5e9,#0284c7)', light: '#e0f2fe', icon: '📊' },
+    { bg: 'linear-gradient(135deg,#10b981,#059669)', light: '#d1fae5', icon: '📝' },
+    { bg: 'linear-gradient(135deg,#f59e0b,#d97706)', light: '#fef3c7', icon: '🔢' },
+  ];
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.85rem;';
+  el.appendChild(grid);
+
+  list.forEach((l, i) => {
+    const c = colors[i % colors.length];
+    const vc = vcMap[l.id] || 0;
+    const dc = dcMap[l.id] || 0;
+    const card = document.createElement('div');
+    card.style.cssText = `background:var(--card);border:1.5px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .18s,box-shadow .18s;box-shadow:var(--shadow)`;
+    card.innerHTML = `
+      <div style="background:${c.bg};padding:1rem 1.1rem 1.1rem;position:relative;overflow:hidden">
+        <div style="position:absolute;top:-18px;right:-18px;width:72px;height:72px;background:rgba(255,255,255,.1);border-radius:50%"></div>
+        <div style="position:absolute;bottom:-12px;left:30%;width:48px;height:48px;background:rgba(255,255,255,.08);border-radius:50%"></div>
+        <div style="width:38px;height:38px;background:rgba(255,255,255,.18);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:.6rem;position:relative">${c.icon}</div>
+        <div style="color:#fff;font-weight:800;font-size:.92rem;line-height:1.35;position:relative;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${l.name}</div>
+      </div>
+      <div style="padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:.6rem">
+          <span style="display:flex;align-items:center;gap:.3rem;background:${c.light};color:var(--text);font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:8px">🎬 ${vc}</span>
+          <span style="display:flex;align-items:center;gap:.3rem;background:${c.light};color:var(--text);font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:8px">📄 ${dc}</span>
+        </div>
+        <span style="font-size:.8rem;color:var(--primary);font-weight:700">Xem →</span>
+      </div>`;
+    card.addEventListener('mouseenter', () => { card.style.transform = 'translateY(-3px)'; card.style.boxShadow = '0 8px 24px rgba(0,0,0,.12)'; });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; card.style.boxShadow = 'var(--shadow)'; });
+    card.addEventListener('click', () => { showPage('lessons'); openLessonDetail(l.id); });
+    grid.appendChild(card);
   });
 }
 
@@ -278,8 +307,8 @@ async function renderLessonList() {
   (allVids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
   (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
 
-  const groups = {};
-  filtered.forEach(l => { const g = l.group_name || 'Bai hoc'; if (!groups[g]) groups[g] = []; groups[g].push(l); });
+  // Fetch nhóm bài học để build cây
+  const { data: allGroups } = await db.from('lesson_groups').select('*').order('name');
 
   const colors = [
     { gc:'#6366f1', gcLight:'#eef2ff', gcGlow:'rgba(99,102,241,.15)' },
@@ -294,29 +323,83 @@ async function renderLessonList() {
   grid.className = 'group-card-grid';
   el.appendChild(grid);
 
-  Object.entries(groups).forEach(([groupName, lessons], gi) => {
-    const c = colors[gi % colors.length];
+  // Lấy bài học theo nhóm — ưu tiên group_id, fallback group_name cho dữ liệu cũ
+  function getLessonsForGroup(gId, gName) {
+    return filtered.filter(l => {
+      if (l.group_id) return l.group_id === gId;
+      return l.group_name === gName;
+    });
+  }
+
+  // Lấy yêu thích 1 lần
+  let favSet = new Set();
+  db.from('lesson_favorites').select('lesson_id').eq('username', currentUser)
+    .then(({ data }) => { favSet = new Set((data||[]).map(f => f.lesson_id)); });
+
+  function buildLessonItem(l, idx) {
+    const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
+    const item = document.createElement('div');
+    item.className = 'group-lesson-item';
+    const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx + 1;
+    const info = document.createElement('div'); info.className = 'group-lesson-info';
+    info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">📚</span>${l.name}</div>
+      <div class="group-lesson-stats"><span>🎬 ${vc}</span><span>📄 ${dc}</span></div>`;
+    const favBtn = document.createElement('button');
+    favBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:1.1rem;padding:.2rem .3rem;flex-shrink:0;line-height:1;transition:transform .15s';
+    favBtn.textContent = favSet.has(l.id) ? '❤️' : '🤍';
+    favBtn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const nowFav = favBtn.textContent === '❤️';
+      favBtn.style.transform = 'scale(1.4)';
+      setTimeout(() => { favBtn.style.transform = ''; }, 200);
+      if (nowFav) {
+        favBtn.textContent = '🤍';
+        await db.from('lesson_favorites').delete().eq('username', currentUser).eq('lesson_id', l.id);
+      } else {
+        favBtn.textContent = '❤️';
+        await db.from('lesson_favorites').insert({ username: currentUser, lesson_id: l.id });
+      }
+    });
+    const openBtn = document.createElement('button');
+    openBtn.className = 'group-lesson-open'; openBtn.textContent = '→';
+    openBtn.addEventListener('click', e => { e.stopPropagation(); openLessonDetail(l.id); });
+    item.appendChild(num); item.appendChild(info); item.appendChild(favBtn); item.appendChild(openBtn);
+    item.addEventListener('click', () => openLessonDetail(l.id));
+    return item;
+  }
+
+  function buildGroupCard(g, depth, colorIdx) {
+    const c = colors[colorIdx % colors.length];
+    const children = (allGroups||[]).filter(x => x.parent_id === g.id);
+    const directLessons = getLessonsForGroup(g.id, g.name);
+    // Bỏ qua nhóm không có nội dung gì
+    if (!directLessons.length && !children.length) return null;
+
     const card = document.createElement('div');
     card.className = 'group-card';
     card.style.setProperty('--gc', c.gc);
     card.style.setProperty('--gc-light', c.gcLight);
     card.style.setProperty('--gc-glow', c.gcGlow);
+    if (depth > 0) card.style.marginLeft = (depth * 16) + 'px';
 
     const header = document.createElement('div');
     header.className = 'group-card-header';
     const iconEl = document.createElement('div');
     iconEl.className = 'group-card-icon';
-    const groupIcons = ['\uD83D\uDCDA','\uD83C\uDFAF','\uD83D\uDD25','\uD83D\uDCA1','\uD83C\uDF1F','\uD83D\uDE80'];
-    iconEl.textContent = groupIcons[gi % groupIcons.length];
+    const icons = ['📚','🎯','🔥','💡','⭐','🚀','📖','🏆'];
+    iconEl.textContent = icons[(colorIdx + depth) % icons.length];
     const bodyEl = document.createElement('div');
     bodyEl.className = 'group-card-body';
-    bodyEl.innerHTML = `<div class="group-card-name">${groupName}</div><div class="group-card-meta"><span class="group-card-count">${lessons.length} bai hoc</span></div>`;
+    const depthBadge = depth === 1
+      ? '<span style="font-size:.62rem;background:rgba(99,102,241,.12);color:var(--primary);padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;font-weight:700">Nhóm con</span>'
+      : depth === 2
+      ? '<span style="font-size:.62rem;background:rgba(16,185,129,.12);color:#059669;padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;font-weight:700">Nhóm cháu</span>'
+      : '';
+    bodyEl.innerHTML = `<div class="group-card-name">${g.name}${depthBadge}</div>
+      <div class="group-card-meta"><span class="group-card-count">${children.length ? children.length + ' nhóm con • ' : ''}${directLessons.length} bài học</span></div>`;
     const chevron = document.createElement('div');
-    chevron.className = 'group-card-chevron';
-    chevron.textContent = String.fromCharCode(9660);
-    header.appendChild(iconEl);
-    header.appendChild(bodyEl);
-    header.appendChild(chevron);
+    chevron.className = 'group-card-chevron'; chevron.textContent = '▼';
+    header.appendChild(iconEl); header.appendChild(bodyEl); header.appendChild(chevron);
 
     const lessonList = document.createElement('div');
     lessonList.className = 'group-lesson-list';
@@ -325,70 +408,76 @@ async function renderLessonList() {
     lessonList.appendChild(inner);
 
     let expanded = !!q;
-    if (expanded) {
-      card.classList.add('open');
-      lessonList.classList.add('open');
-    }
+    if (expanded) { card.classList.add('open'); lessonList.classList.add('open'); }
 
-    async function loadLessons() {
+    function loadContent() {
       if (inner.dataset.loaded) return;
       inner.dataset.loaded = '1';
-
-      // Lấy danh sách yêu thích của user
-      const { data: favData } = await db.from('lesson_favorites')
-        .select('lesson_id').eq('username', currentUser);
-      const favSet = new Set((favData||[]).map(f => f.lesson_id));
-
-      lessons.forEach((l, idx) => {
-        const vc = vcMap[l.id]||0, dc = dcMap[l.id]||0;
-        const item = document.createElement('div');
-        item.className = 'group-lesson-item';
-        const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx+1;
-        const info = document.createElement('div'); info.className = 'group-lesson-info';
-        info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">\uD83D\uDCDA</span>${l.name}</div><div class="group-lesson-stats"><span>\uD83C\uDFAC ${vc}</span><span>\uD83D\uDCC4 ${dc}</span></div>`;
-
-        // Nút tim yêu thích
-        const favBtn = document.createElement('button');
-        favBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:1.1rem;padding:.2rem .3rem;flex-shrink:0;line-height:1;transition:transform .15s';
-        favBtn.textContent = favSet.has(l.id) ? '❤️' : '🤍';
-        favBtn.title = favSet.has(l.id) ? 'Bỏ yêu thích' : 'Yêu thích';
-        favBtn.addEventListener('click', async e => {
-          e.stopPropagation();
-          const nowFav = favBtn.textContent === '❤️';
-          favBtn.style.transform = 'scale(1.4)';
-          setTimeout(() => { favBtn.style.transform = ''; }, 200);
-          if (nowFav) {
-            favBtn.textContent = '🤍'; favBtn.title = 'Yêu thích';
-            await db.from('lesson_favorites').delete().eq('username', currentUser).eq('lesson_id', l.id);
-          } else {
-            favBtn.textContent = '❤️'; favBtn.title = 'Bỏ yêu thích';
-            await db.from('lesson_favorites').insert({ username: currentUser, lesson_id: l.id });
-          }
+      // Nhóm con trước
+      if (children.length && depth < 2) {
+        children.forEach((ch, ci) => {
+          const childCard = buildGroupCard(ch, depth + 1, colorIdx + ci + 1);
+          if (childCard) inner.appendChild(childCard);
         });
-
-        const openBtn = document.createElement('button');
-        openBtn.className = 'group-lesson-open';
-        openBtn.textContent = String.fromCharCode(8594);
-        openBtn.addEventListener('click', e => { e.stopPropagation(); openLessonDetail(l.id); });
-        item.appendChild(num); item.appendChild(info); item.appendChild(favBtn); item.appendChild(openBtn);
-        item.addEventListener('click', () => openLessonDetail(l.id));
-        inner.appendChild(item);
-      });
+      }
+      // Bài học trực tiếp
+      directLessons.forEach((l, idx) => inner.appendChild(buildLessonItem(l, idx)));
+      if (!children.length && !directLessons.length) {
+        const msg = document.createElement('div'); msg.className = 'group-empty-msg'; msg.textContent = 'Chưa có nội dung.';
+        inner.appendChild(msg);
+      }
     }
 
-    if (expanded) loadLessons(); // Load ngay khi search
-
+    if (expanded) loadContent();
     header.addEventListener('click', () => {
       expanded = !expanded;
       card.classList.toggle('open', expanded);
       lessonList.classList.toggle('open', expanded);
-      if (expanded) loadLessons();
+      if (expanded) loadContent();
     });
 
-    card.appendChild(header);
-    card.appendChild(lessonList);
-    grid.appendChild(card);
+    card.appendChild(header); card.appendChild(lessonList);
+    return card;
+  }
+
+  // Bài học không thuộc nhóm nào
+  const ungrouped = filtered.filter(l => !l.group_id && !l.group_name);
+
+  // Render nhóm gốc
+  const roots = (allGroups||[]).filter(g => !g.parent_id);
+  roots.forEach((g, gi) => {
+    const card = buildGroupCard(g, 0, gi);
+    if (card) grid.appendChild(card);
   });
+
+  // Render bài học không nhóm
+  if (ungrouped.length) {
+    const c = colors[roots.length % colors.length];
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    card.style.setProperty('--gc', c.gc);
+    card.style.setProperty('--gc-light', c.gcLight);
+    card.style.setProperty('--gc-glow', c.gcGlow);
+    const header = document.createElement('div'); header.className = 'group-card-header';
+    const iconEl = document.createElement('div'); iconEl.className = 'group-card-icon'; iconEl.textContent = '📋';
+    const bodyEl = document.createElement('div'); bodyEl.className = 'group-card-body';
+    bodyEl.innerHTML = `<div class="group-card-name">Bài học khác</div><div class="group-card-meta"><span class="group-card-count">${ungrouped.length} bài học</span></div>`;
+    const chevron = document.createElement('div'); chevron.className = 'group-card-chevron'; chevron.textContent = '▼';
+    header.appendChild(iconEl); header.appendChild(bodyEl); header.appendChild(chevron);
+    const lessonList = document.createElement('div'); lessonList.className = 'group-lesson-list';
+    const inner = document.createElement('div'); inner.className = 'group-lesson-list-inner';
+    lessonList.appendChild(inner);
+    let expanded = !!q;
+    if (expanded) { card.classList.add('open'); lessonList.classList.add('open'); inner.dataset.loaded = '1'; ungrouped.forEach((l, i) => inner.appendChild(buildLessonItem(l, i))); }
+    header.addEventListener('click', () => {
+      expanded = !expanded;
+      card.classList.toggle('open', expanded);
+      lessonList.classList.toggle('open', expanded);
+      if (expanded && !inner.dataset.loaded) { inner.dataset.loaded = '1'; ungrouped.forEach((l, i) => inner.appendChild(buildLessonItem(l, i))); }
+    });
+    card.appendChild(header); card.appendChild(lessonList);
+    grid.appendChild(card);
+  }
 }
 
 function getEmbedUrl(url) {
@@ -844,3 +933,26 @@ setInterval(async () => {
   reset();
 })();
 
+
+// ============================================================
+// GREETING TRANG CHỦ (chỉ tablet/laptop)
+// ============================================================
+(function initStudentGreeting() {
+  function update() {
+    const now  = new Date();
+    const h    = now.getHours();
+    const name = sessionStorage.getItem('dh_name') || 'bạn';
+    const greet = h < 12 ? '☀️ Chào buổi sáng' : h < 18 ? '🌤 Chào buổi chiều' : '🌙 Chào buổi tối';
+    const days  = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+    const dateStr = `${days[now.getDay()]}, ${now.toLocaleDateString('vi-VN')}`;
+    const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const gt = document.getElementById('studentGreetingText');
+    const gd = document.getElementById('studentGreetingDate');
+    const gtime = document.getElementById('studentGreetingTime');
+    if (gt) gt.textContent = `${greet}, ${name}!`;
+    if (gd) gd.textContent = dateStr;
+    if (gtime) gtime.textContent = timeStr;
+  }
+  update();
+  setInterval(update, 1000);
+})();

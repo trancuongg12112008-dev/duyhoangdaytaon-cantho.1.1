@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quản Trị - DHDTCT LMS v1.2.1</title>
+  <title>Quản Trị - DHDTCT LMS v1.3.0</title>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -43,7 +43,7 @@
     </nav>
     <a href="index.html" class="slink slink-logout" id="logoutBtn"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
     <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="margin:.4rem .75rem"><span class="slink-icon">🔗</span><span class="slink-label">Trang đăng nhập</span></a>
-    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.2.1</div>
+    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.3.0</div>
   </aside>
 
   <!-- MAIN -->
@@ -165,6 +165,14 @@
         <h1 class="page-title">Nhóm bài học</h1>
         <button class="btn-primary" id="openAddGroupBtn">➕ Tạo nhóm</button>
       </div>
+      <div class="filter-bar" style="margin-bottom:1rem">
+        <div style="position:relative;flex:1;max-width:360px">
+          <span style="position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none">🔍</span>
+          <input type="text" id="groupSearch" placeholder="Tìm bài học theo tên..." style="width:100%;padding:.55rem 1rem .55rem 2.4rem;border:1.5px solid var(--border);border-radius:10px;outline:none;font-size:.88rem;background:var(--card);transition:border-color .2s"
+            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'"/>
+        </div>
+      </div>
+      <div id="groupSearchResults" style="display:none;margin-bottom:1rem"></div>
       <div class="content-list" id="groupList"></div>
       <div class="empty-state" id="emptyGroups">Chưa có nhóm nào.</div>
     </section>

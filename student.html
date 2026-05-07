@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Học Sinh - DHDTCT LMS v1.2.1</title>
+  <title>Học Sinh - DHDTCT LMS v1.3.0</title>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -98,7 +98,7 @@
     <a href="index.html" class="slink slink-logout" id="logoutBtn">
       <span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span>
     </a>
-    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.2.1</div>
+    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.3.0</div>
   </aside>
 
   <!-- MAIN -->
@@ -131,6 +131,18 @@
 
     <!-- TRANG CHỦ -->
     <section class="page active" id="pageHome">
+
+      <!-- Greeting banner — chỉ hiện trên tablet/laptop -->
+      <div id="studentGreetingBanner" style="background:linear-gradient(135deg,#1e1b4b,#4338ca);border-radius:16px;padding:1.1rem 1.5rem;margin-bottom:1.25rem;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+        <div>
+          <div id="studentGreetingText" style="font-size:1.05rem;font-weight:900;letter-spacing:-.2px"></div>
+          <div id="studentGreetingDate" style="font-size:.78rem;opacity:.6;margin-top:.15rem"></div>
+        </div>
+        <div id="studentGreetingTime" style="font-size:1.35rem;font-weight:900;font-variant-numeric:tabular-nums;opacity:.85"></div>
+      </div>
+      <style>
+        @media (max-width: 768px) { #studentGreetingBanner { display: none !important; } }
+      </style>
 
       <!-- Hero banner -->
       <div id="heroBanner" style="background:linear-gradient(135deg,#0a0820 0%,#1e1b4b 40%,#312e81 75%,#1e3a5f 100%);border-radius:20px;padding:2rem;margin-bottom:1.5rem;position:relative;overflow:hidden;color:#fff">
@@ -447,7 +459,7 @@
       <p>© Bản quyền thuộc về <b>DHDTCT LMS Education System</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
       <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
       <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
-      <p style="margin-top:.5rem;color:#555;font-size:.72rem">Phiên bản <b style="color:#6366f1">v1.2.1</b></p>
+      <p style="margin-top:.5rem;color:#555;font-size:.72rem">Phiên bản <b style="color:#6366f1">v1.3.0</b></p>
     </footer>
   </div>
 

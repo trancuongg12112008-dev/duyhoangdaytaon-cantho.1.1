@@ -1,22 +1,22 @@
 {
-  "name": "DHDTCT LMS Education System v1.2.1",
+  "name": "DHDTCT LMS Education System v1.3.0",
   "short_name": "DHDTCT LMS",
-  "description": "DHDTCT LMS Education System - v1.2.1",
-  "start_url": "/duyhoangdaytaon-cantho.1.1/index.html?v=1.2.1",
-  "scope": "/duyhoangdaytaon-cantho.1.1/",
+  "description": "DHDTCT LMS Education System - v1.3.0",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "/duyhoangdaytaon-cantho.1.1/icons/icon-192.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/duyhoangdaytaon-cantho.1.1/icons/icon-512.png",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

@@ -1,8 +1,14 @@
-﻿﻿// Khởi tạo Supabase client (CDN đã load sẵn qua script tag)
+﻿﻿﻿﻿//// Khởi tạo Supabase client (CDN đã load sẵn qua script tag)
 const db = supabase.createClient(
   'https://gojpmogjretoxplydjvg.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
 );
+
+// ---- Hash mật khẩu SHA-256 (dùng chung toàn file) ----
+async function hashPw(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
 // ---- Gmail validation ----
 function isValidGmail(val) {
@@ -165,12 +171,29 @@ async function populateClassFilters() {
 }
 populateClassFilters();
 
-// ---- Populate nhóm bài học vào dropdown ----
+// ---- Populate nhóm bài học vào dropdown (hỗ trợ cây 3 cấp) ----
 async function populateGroupSelect(selectId, currentVal='') {
-  const { data: groups } = await db.from('lesson_groups').select('name').order('name');
+  const { data: groups } = await db.from('lesson_groups').select('*').order('name');
   const el = document.getElementById(selectId); if (!el) return;
-  el.innerHTML = '<option value="">-- Không có nhóm --</option>' + (groups||[]).map(g=>`<option value="${g.name}">${g.name}</option>`).join('');
-  el.value = currentVal;
+
+  // Xây cây
+  const roots = (groups||[]).filter(g => !g.parent_id);
+  function buildOptions(nodes, depth=0) {
+    let opts = '';
+    nodes.forEach(g => {
+      const prefix = depth === 0 ? '' : depth === 1 ? '　├ ' : '　　└ ';
+      opts += `<option value="${g.id}">${prefix}${g.name}</option>`;
+      const children = (groups||[]).filter(c => c.parent_id === g.id);
+      if (children.length && depth < 2) opts += buildOptions(children, depth + 1);
+    });
+    return opts;
+  }
+  el.innerHTML = '<option value="">-- Không có nhóm --</option>' + buildOptions(roots);
+  // Match theo id hoặc name
+  if (currentVal) {
+    const match = (groups||[]).find(g => g.id == currentVal || g.name === currentVal);
+    if (match) el.value = match.id;
+  }
 }
 
 // ============================================================
@@ -183,7 +206,7 @@ async function renderGroups() {
   document.getElementById('emptyGroups').style.display = (list||[]).length ? 'none' : 'block';
   if (!(list||[]).length) return;
 
-  const { data: allLessons } = await db.from('lessons').select('id,name,class_name,description,group_name').order('created_at', {ascending: false});
+  const { data: allLessons } = await db.from('lessons').select('id,name,class_name,description,group_id,group_name').order('created_at', {ascending: false});
   const lessonIds = (allLessons||[]).map(l => l.id);
   const [{ data: allVids }, { data: allDocs }] = lessonIds.length ? await Promise.all([
     db.from('lesson_videos').select('lesson_id').in('lesson_id', lessonIds),
@@ -206,104 +229,91 @@ async function renderGroups() {
   grid.className = 'group-card-grid';
   container.appendChild(grid);
 
-  function buildLessonItem(l, idx, vcMap, dcMap, onOpen, onEdit, onDel) {
+  function getLessonsForGroup(gId) {
+    // Ưu tiên group_id, fallback group_name cho dữ liệu cũ
+    const g = (list||[]).find(x => x.id === gId);
+    return (allLessons||[]).filter(l => {
+      if (l.group_id) return l.group_id === gId;
+      return g && l.group_name === g.name;
+    });
+  }
+
+  function buildLessonItem(l, idx, onOpen, onEdit, onDel) {
     const item = document.createElement('div');
     item.className = 'group-lesson-item';
-    const num = document.createElement('div');
-    num.className = 'group-lesson-num';
-    num.textContent = idx + 1;
-    const info = document.createElement('div');
-    info.className = 'group-lesson-info';
-    const title = document.createElement('div');
-    title.className = 'group-lesson-title';
-    title.textContent = l.name;
-    const stats = document.createElement('div');
-    stats.className = 'group-lesson-stats';
-    stats.innerHTML = `<span>${vcMap[l.id]||0} video</span><span>${dcMap[l.id]||0} tai lieu</span>${l.class_name ? `<span class="class-tag" style="font-size:.68rem">${l.class_name}</span>` : ''}`;
-    info.appendChild(title);
-    info.appendChild(stats);
-    const acts = document.createElement('div');
-    acts.className = 'group-lesson-item-actions';
-    const openBtn = document.createElement('button');
-    openBtn.className = 'group-lesson-open';
-    openBtn.textContent = String.fromCharCode(8594);
+    const num = document.createElement('div'); num.className = 'group-lesson-num'; num.textContent = idx + 1;
+    const info = document.createElement('div'); info.className = 'group-lesson-info';
+    info.innerHTML = `<div class="group-lesson-title"><span style="margin-right:.35rem">📚</span>${l.name}</div>
+      <div class="group-lesson-stats"><span>${vcMap[l.id]||0} video</span><span>${dcMap[l.id]||0} tài liệu</span>${l.class_name?`<span class="class-tag" style="font-size:.68rem">${l.class_name}</span>`:''}</div>`;
+    const acts = document.createElement('div'); acts.className = 'group-lesson-item-actions';
+    const openBtn = document.createElement('button'); openBtn.className = 'group-lesson-open'; openBtn.textContent = '→';
     openBtn.addEventListener('click', e => { e.stopPropagation(); onOpen(); });
     acts.appendChild(openBtn);
-    if (onEdit) {
-      const eb = document.createElement('button'); eb.className = 'btn-sm'; eb.textContent = String.fromCharCode(9999,65039);
-      eb.addEventListener('click', e => { e.stopPropagation(); onEdit(); }); acts.appendChild(eb);
-    }
-    if (onDel) {
-      const db2 = document.createElement('button'); db2.className = 'btn-sm btn-danger'; db2.textContent = String.fromCharCode(128465);
-      db2.addEventListener('click', e => { e.stopPropagation(); onDel(); }); acts.appendChild(db2);
-    }
+    if (onEdit) { const eb = document.createElement('button'); eb.className = 'btn-sm'; eb.textContent = '✏️'; eb.addEventListener('click', e => { e.stopPropagation(); onEdit(); }); acts.appendChild(eb); }
+    if (onDel)  { const db2 = document.createElement('button'); db2.className = 'btn-sm btn-danger'; db2.textContent = '🗑'; db2.addEventListener('click', e => { e.stopPropagation(); onDel(); }); acts.appendChild(db2); }
     item.appendChild(num); item.appendChild(info); item.appendChild(acts);
     item.addEventListener('click', onOpen);
     return item;
   }
 
-  list.forEach((g, gi) => {
-    const lessons = (allLessons||[]).filter(l => l.group_name === g.name);
-    const count = lessons.length;
-    const c = colors[gi % colors.length];
+  function buildGroupCard(g, depth, colorIdx) {
+    const c = colors[colorIdx % colors.length];
+    const children = (list||[]).filter(x => x.parent_id === g.id);
+    const directLessons = getLessonsForGroup(g.id);
 
     const card = document.createElement('div');
     card.className = 'group-card';
     card.style.setProperty('--gc', c.gc);
     card.style.setProperty('--gc-light', c.gcLight);
     card.style.setProperty('--gc-glow', c.gcGlow);
+    if (depth > 0) card.style.marginLeft = (depth * 18) + 'px';
 
     const header = document.createElement('div');
     header.className = 'group-card-header';
 
     const iconEl = document.createElement('div');
     iconEl.className = 'group-card-icon';
-    const groupIcons = ['\uD83D\uDCDA','\uD83C\uDFAF','\uD83D\uDD25','\uD83D\uDCA1','\uD83C\uDF1F','\uD83D\uDE80'];
-    iconEl.textContent = groupIcons[gi % groupIcons.length];
+    const icons = ['📚','🎯','🔥','💡','⭐','🚀','📖','🏆'];
+    iconEl.textContent = icons[(colorIdx + depth) % icons.length];
 
     const bodyEl = document.createElement('div');
     bodyEl.className = 'group-card-body';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'group-card-name';
-    nameEl.textContent = g.name;
-    const metaEl = document.createElement('div');
-    metaEl.className = 'group-card-meta';
-    if (g.class_name) { const ct = document.createElement('span'); ct.className = 'class-tag'; ct.textContent = g.class_name; metaEl.appendChild(ct); }
-    const countEl = document.createElement('span');
-    countEl.className = 'group-card-count';
-    countEl.textContent = count + ' bai hoc';
-    metaEl.appendChild(countEl);
-    bodyEl.appendChild(nameEl);
-    bodyEl.appendChild(metaEl);
+    const depthBadge = depth === 1
+      ? '<span style="font-size:.62rem;background:rgba(99,102,241,.12);color:var(--primary);padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;font-weight:700">Nhóm con</span>'
+      : depth === 2
+      ? '<span style="font-size:.62rem;background:rgba(16,185,129,.12);color:#059669;padding:.1rem .4rem;border-radius:4px;margin-left:.4rem;font-weight:700">Nhóm cháu</span>'
+      : '';
+    bodyEl.innerHTML = `<div class="group-card-name">${g.name}${depthBadge}</div>
+      <div class="group-card-meta">
+        ${g.class_name ? `<span class="class-tag">${g.class_name}</span>` : ''}
+        <span class="group-card-count">${children.length ? children.length + ' nhóm con • ' : ''}${directLessons.length} bài học</span>
+      </div>`;
 
     const actionsEl = document.createElement('div');
     actionsEl.className = 'group-card-actions';
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn-sm';
-    editBtn.textContent = String.fromCharCode(9999,65039);
+    if (depth < 2) {
+      const addChildBtn = document.createElement('button');
+      addChildBtn.className = 'btn-sm'; addChildBtn.title = 'Thêm nhóm con'; addChildBtn.textContent = '➕';
+      addChildBtn.addEventListener('click', e => { e.stopPropagation(); openGroupModal(null, g.id); });
+      actionsEl.appendChild(addChildBtn);
+    }
+    const editBtn = document.createElement('button'); editBtn.className = 'btn-sm'; editBtn.textContent = '✏️';
     editBtn.addEventListener('click', e => { e.stopPropagation(); openGroupModal(g); });
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-sm btn-danger';
-    delBtn.textContent = String.fromCharCode(128465);
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-sm btn-danger'; delBtn.textContent = '🗑';
     delBtn.addEventListener('click', e => {
       e.stopPropagation();
-      showConfirm(`Xoa nhom "${g.name}"?`, async () => {
-        await db.from('lessons').update({ group_name: null }).eq('group_name', g.name);
+      showConfirm(`Xóa nhóm "${g.name}"? Nhóm con và bài học bên trong cũng bị ảnh hưởng.`, async () => {
+        await db.from('lessons').update({ group_id: null, group_name: null }).eq('group_id', g.id);
         await db.from('lesson_groups').delete().eq('id', g.id);
         renderGroups();
       });
     });
-    actionsEl.appendChild(editBtn);
-    actionsEl.appendChild(delBtn);
+    actionsEl.appendChild(editBtn); actionsEl.appendChild(delBtn);
 
     const chevron = document.createElement('div');
-    chevron.className = 'group-card-chevron';
-    chevron.textContent = String.fromCharCode(9660);
+    chevron.className = 'group-card-chevron'; chevron.textContent = '▼';
 
-    header.appendChild(iconEl);
-    header.appendChild(bodyEl);
-    header.appendChild(actionsEl);
-    header.appendChild(chevron);
+    header.appendChild(iconEl); header.appendChild(bodyEl); header.appendChild(actionsEl); header.appendChild(chevron);
 
     const lessonList = document.createElement('div');
     lessonList.className = 'group-lesson-list';
@@ -319,37 +329,41 @@ async function renderGroups() {
       lessonList.classList.toggle('open', expanded);
       if (expanded && !inner.dataset.loaded) {
         inner.dataset.loaded = '1';
-        if (!lessons.length) {
-          const msg = document.createElement('div');
-          msg.className = 'group-empty-msg';
-          msg.textContent = 'Chua co bai hoc nao.';
-          inner.appendChild(msg);
-          return;
+        if (children.length && depth < 2) {
+          children.forEach((ch, ci) => inner.appendChild(buildGroupCard(ch, depth + 1, colorIdx + ci + 1)));
         }
-        lessons.forEach((l, idx) => {
-          inner.appendChild(buildLessonItem(l, idx, vcMap, dcMap,
+        directLessons.forEach((l, idx) => {
+          inner.appendChild(buildLessonItem(l, idx,
             () => openLessonDetail(l.id),
             () => openLessonModal(l),
-            () => showConfirm(`Xoa bai hoc "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id',l.id); renderGroups(); })
+            () => showConfirm(`Xóa bài học "${l.name}"?`, async () => { await db.from('lessons').delete().eq('id', l.id); renderGroups(); })
           ));
         });
+        if (!children.length && !directLessons.length) {
+          const msg = document.createElement('div'); msg.className = 'group-empty-msg'; msg.textContent = 'Chưa có nội dung.';
+          inner.appendChild(msg);
+        }
       }
     });
 
-    card.appendChild(header);
-    card.appendChild(lessonList);
-    grid.appendChild(card);
-  });
+    card.appendChild(header); card.appendChild(lessonList);
+    return card;
+  }
+
+  const roots = (list||[]).filter(g => !g.parent_id);
+  roots.forEach((g, gi) => grid.appendChild(buildGroupCard(g, 0, gi)));
 }
 
+
 let editingGroupId = null;
-function openGroupModal(g=null) {
-  editingGroupId = g?g.id:null;
-  document.getElementById('groupModalTitle').textContent = g?'Sửa nhóm':'Tạo nhóm';
-  document.getElementById('groupNameInput').value = g?g.name:'';
-  document.getElementById('groupNameInput').dataset.oldName = g?g.name:'';
+function openGroupModal(g=null, parentId=null) {
+  editingGroupId = g ? g.id : null;
+  document.getElementById('groupModalTitle').textContent = g ? 'Sửa nhóm' : (parentId ? 'Tạo nhóm con' : 'Tạo nhóm');
+  document.getElementById('groupNameInput').value = g ? g.name : '';
+  document.getElementById('groupNameInput').dataset.oldName = g ? g.name : '';
+  document.getElementById('groupNameInput').dataset.parentId = g ? (g.parent_id || '') : (parentId || '');
   document.getElementById('groupError').textContent = '';
-  populateClassFilters().then(() => { document.getElementById('groupClassSelect').value = g?(g.class_name||''):''; });
+  populateClassFilters().then(() => { document.getElementById('groupClassSelect').value = g ? (g.class_name||'') : ''; });
   document.getElementById('groupModal').classList.add('open');
 }
 document.getElementById('openAddGroupBtn').addEventListener('click', () => openGroupModal());
@@ -357,18 +371,83 @@ document.getElementById('groupCancelBtn').addEventListener('click', () => docume
 document.getElementById('groupSaveBtn').addEventListener('click', async () => {
   const name = document.getElementById('groupNameInput').value.trim();
   const oldName = document.getElementById('groupNameInput').dataset.oldName;
+  const parentId = document.getElementById('groupNameInput').dataset.parentId || null;
   const cls = document.getElementById('groupClassSelect').value;
   const err = document.getElementById('groupError');
-  if (!name) { err.textContent='Vui lòng nhập tên nhóm.'; return; }
+  if (!name) { err.textContent = 'Vui lòng nhập tên nhóm.'; return; }
   if (editingGroupId) {
-    await db.from('lesson_groups').update({name,class_name:cls||null}).eq('id',editingGroupId);
-    if (oldName && oldName !== name) await db.from('lessons').update({group_name:name}).eq('group_name',oldName);
+    await db.from('lesson_groups').update({ name, class_name: cls||null }).eq('id', editingGroupId);
+    if (oldName && oldName !== name) await db.from('lessons').update({ group_name: name }).eq('group_name', oldName);
   } else {
-    const { error } = await db.from('lesson_groups').insert({name,class_name:cls||null});
-    if (error) { err.textContent='Tên nhóm đã tồn tại.'; return; }
+    const { error } = await db.from('lesson_groups').insert({
+      name,
+      class_name: cls || null,
+      parent_id: parentId ? parseInt(parentId) : null
+    });
+    if (error) { err.textContent = 'Tên nhóm đã tồn tại.'; return; }
   }
   document.getElementById('groupModal').classList.remove('open');
   renderGroups();
+});
+
+// ---- Tìm kiếm bài học trong nhóm ----
+document.getElementById('groupSearch')?.addEventListener('input', async function() {
+  const q = this.value.trim().toLowerCase();
+  const resultsEl = document.getElementById('groupSearchResults');
+  const groupListEl = document.getElementById('groupList');
+
+  if (!q) {
+    resultsEl.style.display = 'none';
+    resultsEl.innerHTML = '';
+    groupListEl.style.display = '';
+    return;
+  }
+
+  // Tìm bài học khớp
+  const { data: lessons } = await db.from('lessons')
+    .select('id,name,class_name,group_id,group_name,description')
+    .ilike('name', `%${q}%`)
+    .order('name');
+
+  groupListEl.style.display = 'none';
+  resultsEl.style.display = '';
+
+  if (!(lessons||[]).length) {
+    resultsEl.innerHTML = '<div class="empty-state" style="padding:1.5rem">Không tìm thấy bài học nào.</div>';
+    return;
+  }
+
+  // Lấy tên nhóm
+  const { data: groups } = await db.from('lesson_groups').select('id,name');
+  const groupMap = Object.fromEntries((groups||[]).map(g => [g.id, g.name]));
+
+  resultsEl.innerHTML = `<div style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem;font-weight:600">Tìm thấy ${lessons.length} bài học</div>`;
+  const list = document.createElement('div');
+  list.className = 'content-list';
+  lessons.forEach(l => {
+    const groupName = l.group_id ? (groupMap[l.group_id] || '—') : (l.group_name || '—');
+    const row = document.createElement('div');
+    row.className = 'content-row clickable';
+    row.innerHTML = `
+      <span class="list-icon">📚</span>
+      <div class="list-info" style="flex:1">
+        <div class="list-title">${l.name}</div>
+        <div class="list-meta">
+          ${l.class_name ? `<span class="class-tag">${l.class_name}</span>` : ''}
+          <span style="color:var(--muted)">📂 ${groupName}</span>
+        </div>
+      </div>
+      <button class="btn-sm btn-primary" style="flex-shrink:0">Mở →</button>`;
+    row.addEventListener('click', () => {
+      document.getElementById('groupSearch').value = '';
+      resultsEl.style.display = 'none';
+      groupListEl.style.display = '';
+      showPage('lessons');
+      setTimeout(() => openLessonDetail(l.id), 100);
+    });
+    list.appendChild(row);
+  });
+  resultsEl.appendChild(list);
 });
 
 // ============================================================
@@ -546,7 +625,7 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   const { error } = await db.from('students').insert({
     student_code: code || null,
     full_name: name, phone: phone || null,
-    username, password,
+    username, password: await hashPw(password),
     class_name: cls || null,
     active: true, expiry_date: expiry, notes
   });
@@ -705,7 +784,13 @@ async function renderStudents() {
   const tbody = document.getElementById('studentBody');
   tbody.innerHTML = '';
   document.getElementById('emptyStudents').style.display = filtered.length?'none':'block';
-  filtered.forEach(s => {
+  const PER_PAGE_ST = 20;
+  const totalPagesSt = Math.max(1, Math.ceil(filtered.length / PER_PAGE_ST));
+  if (!window._studentPage || window._studentPage > totalPagesSt) window._studentPage = 1;
+  const stPage = window._studentPage;
+  const stSlice = filtered.slice((stPage - 1) * PER_PAGE_ST, stPage * PER_PAGE_ST);
+
+  stSlice.forEach(s => {
     const tr = document.createElement('tr');
     const loginAttempts = s.login_attempts || 0;
     const attemptsBadge = loginAttempts > 0 ? `<span class="status-pill orange" style="font-size:.7rem">⚠️ ${loginAttempts} lần sai</span>` : '';
@@ -785,10 +870,55 @@ async function renderStudents() {
     });
     tbody.appendChild(tr);
   });
+
+  // Phân trang danh sách học sinh
+  let stPgEl = document.getElementById('studentPagination');
+  if (!stPgEl) {
+    stPgEl = document.createElement('div');
+    stPgEl.id = 'studentPagination';
+    stPgEl.style.cssText = 'display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.85rem;padding:.75rem 0';
+    tbody.closest('table').parentElement.after(stPgEl);
+  }
+  stPgEl.innerHTML = '';
+  if (totalPagesSt > 1) {
+    const info = document.createElement('span');
+    info.style.cssText = 'font-size:.8rem;color:var(--muted);margin-right:.25rem';
+    info.textContent = `${filtered.length} học sinh`;
+    stPgEl.appendChild(info);
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'page-btn';
+    prevBtn.textContent = '‹';
+    if (stPage === 1) { prevBtn.disabled = true; prevBtn.style.opacity = '.4'; }
+    prevBtn.addEventListener('click', () => { window._studentPage = stPage - 1; renderStudents(); });
+    stPgEl.appendChild(prevBtn);
+
+    for (let i = 1; i <= totalPagesSt; i++) {
+      if (i === 1 || i === totalPagesSt || (i >= stPage - 2 && i <= stPage + 2)) {
+        const btn = document.createElement('button');
+        btn.className = 'page-btn' + (i === stPage ? ' active' : '');
+        btn.textContent = i;
+        btn.addEventListener('click', () => { window._studentPage = i; renderStudents(); });
+        stPgEl.appendChild(btn);
+      } else if (i === stPage - 3 || i === stPage + 3) {
+        const dots = document.createElement('span');
+        dots.style.cssText = 'color:var(--muted);padding:0 .2rem';
+        dots.textContent = '…';
+        stPgEl.appendChild(dots);
+      }
+    }
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'page-btn';
+    nextBtn.textContent = '›';
+    if (stPage === totalPagesSt) { nextBtn.disabled = true; nextBtn.style.opacity = '.4'; }
+    nextBtn.addEventListener('click', () => { window._studentPage = stPage + 1; renderStudents(); });
+    stPgEl.appendChild(nextBtn);
+  }
 }
-document.getElementById('studentSearch').addEventListener('input', renderStudents);
-document.getElementById('studentFilterClass').addEventListener('change', renderStudents);
-document.getElementById('studentFilterExpiry')?.addEventListener('change', renderStudents);
+document.getElementById('studentSearch').addEventListener('input', () => { window._studentPage = 1; renderStudents(); });
+document.getElementById('studentFilterClass').addEventListener('change', () => { window._studentPage = 1; renderStudents(); });
+document.getElementById('studentFilterExpiry')?.addEventListener('change', () => { window._studentPage = 1; renderStudents(); });
 
 document.getElementById('exportStudentsBtn').addEventListener('click', async () => {
   const cls = document.getElementById('studentFilterClass').value;
@@ -945,7 +1075,7 @@ document.getElementById('addStudentSaveBtn').addEventListener('click', async () 
   if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
   if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
   if (!/\d/.test(password)) { err.textContent='Mật khẩu phải chứa ít nhất 1 số.'; return; }
-  const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password, class_name:cls, active:true, expiry_date:expiry, notes });
+  const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password: await hashPw(password), class_name:cls, active:true, expiry_date:expiry, notes });
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('addStudentModal').classList.remove('open');
   renderStudents(); populateClassFilters();
@@ -1038,7 +1168,7 @@ document.getElementById('esSaveBtn').addEventListener('click', async () => {
   if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
   if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
   if (code && !/\d/.test(code)) { err.textContent='Mã học viên phải chứa ít nhất 1 số.'; return; }
-  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes, password:code };
+  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes, password: await hashPw(code) };
   const { error } = await db.from('students').update(updates).eq('id',editingStudentId);
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('editStudentModal').classList.remove('open');
@@ -1048,15 +1178,18 @@ document.getElementById('esSaveBtn').addEventListener('click', async () => {
 // ============================================================
 // PROFILE / PASSWORD
 // ============================================================
-document.getElementById('pwSaveBtn').addEventListener('click', () => {
+document.getElementById('pwSaveBtn').addEventListener('click', async () => {
   const old=document.getElementById('pwOld').value, nw=document.getElementById('pwNew').value, cf=document.getElementById('pwConfirm').value;
   const err=document.getElementById('pwError'), ok=document.getElementById('pwSuccess');
   err.textContent=''; ok.textContent='';
   const t=JSON.parse(localStorage.getItem('dh_teacher'));
-  if (old!==t.password) { err.textContent='Mật khẩu hiện tại không đúng.'; return; }
+
+  const oldHash = await hashPw(old);
+  if (oldHash !== t.passwordHash) { err.textContent='Mật khẩu hiện tại không đúng.'; return; }
   if (!nw) { err.textContent='Vui lòng nhập mật khẩu mới.'; return; }
   if (nw!==cf) { err.textContent='Mật khẩu xác nhận không khớp.'; return; }
-  localStorage.setItem('dh_teacher', JSON.stringify({...t, password:nw}));
+  const newHash = await hashPw(nw);
+  localStorage.setItem('dh_teacher', JSON.stringify({...t, passwordHash: newHash, hashed: true }));
   ok.textContent='Đổi mật khẩu thành công!';
   ['pwOld','pwNew','pwConfirm'].forEach(id=>document.getElementById(id).value='');
 });
@@ -1225,27 +1358,31 @@ document.getElementById('lessonFilterClass').addEventListener('change', renderLe
 
 let editingLessonId=null;
 function openLessonModal(l=null) {
-  editingLessonId=l?l.id:null;
-  document.getElementById('lessonModalTitle').textContent=l?'Sửa bài học':'Tạo bài học';
-  document.getElementById('lNameInput').value=l?l.name:'';
-  document.getElementById('lDescInput').value=l?(l.description||''):'';
-  document.getElementById('lError').textContent='';
-  populateClassFilters().then(()=>{ document.getElementById('lClassSelect').value=l?(l.class_name||''):''; });
-  populateGroupSelect('lGroupInput', l?(l.group_name||''):'');
+  editingLessonId = l ? l.id : null;
+  document.getElementById('lessonModalTitle').textContent = l ? 'Sửa bài học' : 'Tạo bài học';
+  document.getElementById('lNameInput').value = l ? l.name : '';
+  document.getElementById('lDescInput').value = l ? (l.description||'') : '';
+  document.getElementById('lError').textContent = '';
+  populateClassFilters().then(() => { document.getElementById('lClassSelect').value = l ? (l.class_name||'') : ''; });
+  // Truyền group_id nếu có, fallback group_name cũ
+  populateGroupSelect('lGroupInput', l ? (l.group_id || l.group_name || '') : '');
   document.getElementById('lessonModal').classList.add('open');
 }
-document.getElementById('openAddLessonBtn').addEventListener('click', ()=>openLessonModal());
-document.getElementById('lCancelBtn').addEventListener('click', ()=>document.getElementById('lessonModal').classList.remove('open'));
-document.getElementById('lSaveBtn').addEventListener('click', async ()=>{
-  const name=document.getElementById('lNameInput').value.trim(), err=document.getElementById('lError');
-  if (!name) { err.textContent='Vui lòng nhập tên bài học.'; return; }
-  const cls=document.getElementById('lClassSelect').value;
-  const desc=document.getElementById('lDescInput').value.trim();
-  const group=document.getElementById('lGroupInput').value||null;
+document.getElementById('openAddLessonBtn').addEventListener('click', () => openLessonModal());
+document.getElementById('lCancelBtn').addEventListener('click', () => document.getElementById('lessonModal').classList.remove('open'));
+document.getElementById('lSaveBtn').addEventListener('click', async () => {
+  const name = document.getElementById('lNameInput').value.trim(), err = document.getElementById('lError');
+  if (!name) { err.textContent = 'Vui lòng nhập tên bài học.'; return; }
+  const cls   = document.getElementById('lClassSelect').value;
+  const desc  = document.getElementById('lDescInput').value.trim();
+  const groupId = document.getElementById('lGroupInput').value || null;
+  // Lấy tên nhóm để backward compat
+  const { data: grpData } = groupId ? await db.from('lesson_groups').select('name').eq('id', groupId).single() : { data: null };
+  const groupName = grpData ? grpData.name : null;
   if (editingLessonId) {
-    await db.from('lessons').update({name,class_name:cls,description:desc,group_name:group}).eq('id',editingLessonId);
+    await db.from('lessons').update({ name, class_name: cls, description: desc, group_id: groupId ? parseInt(groupId) : null, group_name: groupName }).eq('id', editingLessonId);
   } else {
-    await db.from('lessons').insert({name,class_name:cls,description:desc,group_name:group});
+    await db.from('lessons').insert({ name, class_name: cls, description: desc, group_id: groupId ? parseInt(groupId) : null, group_name: groupName });
   }
   document.getElementById('lessonModal').classList.remove('open');
   await renderLessons();
@@ -2034,7 +2171,7 @@ setInterval(() => {
   if (document.getElementById('pageOverview')?.classList.contains('active')) {
     renderOnlineStudents();
   }
-}, 20000);
+}, 15000);
 
 // ── Realtime: online students ──
 db.channel('realtime-online')
@@ -2189,11 +2326,19 @@ async function renderAccessStats() {
       <span class="group-card-count" style="background:var(--success);color:#fff;padding:.2rem .6rem;border-radius:20px;font-size:.75rem;font-weight:700">${s.cnt} lượt</span>
     </div>`).join('') : '<p class="muted-sm">Chưa có dữ liệu.</p>';
 
-  // Log chi tiết
+  // Log chi tiết — có phân trang
   const filtered = search ? all.filter(l => (l.student_name||'').toLowerCase().includes(search) || (l.username||'').toLowerCase().includes(search)) : all;
   const logEl = document.getElementById('accessLogList');
   document.getElementById('emptyAccessLog').style.display = filtered.length ? 'none' : 'block';
-  logEl.innerHTML = filtered.slice(0, 100).map(l => {
+
+  const PER_PAGE = 50;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  // Giữ trang hiện tại nếu còn hợp lệ, không thì reset về 1
+  if (!window._accessLogPage || window._accessLogPage > totalPages) window._accessLogPage = 1;
+  const page = window._accessLogPage;
+  const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  logEl.innerHTML = slice.map(l => {
     const icon = l.content_type === 'video' ? '🎬' : '📄';
     const time = new Date(l.accessed_at).toLocaleString('vi-VN');
     return `<div class="list-row">
@@ -2204,13 +2349,43 @@ async function renderAccessStats() {
       </div>
     </div>`;
   }).join('');
-}
 
-document.getElementById('accessFilterClass').addEventListener('change', renderAccessStats);
-document.getElementById('accessFilterType').addEventListener('change', renderAccessStats);
-document.getElementById('accessSearch').addEventListener('input', renderAccessStats);
-document.getElementById('accessDateFrom').addEventListener('change', renderAccessStats);
-document.getElementById('accessDateTo').addEventListener('change', renderAccessStats);
+  // Render phân trang
+  let pgHtml = '';
+  if (totalPages > 1) {
+    pgHtml += `<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--border)">`;
+    pgHtml += `<span style="font-size:.8rem;color:var(--muted);margin-right:.25rem">${filtered.length} kết quả</span>`;
+    // Nút prev
+    pgHtml += `<button class="page-btn" ${page===1?'disabled style="opacity:.4;cursor:default"':''} data-ap="${page-1}">‹</button>`;
+    // Các nút trang
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= page - 2 && i <= page + 2)) {
+        pgHtml += `<button class="page-btn${i===page?' active':''}" data-ap="${i}">${i}</button>`;
+      } else if (i === page - 3 || i === page + 3) {
+        pgHtml += `<span style="color:var(--muted);padding:0 .2rem">…</span>`;
+      }
+    }
+    // Nút next
+    pgHtml += `<button class="page-btn" ${page===totalPages?'disabled style="opacity:.4;cursor:default"':''} data-ap="${page+1}">›</button>`;
+    pgHtml += `</div>`;
+  }
+  logEl.insertAdjacentHTML('beforeend', pgHtml);
+
+  // Gắn sự kiện phân trang
+  logEl.querySelectorAll('[data-ap]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window._accessLogPage = parseInt(btn.dataset.ap);
+      renderAccessStats();
+      logEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+} // end renderAccessStats
+
+document.getElementById('accessFilterClass').addEventListener('change', () => { window._accessLogPage = 1; renderAccessStats(); });
+document.getElementById('accessFilterType').addEventListener('change', () => { window._accessLogPage = 1; renderAccessStats(); });
+document.getElementById('accessSearch').addEventListener('input', () => { window._accessLogPage = 1; renderAccessStats(); });
+document.getElementById('accessDateFrom').addEventListener('change', () => { window._accessLogPage = 1; renderAccessStats(); });
+document.getElementById('accessDateTo').addEventListener('change', () => { window._accessLogPage = 1; renderAccessStats(); });
 
 document.getElementById('exportAccessBtn').addEventListener('click', async () => {
   const { data: logs } = await db.from('access_logs').select('*').order('accessed_at', {ascending: false});

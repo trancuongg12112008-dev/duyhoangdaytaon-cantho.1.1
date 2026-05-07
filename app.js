@@ -1,6 +1,6 @@
 // Auth guard
 if (!sessionStorage.getItem('dh_role')) {
-  window.location.href = 'login.html';
+  window.location.href = 'index.html';
 }
 
 document.getElementById('welcomeText').textContent =

@@ -159,16 +159,17 @@ body.auth-page {
 }
 
 .auth-box {
-  background: #fff;
-  border-radius: 24px;
-  padding: 2.75rem 2.25rem;
+  background: rgba(255,255,255,.98);
+  border-radius: 28px;
+  padding: 2.5rem 2.25rem;
   width: 100%;
-  max-width: 430px;
-  box-shadow: 0 20px 60px rgba(99,102,241,.12), 0 2px 8px rgba(0,0,0,.06);
-  border: 1px solid rgba(99,102,241,.1);
+  max-width: 420px;
+  box-shadow: 0 32px 80px rgba(99,102,241,.18), 0 2px 8px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.9);
+  border: 1px solid rgba(99,102,241,.12);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: .85rem;
+  backdrop-filter: blur(20px);
 }
 
 .auth-box-header { text-align: center; margin-bottom: .25rem; }
@@ -1545,3 +1546,122 @@ body.landing { background: #fff; }
 }
 .smenu-item:hover { background: var(--primary-light); }
 .smenu-item + .smenu-item { border-top: 1px solid var(--border); }
+
+/* ===================== AUTH HOVER & ANIMATION ===================== */
+
+/* Tab buttons */
+.tab-btn {
+  transition: background .2s, color .2s, transform .15s, box-shadow .2s;
+}
+.tab-btn:hover:not(.active) {
+  background: rgba(99,102,241,.08);
+  transform: translateY(-1px);
+}
+.tab-btn.active {
+  box-shadow: 0 2px 8px rgba(99,102,241,.2);
+}
+
+/* Input icon — icon nhún nhẹ khi focus */
+.input-icon:focus-within span {
+  transform: scale(1.15);
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+  color: var(--primary);
+}
+.input-icon span {
+  transition: transform .2s, color .2s;
+}
+
+/* Nút đăng nhập */
+.btn-primary.btn-block {
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s;
+}
+.btn-primary.btn-block:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 8px 24px rgba(99,102,241,.35);
+}
+.btn-primary.btn-block:active {
+  transform: translateY(0) scale(.98);
+}
+
+/* Link hover */
+.auth-hint a, #showGuideBtn, #forgotPwBtn {
+  transition: color .15s, opacity .15s;
+  position: relative;
+}
+.auth-hint a:hover, #showGuideBtn:hover, #forgotPwBtn:hover {
+  opacity: .75;
+}
+
+/* Auth box — nhún nhẹ khi load */
+.auth-box {
+  animation: authBoxIn .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes authBoxIn {
+  from { opacity: 0; transform: translateY(20px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Logo mobile pop */
+#mobileAuthHeader img {
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+#mobileAuthHeader img:hover {
+  transform: scale(1.08) rotate(-3deg);
+}
+
+/* Feature items bên trái */
+.auth-feature-item {
+  transition: background .2s, transform .2s, box-shadow .2s;
+}
+.auth-feature-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.auth-feature-icon {
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.auth-feature-item:hover .auth-feature-icon {
+  transform: scale(1.15) rotate(-5deg);
+}
+
+/* Checkbox ghi nhớ */
+.checkbox-label {
+  transition: color .15s;
+}
+.checkbox-label:hover {
+  color: var(--primary);
+}
+
+/* ===================== LOGIN BUTTON GLOW & GRADIENT ===================== */
+#loginBtn {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #4f46e5 100%);
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+  box-shadow: 0 4px 20px rgba(99,102,241,.4);
+  border: none;
+}
+#loginBtn:hover {
+  box-shadow: 0 6px 28px rgba(99,102,241,.6), 0 0 0 4px rgba(99,102,241,.15);
+  animation: gradientShift .8s ease infinite;
+}
+#loginBtn:active {
+  transform: scale(.97);
+  box-shadow: 0 2px 10px rgba(99,102,241,.3);
+}
+#loginBtn.loading {
+  pointer-events: none;
+  opacity: .85;
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Glow effect trên input khi focus */
+.input-icon:focus-within {
+  box-shadow: 0 0 0 3px rgba(99,102,241,.15), 0 2px 12px rgba(99,102,241,.1);
+}

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Đăng Nhập - DHDTCT LMS v1.2.1</title>
+  <title>Đăng Nhập - DHDTCT LMS v1.3.0</title>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -34,13 +34,13 @@
         <div style="position:absolute;top:15%;right:25%;width:5px;height:5px;background:rgba(139,92,246,.5);border-radius:50%;animation:twinkle 5s ease-in-out infinite 2s"></div>
         <!-- Nội dung -->
         <div style="position:relative;z-index:1">
-          <div style="width:68px;height:68px;border-radius:20px;overflow:hidden;margin:0 auto .8rem;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 0 2px rgba(255,255,255,.15);animation:logoPop .6s cubic-bezier(.34,1.56,.64,1) both">
+          <div style="width:80px;height:80px;border-radius:22px;overflow:hidden;margin:0 auto .8rem;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 0 2px rgba(255,255,255,.15);animation:logoPop .6s cubic-bezier(.34,1.56,.64,1) both">
             <img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover"/>
           </div>
           <div style="font-weight:900;font-size:1.3rem;letter-spacing:-.4px;text-shadow:0 2px 12px rgba(0,0,0,.4)">DHDTCT LMS Education System</div>
           <div style="display:inline-flex;align-items:center;gap:.4rem;margin-top:.35rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:.2rem .75rem;font-size:.75rem;letter-spacing:.8px;opacity:.8">
             <span style="width:6px;height:6px;background:#10b981;border-radius:50%;display:inline-block"></span>
-            CẦN THƠ
+            CẦN THƠ • SMART LEARNING PLATFORM
           </div>
         </div>
       </div>
@@ -67,11 +67,11 @@
       <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;text-align:center">
         <!-- Brand to ở giữa -->
         <div class="brand-anim" style="margin-bottom:2rem">
-          <div style="width:80px;height:80px;border-radius:20px;overflow:hidden;margin:0 auto 1rem">
+          <div style="width:110px;height:110px;border-radius:26px;overflow:hidden;margin:0 auto 1rem;box-shadow:0 8px 32px rgba(0,0,0,.3),0 0 0 3px rgba(255,255,255,.15)">
             <img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover"/>
           </div>
           <div style="font-weight:900;font-size:2.2rem;letter-spacing:-.5px;line-height:1.2">DHDTCT LMS Education System</div>
-          <div style="font-size:1.2rem;opacity:.65;margin-top:.35rem;font-weight:500;letter-spacing:.5px">Cần Thơ</div>
+          <div style="font-size:1.2rem;opacity:.65;margin-top:.35rem;font-weight:500;letter-spacing:.5px">Cần Thơ • Smart Learning Platform</div>
         </div>
 
         <!-- Headline -->
@@ -125,7 +125,7 @@
 
         <!-- Version -->
         <div style="margin-top:2rem">
-          <span style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);font-size:.72rem;font-weight:700;padding:.25rem .7rem;border-radius:20px;letter-spacing:.5px">v1.2.1</span>
+          <span style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);font-size:.72rem;font-weight:700;padding:.25rem .7rem;border-radius:20px;letter-spacing:.5px">v1.3.0</span>
         </div>
       </div>
     </div>
@@ -135,57 +135,79 @@
       <div class="auth-box">
 
         <!-- Banner gợi ý laptop/tablet (chỉ hiện trên mobile) -->
-        <div id="deviceTipBanner" style="display:none;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:12px;padding:.7rem 1rem;margin-bottom:1rem;font-size:.82rem;color:#1e40af;line-height:1.6;align-items:center;gap:.65rem">
-          <span style="font-size:1.3rem;flex-shrink:0">💻</span>
-          <span>Để học hiệu quả hơn, bạn nên dùng <b>laptop hoặc tablet</b> thay vì điện thoại.</span>
+        <div id="deviceTipBanner" style="display:none;background:rgba(219,234,254,.9);border:1.5px solid #93c5fd;border-radius:12px;padding:.65rem 1rem;font-size:.82rem;color:#1e40af;line-height:1.6;align-items:center;gap:.65rem">
+          <span style="font-size:1.1rem;flex-shrink:0">💻</span>
+          <span>Dùng <b>laptop hoặc tablet</b> để học hiệu quả hơn.</span>
         </div>
         <script>if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){document.getElementById('deviceTipBanner').style.display='flex';}</script>
 
         <!-- Header -->
-        <div class="auth-box-header">
-          <div style="width:52px;height:52px;border-radius:16px;overflow:hidden;margin:0 auto .75rem;box-shadow:0 8px 24px rgba(99,102,241,.35)">
-            <img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover"/>
+        <div style="text-align:center">
+          <div style="position:relative;display:inline-block;margin-bottom:1rem">
+            <div style="width:72px;height:72px;border-radius:22px;overflow:hidden;box-shadow:0 12px 32px rgba(99,102,241,.45);border:2px solid rgba(99,102,241,.2)">
+              <img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover"/>
+            </div>
+            <div style="position:absolute;bottom:-4px;right:-4px;width:22px;height:22px;background:#10b981;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(16,185,129,.4)"></div>
           </div>
-          <h2>Đăng nhập</h2>
-          <p>Chào mừng bạn trở lại!</p>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tab-row">
-          <button class="tab-btn active" id="tabStudent">🎓 Học Sinh</button>
-          <button class="tab-btn" id="tabTeacher">⚙️ Admin</button>
+          <div style="font-size:1.5rem;font-weight:900;color:#0f172a;letter-spacing:-.5px;line-height:1.2">Chào mừng trở lại</div>
+          <div style="font-size:.85rem;color:#94a3b8;margin-top:.3rem">Đăng nhập để tiếp tục học tập</div>
         </div>
 
         <!-- Form -->
-        <form id="loginForm">
-          <label id="usernameLabel">Gmail</label>
-          <div class="input-icon">
-            <span>📧</span>
-            <input type="text" id="usernameInput" placeholder="Nhập Gmail của bạn" required/>
+        <form id="loginForm" style="display:flex;flex-direction:column;gap:.65rem;margin-top:.25rem">
+
+          <div style="display:flex;flex-direction:column;gap:.35rem">
+            <label style="font-size:.75rem;font-weight:700;color:#6366f1;letter-spacing:.5px;text-transform:uppercase">Tài khoản</label>
+            <div style="display:flex;align-items:center;background:#f8faff;border:1.5px solid #e0e7ff;border-radius:14px;overflow:hidden;transition:all .2s" onfocusin="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 3px rgba(99,102,241,.12)'" onfocusout="this.style.borderColor='#e0e7ff';this.style.boxShadow='none'">
+              <span style="padding:0 .9rem;font-size:1rem;color:#94a3b8">📧</span>
+              <input type="text" id="usernameInput" placeholder="Gmail hoặc tên đăng nhập" required style="flex:1;border:none;outline:none;padding:.8rem .75rem .8rem 0;background:transparent;font-size:.92rem;color:#0f172a"/>
+            </div>
           </div>
-          <label id="passwordLabel">Mật khẩu</label>
-          <div class="input-icon">
-            <span>🔒</span>
-            <input type="password" id="passwordInput" placeholder="Nhập mật khẩu" required/>
+
+          <div style="display:flex;flex-direction:column;gap:.35rem">
+            <label style="font-size:.75rem;font-weight:700;color:#6366f1;letter-spacing:.5px;text-transform:uppercase">Mật khẩu</label>
+            <div style="display:flex;align-items:center;background:#f8faff;border:1.5px solid #e0e7ff;border-radius:14px;overflow:hidden;transition:all .2s" onfocusin="this.style.borderColor='#6366f1';this.style.boxShadow='0 0 0 3px rgba(99,102,241,.12)'" onfocusout="this.style.borderColor='#e0e7ff';this.style.boxShadow='none'">
+              <span style="padding:0 .9rem;font-size:1rem;color:#94a3b8">🔑</span>
+              <input type="password" id="passwordInput" placeholder="Nhập mật khẩu" required style="flex:1;border:none;outline:none;padding:.8rem .75rem .8rem 0;background:transparent;font-size:.92rem;color:#0f172a"/>
+            </div>
           </div>
-          <div class="auth-row">
-            <label class="checkbox-label"><input type="checkbox"/> Ghi nhớ</label>
-            <a href="#" class="link-muted" id="forgotPwBtn">Quên mật khẩu?</a>
+
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:#64748b;cursor:pointer">
+              <input type="checkbox" style="accent-color:#6366f1;width:14px;height:14px"/> Ghi nhớ đăng nhập
+            </label>
+            <button type="button" onclick="document.getElementById('forgotPwModal').style.display='block'" style="font-size:.82rem;color:#6366f1;font-weight:700;background:none;border:none;cursor:pointer;padding:0">Quên mật khẩu?</button>
           </div>
+
           <div id="loginError" class="error-msg"></div>
-          <button type="submit" class="btn-primary btn-block" style="padding:.8rem;font-size:.95rem;border-radius:12px;margin-top:.25rem">Đăng Nhập →</button>
+
+          <button type="submit" id="loginBtn" style="width:100%;padding:.9rem;font-size:.95rem;font-weight:800;border:none;border-radius:14px;color:#fff;cursor:pointer;position:relative;overflow:hidden;letter-spacing:.3px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#4f46e5 100%);background-size:200% 200%;animation:gradientShift 4s ease infinite;box-shadow:0 6px 24px rgba(99,102,241,.45);transition:transform .2s,box-shadow .2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 32px rgba(99,102,241,.55)'" onmouseout="this.style.transform='';this.style.boxShadow='0 6px 24px rgba(99,102,241,.45)'">
+            <span id="loginBtnText">Đăng Nhập →</span>
+            <span id="loginBtnLoader" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;gap:.5rem">
+              <span style="width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block"></span>
+              Đang xử lý...
+            </span>
+          </button>
         </form>
 
-        <!-- Footer links -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.25rem">
-          <p class="auth-hint" style="margin:0">Chưa có tài khoản? <span style="color:var(--primary);font-weight:600">Liên hệ trợ lý</span></p>
-          <a href="#" id="showGuideBtn" style="color:var(--primary);font-size:.83rem;font-weight:600">📖 Hướng dẫn</a>
-        </div>
-        <div style="margin-top:.6rem;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.5rem .75rem;font-size:.78rem;color:#92400e;text-align:center">
-          📖 Vui lòng xem <a href="#" id="showGuideBtn2" style="color:#d97706;font-weight:700;text-decoration:underline">hướng dẫn sử dụng</a> trước khi liên hệ trợ lý
+        <!-- Footer -->
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.1rem">
+          <div style="flex:1;height:1px;background:#f1f5f9"></div>
+          <span style="font-size:.75rem;color:#cbd5e1">hoặc</span>
+          <div style="flex:1;height:1px;background:#f1f5f9"></div>
         </div>
 
-        <button id="installBtn" style="display:none;width:100%;margin-top:.75rem;padding:.65rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:10px;font-size:.88rem;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,.3)">📲 Tải app về máy</button>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <p style="font-size:.82rem;color:#94a3b8;margin:0">Chưa có tài khoản? <span id="requestAccountBtn" style="color:#6366f1;font-weight:700;cursor:pointer">Liên hệ trợ lý</span></p>
+          <a href="#" onclick="event.preventDefault();document.getElementById('guideModal').style.display='block'" style="color:#6366f1;font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:.3rem">📖 Hướng dẫn</a>
+        </div>
+
+        <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #f59e0b;border-radius:12px;padding:.75rem 1rem;font-size:.82rem;color:#78350f;text-align:center;display:flex;align-items:center;justify-content:center;gap:.5rem;box-shadow:0 2px 8px rgba(245,158,11,.2)">
+          <span style="font-size:1.1rem;flex-shrink:0">⚠️</span>
+          <span><b style="color:#92400e">Vui lòng đọc kỹ</b> <a href="#" onclick="event.preventDefault();document.getElementById('guideModal').style.display='block'" style="color:#b45309;font-weight:800;text-decoration:underline;text-underline-offset:2px">hướng dẫn sử dụng</a> <b style="color:#92400e">trước khi liên hệ trợ lý</b></span>
+        </div>
+
+        <button id="installBtn" style="display:none;width:100%;padding:.65rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:10px;font-size:.88rem;cursor:pointer;font-weight:700;box-shadow:0 4px 12px rgba(99,102,241,.3)">📲 Tải app về máy</button>
       </div>
     </div>
   </div>
@@ -196,7 +218,7 @@
 
       <!-- Header -->
       <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);padding:1.75rem 1.5rem 1.5rem;color:#fff;position:relative">
-        <button id="closeGuideBtn" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">✕</button>
+        <button onclick="document.getElementById('guideModal').style.display='none'" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">✕</button>
         <div style="display:flex;align-items:center;gap:1rem">
           <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">📖</div>
           <div>
@@ -209,10 +231,33 @@
       <!-- Body -->
       <div style="background:#fff;padding:1.5rem;display:flex;flex-direction:column;gap:1rem">
 
+        <!-- Xin cấp tài khoản -->
+        <div style="background:#f0fdf4;border-radius:14px;padding:1rem 1.1rem;border-left:4px solid #10b981">
+          <div style="display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:.92rem;color:#065f46;margin-bottom:.5rem">
+            <span style="background:#10b981;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">1</span>
+            📌 Xin cấp tài khoản
+          </div>
+          <p style="font-size:.85rem;line-height:1.75;color:#374151;margin:0 0 .65rem">Học viên mới nhắn tin riêng cho <b>Trợ Lý Duy Hoàng - Trần Cường</b> theo đúng mẫu sau:</p>
+          <div style="display:flex;flex-direction:column;gap:.35rem">
+            <div style="background:#fff;border-radius:8px;padding:.4rem .75rem;font-size:.83rem;border:1px solid #bbf7d0;display:flex;align-items:center;gap:.5rem">
+              <span style="font-size:.68rem;background:#dcfce7;color:#15803d;padding:.1rem .4rem;border-radius:4px;font-weight:700;flex-shrink:0">Tin 1</span>
+              <span style="font-family:monospace;color:#166534;font-weight:600">Xin cấp tài khoản học tập trên web</span>
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:.4rem .75rem;font-size:.83rem;border:1px solid #bbf7d0;display:flex;align-items:center;gap:.5rem">
+              <span style="font-size:.68rem;background:#dcfce7;color:#15803d;padding:.1rem .4rem;border-radius:4px;font-weight:700;flex-shrink:0">Tin 2</span>
+              <span style="font-family:monospace;color:#166534;font-weight:600">Số điện thoại (VD: 0901234567)</span>
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:.4rem .75rem;font-size:.83rem;border:1px solid #bbf7d0;display:flex;align-items:center;gap:.5rem">
+              <span style="font-size:.68rem;background:#dcfce7;color:#15803d;padding:.1rem .4rem;border-radius:4px;font-weight:700;flex-shrink:0">Tin 3</span>
+              <span style="font-family:monospace;color:#166534;font-weight:600">Gmail (VD: hocsinh@gmail.com)</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Đăng nhập -->
         <div style="background:#eef2ff;border-radius:14px;padding:1rem 1.1rem;border-left:4px solid #6366f1">
           <div style="display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:.92rem;color:#3730a3;margin-bottom:.5rem">
-            <span style="background:#6366f1;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">1</span>
+            <span style="background:#6366f1;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">2</span>
             🔐 Đăng nhập
           </div>
           <p style="font-size:.85rem;line-height:1.75;color:#374151;margin:0">Nhắn <b>Trợ Lý - Trần Cường</b> cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ hoạt động trên <b>01 thiết bị</b> tại một thời điểm.</p>
@@ -221,7 +266,7 @@
         <!-- Xem bài học -->
         <div style="background:#e0f2fe;border-radius:14px;padding:1rem 1.1rem;border-left:4px solid #0ea5e9">
           <div style="display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:.92rem;color:#0369a1;margin-bottom:.5rem">
-            <span style="background:#0ea5e9;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">2</span>
+            <span style="background:#0ea5e9;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">3</span>
             📚 Xem bài học
           </div>
           <p style="font-size:.85rem;line-height:1.75;color:#374151;margin:0">Vào mục <b>Bài học</b> → chọn nhóm → chọn bài để xem video và tài liệu. Hệ thống chỉ hiển thị nội dung đúng lớp bạn đã đăng ký.</p>
@@ -230,7 +275,7 @@
         <!-- Video -->
         <div style="background:#d1fae5;border-radius:14px;padding:1rem 1.1rem;border-left:4px solid #10b981">
           <div style="display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:.92rem;color:#065f46;margin-bottom:.5rem">
-            <span style="background:#10b981;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">3</span>
+            <span style="background:#10b981;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">4</span>
             🎬 Xem video bài giảng
           </div>
           <p style="font-size:.85rem;line-height:1.75;color:#374151;margin:0">Nhấn vào thumbnail để phát video. Trên điện thoại nên <b>xoay ngang màn hình</b> để học tốt hơn. Video <b>không hỗ trợ tải xuống</b> dưới mọi hình thức.</p>
@@ -256,7 +301,14 @@
           <div style="display:flex;flex-direction:column;gap:.5rem">
             <div style="display:flex;align-items:center;gap:.75rem;background:#fff;border-radius:10px;padding:.65rem .85rem;border:1px solid #e2e8f0">
               <span style="font-size:1.2rem">🛠️</span>
-              <div><div style="font-weight:700;font-size:.85rem">Kỹ thuật & Tài khoản</div><div style="font-size:.78rem;color:#64748b">Liên hệ <b>Trợ lý - Trần Cường</b> — cung cấp Gmail, SĐT</div></div>
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:.85rem">Kỹ thuật & Tài khoản</div>
+                <div style="font-size:.78rem;color:#64748b">Liên hệ <b>Trợ lý - Trần Cường</b> — cung cấp Gmail, SĐT</div>
+              </div>
+              <a href="https://zalo.me/84869573231" target="_blank" style="display:inline-flex;align-items:center;gap:.4rem;text-decoration:none;background:linear-gradient(135deg,#0068ff,#0052cc);color:#fff;font-size:.78rem;font-weight:700;padding:.4rem .8rem;border-radius:8px;flex-shrink:0">
+                <svg width="14" height="14" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="white" fill-opacity="0.2"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="26" font-weight="900" fill="white" font-family="Arial,sans-serif">Z</text></svg>
+                Zalo
+              </a>
             </div>
             <div style="display:flex;align-items:center;gap:.75rem;background:#fff;border-radius:10px;padding:.65rem .85rem;border:1px solid #e2e8f0">
               <span style="font-size:1.2rem">📐</span>
@@ -267,18 +319,18 @@
 
         <p style="text-align:center;font-size:.82rem;color:#94a3b8;font-style:italic;margin:0">Chúng tôi luôn đồng hành cùng bạn trên hành trình chinh phục đại học 💪</p>
 
-        <button id="closeGuideBtn2" style="width:100%;padding:.75rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:12px;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.3)">Đã hiểu, đóng lại ✓</button>
+        <button onclick="document.getElementById('guideModal').style.display='none'" style="width:100%;padding:.75rem;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:12px;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(99,102,241,.3)">Đã hiểu, đóng lại ✓</button>
       </div>
     </div>
   </div>
 
   <!-- MODAL QUÊN MẬT KHẨU -->
-  <div id="forgotPwModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:999;overflow-y:auto;backdrop-filter:blur(4px)">
+  <div id="forgotPwModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;backdrop-filter:blur(4px)">
     <div style="max-width:500px;margin:1.5rem auto 2rem;border-radius:20px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">
 
       <!-- Header -->
       <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:1.75rem 1.5rem 1.5rem;color:#fff;position:relative">
-        <button id="closeForgotPwBtn" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">✕</button>
+        <button onclick="document.getElementById('forgotPwModal').style.display='none'" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">✕</button>
         <div style="display:flex;align-items:center;gap:1rem">
           <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">🔑</div>
           <div>
@@ -332,7 +384,7 @@
           ⚠️ <b>Lưu ý:</b> Không cung cấp thông tin tài khoản cho bất kỳ ai khác ngoài trợ lý chính thức. Mọi yêu cầu đổi mật khẩu đều được ghi lại để đảm bảo an toàn.
         </div>
 
-        <button id="closeForgotPwBtn2" style="width:100%;padding:.75rem;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:12px;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2)">Đã hiểu ✓</button>
+        <button onclick="document.getElementById('forgotPwModal').style.display='none'" style="width:100%;padding:.75rem;background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;border:none;border-radius:12px;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2)">Đã hiểu ✓</button>
       </div>
     </div>
   </div>
@@ -353,216 +405,196 @@
       });
     }
 
-    localStorage.setItem('dh_teacher', JSON.stringify({ username: 'admin124532Dh', password: 'admindH89065', full_name: 'Admin' }));
+    // Hash mật khẩu admin bằng SHA-256 trước khi lưu
+    async function hashPw(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    // Lưu thông tin admin dạng hash (không lưu plaintext)
+    (async () => {
+      const stored = localStorage.getItem('dh_teacher');
+      if (!stored || !JSON.parse(stored).hashed) {
+        const h = await hashPw('admindH89065');
+        localStorage.setItem('dh_teacher', JSON.stringify({ username: 'admin124532Dh', passwordHash: h, full_name: 'Admin', hashed: true }));
+      }
+    })();
 
     let role = 'student';
-    function setLabels() {
-      document.getElementById('usernameLabel').textContent  = role === 'student' ? 'Gmail' : 'Tên đăng nhập';
-      document.getElementById('passwordLabel').textContent  = role === 'student' ? 'Mật khẩu' : 'Mật khẩu';
-      document.getElementById('usernameInput').placeholder  = role === 'student' ? 'Nhập Gmail của bạn' : 'Nhập tên đăng nhập';
-      document.getElementById('passwordInput').placeholder  = role === 'student' ? 'Nhập mật khẩu' : 'Nhập mật khẩu';
-    }
-    function setTab(r) {
-      role = r;
-      ['tabStudent','tabTeacher'].forEach(id => document.getElementById(id).classList.remove('active'));
-      document.getElementById(r === 'student' ? 'tabStudent' : 'tabTeacher').classList.add('active');
-      setLabels();
-    }
-    document.getElementById('tabStudent').onclick = () => setTab('student');
-    document.getElementById('tabTeacher').onclick = () => setTab('teacher');
-    document.getElementById('showGuideBtn').onclick = e => { e.preventDefault(); document.getElementById('guideModal').style.display='block'; };
-    document.getElementById('showGuideBtn2').onclick = e => { e.preventDefault(); document.getElementById('guideModal').style.display='block'; };
-    document.getElementById('forgotPwBtn').onclick = e => { e.preventDefault(); document.getElementById('forgotPwModal').style.display='block'; };
-    document.getElementById('closeForgotPwBtn').onclick = () => document.getElementById('forgotPwModal').style.display='none';
-    document.getElementById('closeForgotPwBtn2').onclick = () => document.getElementById('forgotPwModal').style.display='none';
-    document.getElementById('forgotPwModal').onclick = e => { if(e.target===document.getElementById('forgotPwModal')) document.getElementById('forgotPwModal').style.display='none'; };
-    document.getElementById('closeGuideBtn').onclick = () => document.getElementById('guideModal').style.display='none';
-    document.getElementById('closeGuideBtn2').onclick = () => document.getElementById('guideModal').style.display='none';
-    document.getElementById('guideModal').onclick = e => { if(e.target===document.getElementById('guideModal')) document.getElementById('guideModal').style.display='none'; };
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('requestAccountBtn')?.addEventListener('click', () => document.getElementById('requestAccountModal').style.display='block');
+      document.getElementById('requestAccountModal')?.addEventListener('click', e => { if(e.target===document.getElementById('requestAccountModal')) document.getElementById('requestAccountModal').style.display='none'; });
+      document.getElementById('forgotPwModal')?.addEventListener('click', e => { if(e.target===document.getElementById('forgotPwModal')) document.getElementById('forgotPwModal').style.display='none'; });
+      document.getElementById('guideModal')?.addEventListener('click', e => { if(e.target===document.getElementById('guideModal')) document.getElementById('guideModal').style.display='none'; });
 
-    document.getElementById('loginForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      const u = document.getElementById('usernameInput').value.trim();
-      const p = document.getElementById('passwordInput').value;
-      const err = document.getElementById('loginError');
-      err.textContent = '';
-      if (role === 'teacher') {
-        const t = JSON.parse(localStorage.getItem('dh_teacher'));
-        if (u === t.username && p === t.password) {
-          // Reset admin attempts
-          localStorage.removeItem('dh_admin_attempts');
-          sessionStorage.setItem('dh_role', 'teacher');
-          sessionStorage.setItem('dh_user', u);
-          sessionStorage.setItem('dh_name', t.full_name);
-          window.location.href = 'admin.html';
-        } else {
-          // Đếm số lần sai
-          const attempts = (parseInt(localStorage.getItem('dh_admin_attempts') || '0')) + 1;
-          localStorage.setItem('dh_admin_attempts', attempts);
-          err.textContent = `Sai tên đăng nhập hoặc mật khẩu. (${attempts} lần)`;
-          // Ghi cảnh báo sau 3 lần sai
-          if (attempts >= 3) {
-            await db.from('alerts').insert({
-              username: u || '(không rõ)',
-              student_name: 'Không xác định',
-              class_name: '',
-              reason: `Cố đăng nhập tài khoản Admin sai ${attempts} lần — IP có thể bị xâm nhập`
-            });
-          }
+      // PWA Install prompt
+      document.getElementById('installBtn')?.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') document.getElementById('installBtn').style.display = 'none';
+      });
+
+      document.getElementById('loginForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = document.getElementById('loginBtn');
+        const btnText = document.getElementById('loginBtnText');
+        const btnLoader = document.getElementById('loginBtnLoader');
+        btn.classList.add('loading');
+        btnText.style.display = 'none';
+        btnLoader.style.display = 'flex';
+        const u = document.getElementById('usernameInput').value.trim();
+        const p = document.getElementById('passwordInput').value;
+        const err = document.getElementById('loginError');
+        err.textContent = '';
+
+        function resetLoading(msg) {
+          btn.classList.remove('loading');
+          btnText.style.display = '';
+          btnLoader.style.display = 'none';
+          if (msg) err.textContent = msg;
         }
-      } else {
-        // Lấy thông tin học sinh (kể cả sai mật khẩu để đếm attempts)
-        const { data: student } = await db.from('students').select('*').eq('username', u).single();
 
-        if (!student) { err.textContent = 'Sai tên đăng nhập hoặc mật khẩu.'; return; }
+        try {
+          // Kiểm tra admin trước
+          const t = JSON.parse(localStorage.getItem('dh_teacher') || 'null');
+          if (!t) {
+            const h = await hashPw('admindH89065');
+            localStorage.setItem('dh_teacher', JSON.stringify({ username: 'admin124532Dh', passwordHash: h, full_name: 'Admin', hashed: true }));
+          }
+          const teacher = JSON.parse(localStorage.getItem('dh_teacher'));
+          const inputHash = await hashPw(p);
+          if (u === teacher.username && inputHash === teacher.passwordHash) {
+            localStorage.removeItem('dh_admin_attempts');
+            sessionStorage.setItem('dh_role', 'teacher');
+            sessionStorage.setItem('dh_user', u);
+            sessionStorage.setItem('dh_name', teacher.full_name);
+            window.location.href = 'admin.html';
+            return;
+          }
 
-                // Sai mật khẩu
-        if (student.password !== p) {
-          const attempts = (student.login_attempts || 0) + 1;
-          const updates = { login_attempts: attempts };
-
-          // Khoa tai khoan sau 5 lan sai
-          if (attempts >= 5) {
-            updates.active = false;
-            await db.from('students').update(updates).eq('id', student.id);
-            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Dang nhap sai mat khau ${attempts} lan - tai khoan bi khoa` });
-            err.textContent = `Tai khoan da bi khoa do nhap sai mat khau ${attempts} lan. Vui long lien he tro ly.`;
-          } else {
-            await db.from('students').update(updates).eq('id', student.id);
+          if (u === teacher.username) {
+            const attempts = (parseInt(localStorage.getItem('dh_admin_attempts') || '0')) + 1;
+            localStorage.setItem('dh_admin_attempts', attempts);
+            resetLoading(`Sai mật khẩu. (${attempts} lần)`);
             if (attempts >= 3) {
-              await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Dang nhap sai mat khau ${attempts} lan lien tiep` });
+              await db.from('alerts').insert({ username: u, student_name: 'Không xác định', class_name: '', reason: `Cố đăng nhập tài khoản Admin sai ${attempts} lần` });
             }
-            err.textContent = `Sai mat khau. Con ${5 - attempts} lan truoc khi bi khoa.`;
+            return;
           }
-          return;
-        }
-if (!student.active) {
-          // Kiểm tra lý do bị khóa để hiện thông báo rõ hơn
-          if (student.class_name) {
+
+          // Đăng nhập học sinh
+          const { data: student } = await db.from('students').select('*').eq('username', u).single();
+          if (!student) { resetLoading('Sai tên đăng nhập hoặc mật khẩu.'); return; }
+
+          const isPlainMatch = student.password === p;
+          const isHashMatch  = student.password === inputHash;
+          if (!isPlainMatch && !isHashMatch) {
+            const attempts = (student.login_attempts || 0) + 1;
+            const updates = { login_attempts: attempts };
+            if (attempts >= 5) {
+              updates.active = false;
+              await db.from('students').update(updates).eq('id', student.id);
+              await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Đăng nhập sai mật khẩu ${attempts} lần - tài khoản bị khóa` });
+              resetLoading(`Tài khoản đã bị khóa do nhập sai mật khẩu ${attempts} lần. Vui lòng liên hệ trợ lý.`);
+            } else {
+              await db.from('students').update(updates).eq('id', student.id);
+              if (attempts >= 3) await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: `Đăng nhập sai mật khẩu ${attempts} lần liên tiếp` });
+              resetLoading(`Sai mật khẩu. Còn ${5 - attempts} lần trước khi bị khóa.`);
+            }
+            return;
+          }
+
+          if (!student.active) {
+            if (student.class_name) {
+              const { data: cls } = await db.from('classes').select('end_date').eq('name', student.class_name).single();
+              if (cls?.end_date) {
+                const endDate = new Date(cls.end_date); endDate.setHours(0,0,0,0);
+                const today = new Date(); today.setHours(0,0,0,0);
+                if (today > endDate) { resetLoading(`Khóa học "${student.class_name}" đã kết thúc vào ngày ${endDate.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý.`); return; }
+              }
+            }
+            if (student.expiry_date) { resetLoading(`Tài khoản đã hết hạn vào ngày ${new Date(student.expiry_date).toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý.`); return; }
+            resetLoading('Tài khoản đã bị khóa. Vui lòng liên hệ trợ lý.');
+            return;
+          }
+
+          if (student.expiry_date) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const expiry = new Date(student.expiry_date); expiry.setHours(0,0,0,0);
+            if (today > expiry) {
+              if (student.active) await db.from('students').update({ active: false }).eq('id', student.id);
+              resetLoading(`Tài khoản đã hết hạn vào ngày ${expiry.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý.`);
+              return;
+            }
+          }
+
+          if (student.class_name && !student.manually_unlocked) {
             const { data: cls } = await db.from('classes').select('end_date').eq('name', student.class_name).single();
             if (cls?.end_date) {
-              const endDate = new Date(cls.end_date); endDate.setHours(0,0,0,0);
               const today = new Date(); today.setHours(0,0,0,0);
+              const endDate = new Date(cls.end_date); endDate.setHours(0,0,0,0);
               if (today > endDate) {
-                err.textContent = `Khóa học "${student.class_name}" đã kết thúc vào ngày ${endDate.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để được hỗ trợ.`;
+                if (student.active) await db.from('students').update({ active: false }).eq('id', student.id);
+                resetLoading(`Khóa học "${student.class_name}" đã kết thúc vào ngày ${endDate.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý.`);
                 return;
               }
             }
           }
-          if (student.expiry_date) {
-            const expiry = new Date(student.expiry_date);
-            err.textContent = `Tài khoản đã hết hạn vào ngày ${expiry.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để gia hạn.`;
-            return;
-          }
-          err.textContent = 'Tài khoản đã bị khóa. Vui lòng liên hệ trợ lý để được hỗ trợ.';
-          return;
-        }
 
-        // Kiểm tra hết hạn tài khoản cá nhân
-        if (student.expiry_date) {
-          const today = new Date(); today.setHours(0,0,0,0);
-          const expiry = new Date(student.expiry_date); expiry.setHours(0,0,0,0);
-          if (today > expiry) {
-            if (student.active) await db.from('students').update({ active: false }).eq('id', student.id);
-            err.textContent = `Tài khoản đã hết hạn vào ngày ${expiry.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để gia hạn.`;
-            return;
-          }
-        }
-
-        // Kiểm tra lớp học đã kết thúc (bỏ qua nếu admin đã mở thủ công)
-        if (student.class_name && !student.manually_unlocked) {
-          const { data: cls } = await db.from('classes').select('end_date').eq('name', student.class_name).single();
-          if (cls && cls.end_date) {
-            const today = new Date(); today.setHours(0,0,0,0);
-            const endDate = new Date(cls.end_date); endDate.setHours(0,0,0,0);
-            if (today > endDate) {
-              if (student.active) await db.from('students').update({ active: false }).eq('id', student.id);
-              err.textContent = `Khóa học "${student.class_name}" đã kết thúc vào ngày ${endDate.toLocaleDateString('vi-VN')}. Vui lòng liên hệ trợ lý để được hỗ trợ.`;
-              return;
+          const now = new Date();
+          if (student.last_login) {
+            const diff = (now - new Date(student.last_login)) / 1000 / 60;
+            if (diff < 5 && student.session_token) {
+              await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: 'Đăng nhập từ thiết bị khác trong vòng 5 phút' });
             }
           }
-        }
 
-        // Phát hiện đăng nhập nhiều thiết bị trong thời gian ngắn (< 5 phút)
-        const now = new Date();
-        if (student.last_login) {
-          const diff = (now - new Date(student.last_login)) / 1000 / 60;
-          if (diff < 5 && student.session_token) {
-            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: 'Đăng nhập từ thiết bị khác trong vòng 5 phút' });
+          const token = Math.random().toString(36).slice(2) + Date.now();
+          const updatePayload = { session_token: token, login_attempts: 0, last_login: now.toISOString(), is_online: true, last_seen: now.toISOString() };
+          if (isPlainMatch) updatePayload.password = await hashPw(p);
+          await db.from('students').update(updatePayload).eq('id', student.id);
+
+          if (student.session_token) {
+            await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: 'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất' });
           }
+
+          sessionStorage.setItem('dh_role', 'student');
+          sessionStorage.setItem('dh_user', u);
+          sessionStorage.setItem('dh_name', student.full_name);
+          sessionStorage.setItem('dh_token', token);
+
+          try { db.from('login_logs').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'' }).then(() => {}); } catch(e) {}
+
+          document.getElementById('monitorNotice').style.display = 'flex';
+          setTimeout(() => { window.location.href = 'student.html'; }, 5000);
+
+        } catch(err2) {
+          console.error('Login error:', err2);
+          resetLoading('Có lỗi xảy ra. Vui lòng thử lại.');
         }
-
-        // Reset attempts, cập nhật session token, last_login và online status
-        const token = Math.random().toString(36).slice(2) + Date.now();
-        await db.from('students').update({ session_token: token, login_attempts: 0, last_login: now.toISOString(), is_online: true, last_seen: now.toISOString() }).eq('id', student.id);
-
-        // Ghi cảnh báo đổi thiết bị
-        if (student.session_token) {
-          await db.from('alerts').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', reason: 'Đăng nhập thiết bị mới — thiết bị cũ bị đăng xuất' });
-        }
-
-        sessionStorage.setItem('dh_role', 'student');
-        sessionStorage.setItem('dh_user', u);
-        sessionStorage.setItem('dh_name', student.full_name);
-        sessionStorage.setItem('dh_token', token);
-
-        // Ghi log dang nhap
-        db.from('login_logs').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'' }).then(() => {});
-
-        // Hiện thông báo giám sát trước khi vào
-        document.getElementById('monitorNotice').style.display = 'flex';
-        setTimeout(() => { window.location.href = 'student.html'; }, 5000);
-      }
+      });
     });
 
-
-    //  Tự động khóa tài khoản khi lớp hết hạn (chạy mỗi lần tải trang) 
-    (async function autoLockExpired() {
-      try {
-        const today = new Date(); today.setHours(0,0,0,0);
-        // Lấy tất cả lớp có end_date đã qua
-        const { data: classes } = await db.from('classes').select('name,end_date');
-        if (!classes?.length) return;
-        const expiredNames = classes
-          .filter(c => c.end_date && new Date(c.end_date) < today)
-          .map(c => c.name);
-        if (!expiredNames.length) return;
-        // Khóa tất cả học sinh thuộc lớp hết hạn, chưa bị khóa, chưa được mở thủ công
-        await db.from('students')
-          .update({ active: false })
-          .in('class_name', expiredNames)
-          .eq('active', true)
-          .eq('manually_unlocked', false);
-      } catch(e) {}
-    })();
-        // Auto-lock tài khoản khi lớp hết hạn (chạy mỗi lần trang load)
+    // Auto-lock tài khoản khi lớp hết hạn
     (async function autoLockExpired() {
       try {
         const today = new Date(); today.setHours(0,0,0,0);
         const { data: classes } = await db.from('classes').select('name,end_date');
         const expired = (classes||[]).filter(c => c.end_date && new Date(c.end_date) < today).map(c => c.name);
         if (!expired.length) return;
-        await db.from('students').update({ active: false })
-          .in('class_name', expired)
-          .eq('active', true)
-          .eq('manually_unlocked', false);
+        await db.from('students').update({ active: false }).in('class_name', expired).eq('active', true).eq('manually_unlocked', false);
       } catch(e) {}
     })();
-// PWA Install prompt
+
+    // PWA Install prompt
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', e => {
       e.preventDefault();
       deferredPrompt = e;
       document.getElementById('installBtn').style.display = 'block';
     });
-    document.getElementById('installBtn').addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      if (outcome === 'accepted') document.getElementById('installBtn').style.display = 'none';
-    });
-    // Ẩn nút nếu đã cài rồi
     window.addEventListener('appinstalled', () => {
       document.getElementById('installBtn').style.display = 'none';
     });
@@ -573,7 +605,7 @@ if (!student.active) {
     <p>© Bản quyền thuộc về <b>DHDTCT LMS Education System</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
     <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
     <p>Mọi hành vi vi phạm bản quyền sẽ bị xử lý theo quy định của pháp luật hiện hành.</p>
-    <p style="margin-top:.5rem;color:#555;font-size:.72rem">Phiên bản <b style="color:#6366f1">v1.2.1</b></p>
+    <p style="margin-top:.5rem;color:#555;font-size:.72rem">Phiên bản <b style="color:#6366f1">v1.3.0</b></p>
   </footer>
 
   <!-- THÔNG BÁO GIÁM SÁT -->
@@ -592,6 +624,93 @@ if (!student.active) {
     <div style="color:#888;font-size:.78rem;margin-top:.5rem">Đang vào hệ thống...</div>
   </div>
   <style>@keyframes monitorBlink{0%,100%{opacity:1}50%{opacity:.2}}</style>
+
+  <!-- MODAL XIN CẤP TÀI KHOẢN -->
+  <div id="requestAccountModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:999;overflow-y:auto;backdrop-filter:blur(4px)">
+    <div style="max-width:520px;margin:1.5rem auto 2rem;border-radius:20px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);padding:1.75rem 1.5rem 1.5rem;color:#fff;position:relative">
+        <button onclick="document.getElementById('requestAccountModal').style.display='none'" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">✕</button>
+        <div style="display:flex;align-items:center;gap:1rem">
+          <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">📌</div>
+          <div>
+            <div style="font-size:1.15rem;font-weight:900;letter-spacing:-.3px">Xin cấp tài khoản học tập</div>
+            <div style="font-size:.8rem;opacity:.65;margin-top:.2rem">DHDTCT LMS Education System</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div style="background:#fff;padding:1.5rem;display:flex;flex-direction:column;gap:.85rem">
+
+        <p style="font-size:.88rem;color:#475569;line-height:1.7;margin:0">Học viên mới vui lòng nhắn tin riêng cho <b>Trợ Lý Duy Hoàng - Trần Cường</b> để xin cấp tài khoản học trên web. Link website đã được ghim trên nhóm.</p>
+
+        <!-- Bước 1 -->
+        <div style="background:#eef2ff;border-radius:14px;padding:1rem 1.1rem;border-left:4px solid #6366f1">
+          <div style="font-weight:800;font-size:.9rem;color:#3730a3;margin-bottom:.4rem;display:flex;align-items:center;gap:.5rem">
+            <span style="background:#6366f1;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">1</span>
+            Tin nhắn đầu tiên
+          </div>
+          <div style="background:#fff;border-radius:10px;padding:.65rem 1rem;font-size:.88rem;color:#1e1b4b;font-weight:700;border:1.5px dashed #c7d2fe;text-align:center;letter-spacing:.2px">
+            "Xin cấp tài khoản học tập trên web"
+          </div>
+        </div>
+
+        <!-- Bước 2 -->
+        <div style="background:#e0f2fe;border-radius:14px;padding:1rem 1.1rem;border-left:4px solid #0ea5e9">
+          <div style="font-weight:800;font-size:.9rem;color:#0369a1;margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem">
+            <span style="background:#0ea5e9;color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0">2</span>
+            Gửi riêng 2 dòng
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.4rem">
+            <div style="background:#fff;border-radius:8px;padding:.5rem .85rem;font-size:.85rem;color:#0369a1;font-weight:700;border:1px solid #bae6fd">Dòng 1: Số điện thoại</div>
+            <div style="background:#fff;border-radius:8px;padding:.5rem .85rem;font-size:.85rem;color:#0369a1;font-weight:700;border:1px solid #bae6fd">Dòng 2: Gmail</div>
+          </div>
+          <!-- Ví dụ -->
+          <div style="margin-top:.35rem;background:#f0fdf4;border-radius:10px;padding:.65rem .9rem;border:1px solid #bbf7d0">
+            <div style="font-size:.72rem;color:#15803d;font-weight:700;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.4px">✅ Ví dụ đúng — 3 tin nhắn riêng</div>
+            <div style="display:flex;flex-direction:column;gap:.4rem">
+              <div style="background:#fff;border-radius:8px;padding:.45rem .75rem;font-family:monospace;font-size:.85rem;color:#166534;border:1px solid #bbf7d0;display:flex;align-items:center;gap:.5rem">
+                <span style="font-size:.7rem;background:#dcfce7;color:#15803d;padding:.1rem .4rem;border-radius:4px;font-weight:700;flex-shrink:0">Tin 1</span>
+                Xin cấp tài khoản học tập trên web
+              </div>
+              <div style="background:#fff;border-radius:8px;padding:.45rem .75rem;font-family:monospace;font-size:.85rem;color:#166534;border:1px solid #bbf7d0;display:flex;align-items:center;gap:.5rem">
+                <span style="font-size:.7rem;background:#dcfce7;color:#15803d;padding:.1rem .4rem;border-radius:4px;font-weight:700;flex-shrink:0">Tin 2</span>
+                0901234567
+              </div>
+              <div style="background:#fff;border-radius:8px;padding:.45rem .75rem;font-family:monospace;font-size:.85rem;color:#166534;border:1px solid #bbf7d0;display:flex;align-items:center;gap:.5rem">
+                <span style="font-size:.7rem;background:#dcfce7;color:#15803d;padding:.1rem .4rem;border-radius:4px;font-weight:700;flex-shrink:0">Tin 3</span>
+                hocsinh@gmail.com
+              </div>
+            </div>
+          </div>
+          <div style="background:#fef2f2;border-radius:10px;padding:.65rem .9rem;border:1px solid #fecaca">
+            <div style="font-size:.72rem;color:#dc2626;font-weight:700;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.4px">❌ Ví dụ sai</div>
+            <div style="font-family:monospace;font-size:.85rem;color:#991b1b;line-height:1.9">SĐT: 0901234567 Gmail: hocsinh@gmail.com</div>
+          </div>
+        <div style="background:#fff7ed;border-radius:12px;padding:.85rem 1rem;border:1px solid #fed7aa">
+          <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.83rem;color:#9a3412">
+            <div>❌ Không ghi chung một dòng</div>
+            <div>❌ Không ghi chữ "SĐT" hoặc "Gmail" phía trước</div>
+            <div>❌ Không gửi thiếu thông tin</div>
+          </div>
+        </div>
+
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:.75rem 1rem;font-size:.82rem;color:#92400e;line-height:1.65">
+          ⚠️ Những trường hợp gửi sai mẫu, ghi thiếu, nhắn không rõ nội dung hoặc spam sẽ được trả lời chậm hơn do hệ thống cần kiểm tra lại.
+        </div>
+
+        <!-- Nút Zalo -->
+        <a href="https://zalo.me/84869573231" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:.75rem;text-decoration:none;background:linear-gradient(135deg,#0068ff,#0052cc);color:#fff;font-size:.92rem;font-weight:700;padding:.8rem 1.25rem;border-radius:12px;box-shadow:0 4px 12px rgba(0,104,255,.35);transition:transform .15s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+          <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="48" height="48" rx="12" fill="white" fill-opacity="0.2"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-size="24" font-weight="900" fill="white" font-family="Arial,sans-serif">Z</text></svg>
+          Nhắn Zalo cho Trợ Lý Trần Cường
+        </a>
+
+        <button id="closeRequestAccountBtn2" onclick="document.getElementById('requestAccountModal').style.display='none'" style="width:100%;padding:.7rem;background:#f1f5f9;color:#475569;border:none;border-radius:12px;font-size:.88rem;font-weight:600;cursor:pointer">Đóng</button>
+      </div>
+    </div>
+  </div>
 
   <style>
     /* Auth left animations */
