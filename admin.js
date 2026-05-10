@@ -111,8 +111,22 @@ document.getElementById('sidebarBackdrop').addEventListener('click', () => {
   document.getElementById('sidebarBackdrop').classList.remove('show');
 });
 
+// Sidebar mini toggle (desktop) — nút ◀ thu nhỏ
+document.querySelector('.sidebar-mini-toggle')?.addEventListener('click', () => {
+  document.body.classList.add('sidebar-mini');
+  sessionStorage.setItem('dh_sidebar_mini', '1');
+});
+// Nút ▶ mở lại
+document.querySelector('.sidebar-mini-reopen button')?.addEventListener('click', () => {
+  document.body.classList.remove('sidebar-mini');
+  sessionStorage.setItem('dh_sidebar_mini', '');
+});
+// Khôi phục trạng thái
+if (sessionStorage.getItem('dh_sidebar_mini') === '1') document.body.classList.add('sidebar-mini');
+
 // ---- Sidebar navigation ----
 function showPage(name) {
+  sessionStorage.setItem('dh_page', name);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.slink').forEach(l => l.classList.remove('active'));
   const key = name.charAt(0).toUpperCase() + name.slice(1).replace(/-([a-z])/g, g => g[1].toUpperCase());
@@ -169,7 +183,6 @@ async function populateClassFilters() {
     const cur = el.value; el.innerHTML = modalOpts; el.value = cur;
   });
 }
-populateClassFilters();
 
 // ---- Populate nhóm bài học vào dropdown (hỗ trợ cây 3 cấp) ----
 async function populateGroupSelect(selectId, currentVal='') {
@@ -454,16 +467,16 @@ document.getElementById('groupSearch')?.addEventListener('input', async function
 // OVERVIEW
 // ============================================================
 async function renderOverview() {
-  const [{ count: sc }, { data: todayAlerts }, { data: recentLessons }, { data: recentAlerts }, { data: vids }, { data: docs }] = await Promise.all([
+  const [{ count: sc }, { data: todayAlerts }, { data: recentLessons }, { data: recentAlerts }, { count: vidCount }, { count: docCount }] = await Promise.all([
     db.from('students').select('*', { count:'exact', head:true }),
     db.from('alerts').select('*').gte('created_at', new Date().toISOString().split('T')[0]),
     db.from('lessons').select('id,name,class_name').order('created_at', { ascending:false }).limit(4),
     db.from('alerts').select('*').order('created_at', { ascending:false }).limit(4),
-    db.from('lesson_videos').select('id'),
-    db.from('lesson_docs').select('id'),
+    db.from('lesson_videos').select('*', { count:'exact', head:true }),
+    db.from('lesson_docs').select('*', { count:'exact', head:true }),
   ]);
-  document.getElementById('statExams').textContent    = (docs||[]).length;
-  document.getElementById('statVideos').textContent   = (vids||[]).length;
+  document.getElementById('statExams').textContent    = docCount || 0;
+  document.getElementById('statVideos').textContent   = vidCount || 0;
   document.getElementById('statStudents').textContent = sc || 0;
   document.getElementById('statAlerts').textContent   = (todayAlerts||[]).length;
 
@@ -794,13 +807,13 @@ async function renderStudents() {
     const tr = document.createElement('tr');
     const loginAttempts = s.login_attempts || 0;
     const attemptsBadge = loginAttempts > 0 ? `<span class="status-pill orange" style="font-size:.7rem">⚠️ ${loginAttempts} lần sai</span>` : '';
-    const actions = `<div style="position:relative">
+    const actions = `<div class="smenu-wrap" style="position:relative">
       <button class="btn-sm smenu-toggle" style="font-size:1.2rem;padding:.2rem .6rem;font-weight:700;letter-spacing:.1em">⋯</button>
-      <div class="student-menu" style="display:none;position:absolute;right:0;top:110%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:300;min-width:170px;overflow:hidden">
+      <div class="student-menu" style="position:fixed;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:9999;min-width:170px;overflow:hidden">
         <button class="smenu-item" data-action="edit">✏️ Sửa thông tin</button>
         <button class="smenu-item" data-action="toggle">${s.active?'🔒 Khóa tài khoản':'🔓 Mở khóa'}</button>
         <button class="smenu-item" data-action="copy">📋 Copy tài khoản</button>
-        <button class="smenu-item" data-action="export-img">�️ Xuất ảnh</button>
+        <button class="smenu-item" data-action="export-img">🖼️ Xuất ảnh</button>
         ${loginAttempts>0?`<button class="smenu-item" data-action="reset-attempts">🔄 Reset lần sai</button>`:''}
         <button class="smenu-item" data-action="delete" style="color:#ef4444;border-top:1px solid var(--border)">🗑 Xóa</button>
       </div>
@@ -833,11 +846,41 @@ async function renderStudents() {
     })()}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
     tr.querySelector('.smenu-toggle').addEventListener('click', e => {
       e.stopPropagation();
+      // Chỉ dùng click toggle trên mobile (không có hover)
+      const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      if (isDesktop) return;
       document.querySelectorAll('.student-menu').forEach(m => {
         if (m !== tr.querySelector('.student-menu')) m.style.display = 'none';
       });
       const menu = tr.querySelector('.student-menu');
-      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+      if (menu.style.display === 'none' || menu.style.display === '') {
+        const rect = e.currentTarget.getBoundingClientRect();
+        menu.style.display = 'block';
+        const menuH = menu.offsetHeight || 220;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow < menuH + 8) {
+          menu.style.top = (rect.top - menuH - 4) + 'px';
+        } else {
+          menu.style.top = (rect.bottom + 4) + 'px';
+        }
+        menu.style.left = Math.min(rect.right - 170, window.innerWidth - 178) + 'px';
+      } else {
+        menu.style.display = 'none';
+      }
+    });
+
+    // Desktop: tính vị trí fixed khi hover vào wrap
+    const wrap = tr.querySelector('.smenu-wrap');
+    wrap.addEventListener('mouseenter', () => {
+      const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      if (!isDesktop) return;
+      const btn = wrap.querySelector('.smenu-toggle');
+      const rect = btn.getBoundingClientRect();
+      const menu = wrap.querySelector('.student-menu');
+      const menuH = 220;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      menu.style.top = (spaceBelow < menuH + 8 ? rect.top - menuH - 4 : rect.bottom + 4) + 'px';
+      menu.style.left = Math.min(rect.right - 170, window.innerWidth - 178) + 'px';
     });
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
     tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
@@ -1202,7 +1245,7 @@ function getEmbedUrl(url) {
   if (!url) return null;
   // YouTube
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}?controls=0&modestbranding=1&rel=0&disablekb=1`;
   // Google Drive
   const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
   if (gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
@@ -1251,8 +1294,17 @@ function closeViewer() { document.getElementById('viewerModal').classList.remove
 // LESSONS
 // ============================================================
 let currentLessonId=null, pendingLessonVideoFile=null, pendingLessonDocFile=null;
-
+let _renderLessonsTimer = null;
 async function renderLessons() {
+  clearTimeout(_renderLessonsTimer);
+  return new Promise(resolve => {
+    _renderLessonsTimer = setTimeout(async () => {
+      await _doRenderLessons();
+      resolve();
+    }, 80);
+  });
+}
+async function _doRenderLessons() {
   document.getElementById('lessonListView').style.display='';
   document.getElementById('lessonDetailView').style.display='none';
   const fc = document.getElementById('lessonFilterClass').value;
@@ -1363,6 +1415,14 @@ function openLessonModal(l=null) {
   document.getElementById('lNameInput').value = l ? l.name : '';
   document.getElementById('lDescInput').value = l ? (l.description||'') : '';
   document.getElementById('lError').textContent = '';
+  // Ẩn/hiện phần thêm media inline (chỉ khi tạo mới)
+  const mediaSection = document.getElementById('lInlineMediaSection');
+  if (mediaSection) {
+    mediaSection.style.display = l ? 'none' : '';
+    document.getElementById('lInlineVideoLinks').value = '';
+    document.getElementById('lInlineDocLinks').value = '';
+    document.getElementById('lInlineHwLinks').value = '';
+  }
   populateClassFilters().then(() => { document.getElementById('lClassSelect').value = l ? (l.class_name||'') : ''; });
   // Truyền group_id nếu có, fallback group_name cũ
   populateGroupSelect('lGroupInput', l ? (l.group_id || l.group_name || '') : '');
@@ -1379,11 +1439,54 @@ document.getElementById('lSaveBtn').addEventListener('click', async () => {
   // Lấy tên nhóm để backward compat
   const { data: grpData } = groupId ? await db.from('lesson_groups').select('name').eq('id', groupId).single() : { data: null };
   const groupName = grpData ? grpData.name : null;
+
+  const btn = document.getElementById('lSaveBtn');
+  btn.textContent = 'Đang lưu...'; btn.disabled = true;
+
+  let lessonId = editingLessonId;
   if (editingLessonId) {
     await db.from('lessons').update({ name, class_name: cls, description: desc, group_id: groupId ? parseInt(groupId) : null, group_name: groupName }).eq('id', editingLessonId);
   } else {
-    await db.from('lessons').insert({ name, class_name: cls, description: desc, group_id: groupId ? parseInt(groupId) : null, group_name: groupName });
+    const { data: newLesson } = await db.from('lessons').insert({ name, class_name: cls, description: desc, group_id: groupId ? parseInt(groupId) : null, group_name: groupName }).select('id').single();
+    lessonId = newLesson?.id;
+
+    // Lưu video links inline
+    if (lessonId) {
+      const rawVideo = document.getElementById('lInlineVideoLinks').value.trim();
+      if (rawVideo) {
+        const videoLinks = rawVideo.split('\n').map(l=>l.trim()).filter(Boolean);
+        for (const url of videoLinks) {
+          await db.from('lesson_videos').insert({ lesson_id: lessonId, title: 'Video bài học', video_url: url, storage_path: null, file_name: null });
+        }
+      }
+      // Lưu tài liệu links inline
+      const rawDoc = document.getElementById('lInlineDocLinks').value.trim();
+      if (rawDoc) {
+        const docLinks = rawDoc.split('\n').map(l=>l.trim()).filter(Boolean);
+        for (let i=0; i<docLinks.length; i++) {
+          const url = docLinks[i];
+          const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+          const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+          const t = docLinks.length > 1 ? `Tài liệu ${i+1}` : 'Tài liệu';
+          await db.from('lesson_docs').insert({ lesson_id: lessonId, title: t, file_name: null, file_type: 'link', storage_path: null, doc_url: docUrl });
+        }
+      }
+      // Lưu bản viết tay links inline
+      const rawHw = document.getElementById('lInlineHwLinks').value.trim();
+      if (rawHw) {
+        const hwLinks = rawHw.split('\n').map(l=>l.trim()).filter(Boolean);
+        for (let i=0; i<hwLinks.length; i++) {
+          const url = hwLinks[i];
+          const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+          const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
+          const t = hwLinks.length > 1 ? `Bản viết tay ${i+1}` : 'Bản viết tay';
+          await db.from('lesson_docs').insert({ lesson_id: lessonId, title: t, file_name: null, file_type: 'handwritten', storage_path: null, doc_url: docUrl });
+        }
+      }
+    }
   }
+
+  btn.textContent = 'Lưu'; btn.disabled = false;
   document.getElementById('lessonModal').classList.remove('open');
   await renderLessons();
 });
@@ -1899,7 +2002,11 @@ document.getElementById('clearAlertsBtn').addEventListener('click', async ()=>{
 });
 
 // ---- Init ----
-renderOverview();
+const _validPages = ['overview','lessons','lesson-groups','create-student','students','classes','security','devices','access-stats','login-history','announcements','profile'];
+const _savedPage = sessionStorage.getItem('dh_page');
+populateClassFilters().then(() => {
+  showPage(_validPages.includes(_savedPage) ? _savedPage : 'overview');
+});
 
 // ============================================================
 // TỰ ĐỘNG KHÓA TÀI KHOẢN KHI LỚP HẾT HẠN
@@ -2214,6 +2321,15 @@ db.channel('realtime-lessons')
   })
   .subscribe();
 
+// ── Realtime: access_logs ──
+db.channel('realtime-access-logs')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'access_logs' }, () => {
+    if (document.getElementById('pageAccessStats')?.classList.contains('active')) {
+      renderAccessStats();
+    }
+  })
+  .subscribe();
+
 // ============================================================
 // THỐNG KÊ TRUY CẬP
 // ============================================================
@@ -2244,63 +2360,10 @@ async function renderAccessStats() {
     <div class="stat-card purple"><div class="stat-icon">🎬</div><div><div class="stat-num">${videoViews}</div><div class="stat-label">Lượt xem video</div></div></div>
   `;
 
-  // Biểu đồ 7 ngày gần nhất
-  const days = Array.from({length: 7}, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    return d.toISOString().split('T')[0];
-  });
-  const dayLabels = days.map(d => { const [,m,day] = d.split('-'); return `${day}/${m}`; });
-  const videoByDay = days.map(d => all.filter(l => l.content_type==='video' && (l.accessed_at||'').startsWith(d)).length);
-  const docByDay   = days.map(d => all.filter(l => l.content_type==='doc'   && (l.accessed_at||'').startsWith(d)).length);
-
-  const canvas = document.getElementById('accessChart');
-  if (canvas) {
-    if (window._accessChart) window._accessChart.destroy();
-    window._accessChart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: dayLabels,
-        datasets: [
-          {
-            label: 'Video',
-            data: videoByDay,
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99,102,241,.12)',
-            borderWidth: 2.5,
-            pointBackgroundColor: '#6366f1',
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            tension: 0.4,
-            fill: true
-          },
-          {
-            label: 'Tài liệu',
-            data: docByDay,
-            borderColor: '#06b6d4',
-            backgroundColor: 'rgba(6,182,212,.08)',
-            borderWidth: 2.5,
-            pointBackgroundColor: '#06b6d4',
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            tension: 0.4,
-            fill: true
-          }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: true,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 12, usePointStyle: true } },
-          tooltip: { backgroundColor: '#1e293b', titleFont: { size: 12 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8 }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-          y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.05)' } }
-        }
-      }
-    });
-  }
+  // Biểu đồ theo giờ — dùng _chartDate để điều hướng ngày
+  if (!window._chartDate) window._chartDate = new Date().toISOString().split('T')[0];
+  if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
+  renderAccessChart(all);
 
   // Top bài học
   const lessonCount = {};
@@ -2386,6 +2449,117 @@ document.getElementById('accessFilterType').addEventListener('change', () => { w
 document.getElementById('accessSearch').addEventListener('input', () => { window._accessLogPage = 1; renderAccessStats(); });
 document.getElementById('accessDateFrom').addEventListener('change', () => { window._accessLogPage = 1; renderAccessStats(); });
 document.getElementById('accessDateTo').addEventListener('change', () => { window._accessLogPage = 1; renderAccessStats(); });
+
+// ---- Hàm vẽ biểu đồ theo ngày ----
+function renderAccessChart(allLogs) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (!window._chartDate) window._chartDate = todayStr;
+
+  // Tạo điểm dữ liệu theo từng giờ trong 7 ngày gần nhất
+  const points = { video: [], doc: [] };
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i); d.setMinutes(0,0,0);
+    const dayStr = d.toISOString().split('T')[0];
+    for (let h = 0; h < 24; h++) {
+      const t = new Date(d); t.setHours(h);
+      const tStr = t.toISOString();
+      const vCnt = allLogs.filter(l => l.content_type==='video' && (l.accessed_at||'').startsWith(dayStr) && new Date(l.accessed_at).getHours()===h).length;
+      const dCnt = allLogs.filter(l => l.content_type==='doc'   && (l.accessed_at||'').startsWith(dayStr) && new Date(l.accessed_at).getHours()===h).length;
+      points.video.push({ x: tStr, y: vCnt });
+      points.doc.push({ x: tStr, y: dCnt });
+    }
+  }
+
+  // Cửa sổ hiển thị: 24h tính từ _chartDate
+  const winStart = new Date(window._chartDate + 'T00:00:00');
+  const winEnd   = new Date(window._chartDate + 'T23:59:59');
+
+  // Cập nhật label
+  const [y,m,dd] = window._chartDate.split('-');
+  const labelEl = document.getElementById('chartDayLabel');
+  if (labelEl) labelEl.textContent = window._chartDate === todayStr ? `Hôm nay (${dd}/${m})` : `${dd}/${m}/${y}`;
+  const nextBtn = document.getElementById('chartNextDay');
+  if (nextBtn) nextBtn.disabled = window._chartDate >= todayStr;
+
+  const canvas = document.getElementById('accessChart');
+  if (!canvas) return;
+
+  window._accessChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      datasets: [
+        { label: 'Video', data: points.video, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,.15)', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true },
+        { label: 'Tài liệu', data: points.doc, borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,.1)', borderWidth: 2.5, pointRadius: 3, pointHoverRadius: 6, tension: 0.4, fill: true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 12, usePointStyle: true } },
+        tooltip: {
+          backgroundColor: '#1e293b', titleFont: { size: 12 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8,
+          callbacks: { title: items => { const d = new Date(items[0].parsed.x); return `${String(d.getHours()).padStart(2,'0')}:00 — ${d.toLocaleDateString('vi-VN')}`; } }
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'x',
+            onPan({ chart }) {
+              // Cập nhật _chartDate theo vị trí giữa cửa sổ
+              const mid = (chart.scales.x.min + chart.scales.x.max) / 2;
+              const midDate = new Date(mid).toISOString().split('T')[0];
+              if (midDate !== window._chartDate) {
+                window._chartDate = midDate > todayStr ? todayStr : midDate;
+                const [y2,m2,d2] = window._chartDate.split('-');
+                const lbl = document.getElementById('chartDayLabel');
+                if (lbl) lbl.textContent = window._chartDate === todayStr ? `Hôm nay (${d2}/${m2})` : `${d2}/${m2}/${y2}`;
+                const nb = document.getElementById('chartNextDay');
+                if (nb) nb.disabled = window._chartDate >= todayStr;
+              }
+            }
+          },
+          limits: {
+            x: {
+              min: new Date(new Date().setDate(new Date().getDate()-6)).setHours(0,0,0,0),
+              max: new Date(todayStr + 'T23:59:59').getTime()
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'HH:mm' },
+          min: winStart.toISOString(),
+          max: winEnd.toISOString(),
+          grid: { display: false },
+          ticks: { font: { size: 10 }, maxRotation: 0, maxTicksLimit: 12 }
+        },
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.05)' } }
+      }
+    }
+  });
+  canvas.style.cursor = 'grab';
+}
+
+// Nút điều hướng ngày biểu đồ
+document.getElementById('chartPrevDay')?.addEventListener('click', () => {
+  const d = new Date(window._chartDate); d.setDate(d.getDate() - 1);
+  window._chartDate = d.toISOString().split('T')[0];
+  renderAccessStats();
+});
+document.getElementById('chartNextDay')?.addEventListener('click', () => {
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (window._chartDate >= todayStr) return;
+  const d = new Date(window._chartDate); d.setDate(d.getDate() + 1);
+  window._chartDate = d.toISOString().split('T')[0];
+  renderAccessStats();
+});
+document.getElementById('chartTodayBtn')?.addEventListener('click', () => {
+  window._chartDate = new Date().toISOString().split('T')[0];
+  renderAccessStats();
+});
 
 document.getElementById('exportAccessBtn').addEventListener('click', async () => {
   const { data: logs } = await db.from('access_logs').select('*').order('accessed_at', {ascending: false});

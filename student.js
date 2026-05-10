@@ -159,14 +159,25 @@ document.getElementById('sidebarClose').addEventListener('click', () => {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebarBackdrop').classList.remove('show');
   } else {
-    document.body.classList.add('sidebar-collapsed');
+    const isMini = document.body.classList.toggle('sidebar-mini');
+    sessionStorage.setItem('st_sidebar_mini', isMini ? '1' : '');
   }
+});
+// Khôi phục trạng thái mini
+if (sessionStorage.getItem('st_sidebar_mini') === '1') document.body.classList.add('sidebar-mini');
+
+// Nút ▶ mở lại sidebar (chỉ bind nút trong sidebar-mini-reopen)
+document.querySelector('.sidebar-mini-reopen button')?.addEventListener('click', () => {
+  document.body.classList.remove('sidebar-mini');
+  sessionStorage.setItem('st_sidebar_mini', '');
 });
 
 // ---- Sidebar nav ----
 let currentSection = 'home';
 function showPage(pg) {
   currentSection = pg;
+  sessionStorage.setItem('st_page', pg);
+  sessionStorage.removeItem('st_lesson_id'); // reset bài khi chuyển trang
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.slink').forEach(l => l.classList.remove('active'));
   const map = { home:'Home', lessons:'Lessons', profile:'Profile', guide:'Guide', notifications:'Notifications' };
@@ -377,13 +388,11 @@ async function renderLessonList() {
 
     const card = document.createElement('div');
     card.className = 'group-card';
+    card.dataset.groupId = String(g.id);
     card.style.setProperty('--gc', c.gc);
     card.style.setProperty('--gc-light', c.gcLight);
     card.style.setProperty('--gc-glow', c.gcGlow);
     if (depth > 0) card.style.marginLeft = (depth * 16) + 'px';
-
-    const header = document.createElement('div');
-    header.className = 'group-card-header';
     const iconEl = document.createElement('div');
     iconEl.className = 'group-card-icon';
     const icons = ['📚','🎯','🔥','💡','⭐','🚀','📖','🏆'];
@@ -399,6 +408,8 @@ async function renderLessonList() {
       <div class="group-card-meta"><span class="group-card-count">${children.length ? children.length + ' nhóm con • ' : ''}${directLessons.length} bài học</span></div>`;
     const chevron = document.createElement('div');
     chevron.className = 'group-card-chevron'; chevron.textContent = '▼';
+    const header = document.createElement('div');
+    header.className = 'group-card-header';
     header.appendChild(iconEl); header.appendChild(bodyEl); header.appendChild(chevron);
 
     const lessonList = document.createElement('div');
@@ -478,12 +489,37 @@ async function renderLessonList() {
     card.appendChild(header); card.appendChild(lessonList);
     grid.appendChild(card);
   }
+
+  // Khôi phục scroll và nhóm đang mở khi quay lại từ bài học
+  const savedScroll = sessionStorage.getItem('st_lesson_scroll');
+  const savedGroups = JSON.parse(sessionStorage.getItem('st_open_groups') || '[]');
+  if (savedGroups.length || savedScroll) {
+    requestAnimationFrame(() => {
+      // Click vào header để mở lại nhóm
+      savedGroups.forEach(gid => {
+        const card = document.querySelector(`.group-card[data-group-id="${gid}"]`);
+        if (card && !card.classList.contains('open')) {
+          const header = card.querySelector('.group-card-header');
+          if (header) header.click();
+        }
+      });
+      // Khôi phục scroll
+      if (savedScroll) {
+        setTimeout(() => {
+          const page = document.getElementById('pageLessons');
+          if (page) page.scrollTop = parseInt(savedScroll);
+        }, 80);
+      }
+      sessionStorage.removeItem('st_lesson_scroll');
+      sessionStorage.removeItem('st_open_groups');
+    });
+  }
 }
 
 function getEmbedUrl(url) {
   if (!url) return null;
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}?controls=0&modestbranding=1&rel=0&disablekb=1`;
   const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
   if (gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
   return null;
@@ -513,6 +549,12 @@ function logAccess(lessonId, lessonName, contentId, contentTitle, contentType) {
   }).then(() => {}).catch(() => {});
 }
 async function openLessonDetail(id) {
+  sessionStorage.setItem('st_lesson_id', id);
+  // Lưu scroll position và nhóm đang mở
+  const page = document.getElementById('pageLessons');
+  if (page) sessionStorage.setItem('st_lesson_scroll', page.scrollTop);
+  const openGroups = [...document.querySelectorAll('.group-card.open')].map(c => c.dataset.groupId).filter(Boolean);
+  sessionStorage.setItem('st_open_groups', JSON.stringify(openGroups));
   // Hiện view ngay, load song song
   document.getElementById('sLessonListView').style.display = 'none';
   document.getElementById('sLessonDetailView').style.display = '';
@@ -604,7 +646,10 @@ async function openLessonDetail(id) {
     dList.appendChild(row);
   });
 }
-document.getElementById('sBackToLessonsBtn').addEventListener('click', renderLessonList);
+document.getElementById('sBackToLessonsBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('st_lesson_id');
+  renderLessonList();
+});
 document.getElementById('sLessonSearch').addEventListener('input', renderLessonList);
 
 // ---- Viewer ----
@@ -685,7 +730,23 @@ function closeViewer() {
 }
 
 // ---- Init ----
-loadMe().then(() => { renderHome(); checkNewNotifications(); });
+loadMe().then(() => {
+  const savedPage = sessionStorage.getItem('st_page') || 'home';
+  const savedLesson = sessionStorage.getItem('st_lesson_id');
+  if (savedPage === 'lessons' && savedLesson) {
+    // Kích hoạt trang lessons trước rồi mở bài
+    currentSection = 'lessons';
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.slink').forEach(l => l.classList.remove('active'));
+    const el = document.getElementById('pageLessons');
+    if (el) el.classList.add('active');
+    document.querySelectorAll('[data-page="lessons"]').forEach(l => l.classList.add('active'));
+    openLessonDetail(parseInt(savedLesson));
+  } else {
+    showPage(savedPage);
+  }
+  checkNewNotifications();
+});
 
 // Realtime: lắng nghe thay đổi active của tài khoản này
 db.channel('student-lock-' + currentUser)
@@ -703,7 +764,7 @@ db.channel('student-lock-' + currentUser)
           <div style="color:#ef4444;font-size:1.3rem;font-weight:800">Tài khoản đã bị khóa</div>
           <div style="color:rgba(255,255,255,.75);font-size:.95rem;max-width:320px;line-height:1.7">
             Tài khoản của bạn vừa bị khóa bởi quản trị viên.<br/>
-            Vui lòng liên hệ <b style="color:#fff">Trợ lý Trần Cường</b> để được hỗ trợ.
+            Vui lòng liên hệ <b style="color:#fff">Trợ Lý Trần Cường hoặc Quốc Toàn hoặc Quốc Toàn</b> để được hỗ trợ.
           </div>
           <button onclick="sessionStorage.clear();location.href='index.html'" style="margin-top:.5rem;background:#6366f1;color:#fff;border:none;padding:.75rem 2rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer">
             Về trang đăng nhập

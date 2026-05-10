@@ -76,29 +76,32 @@
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon"><img src="icons/icon-192.png" style="width:100%;height:100%;object-fit:cover;border-radius:8px"/></div>
       <span class="sidebar-brand-text">DHDTCT LMS</span>
-      <button id="sidebarClose" style="margin-left:auto;background:rgba(255,255,255,.12);border:none;color:#fff;width:28px;height:28px;border-radius:8px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'">✕</button>
+      <button id="sidebarClose" class="sidebar-mini-toggle" title="Thu gọn" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:1rem;padding:.25rem .4rem;border-radius:6px;transition:all .2s;flex-shrink:0" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.5)'">◀</button>
     </div>
     <nav class="sidebar-nav">
-      <a href="#" class="slink active" data-page="home">
+      <a href="#" class="slink active" data-page="home" data-label="Trang chủ">
         <span class="slink-icon">🏠</span><span class="slink-label">Trang chủ</span>
       </a>
-      <a href="#" class="slink" data-page="lessons">
+      <a href="#" class="slink" data-page="lessons" data-label="Bài học">
         <span class="slink-icon">📚</span><span class="slink-label">Bài học</span>
       </a>
-      <a href="#" class="slink" data-page="notifications">
+      <a href="#" class="slink" data-page="notifications" data-label="Thông báo">
         <span class="slink-icon">🔔</span><span class="slink-label">Thông báo</span><span id="sidebarNotiDot" style="display:none;width:8px;height:8px;background:#ef4444;border-radius:50%;margin-left:auto;flex-shrink:0"></span>
       </a>
-      <a href="#" class="slink" data-page="guide">
+      <a href="#" class="slink" data-page="guide" data-label="Hướng dẫn">
         <span class="slink-icon">📖</span><span class="slink-label">Hướng dẫn</span>
       </a>
-      <a href="#" class="slink" data-page="profile">
+      <a href="#" class="slink" data-page="profile" data-label="Hồ sơ">
         <span class="slink-icon">👤</span><span class="slink-label">Hồ sơ</span>
       </a>
     </nav>
-    <a href="index.html" class="slink slink-logout" id="logoutBtn">
+    <a href="index.html" class="slink slink-logout" id="logoutBtn" data-label="Đăng xuất">
       <span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span>
     </a>
-    <div style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.3.0</div>
+    <div class="sidebar-version" style="padding:.6rem 1.25rem;font-size:.7rem;color:rgba(255,255,255,.3);font-weight:600;letter-spacing:.3px">v1.3.0</div>
+    <div class="sidebar-mini-reopen">
+      <button id="sidebarMiniReopen" class="sidebar-mini-toggle" title="Mở rộng">▶</button>
+    </div>
   </aside>
 
   <!-- MAIN -->
@@ -255,7 +258,7 @@
               <span style="font-size:1.3rem">📞</span>
               <div>
                 <div style="font-weight:700;font-size:.85rem">Cần hỗ trợ?</div>
-                <div style="font-size:.75rem;color:var(--muted)">Liên hệ Trợ lý Trần Cường</div>
+                <div style="font-size:.75rem;color:var(--muted)">Liên hệ Trợ Lý Trần Cường hoặc Quốc Toàn hoặc Quốc Toàn</div>
               </div>
             </div>
           </div>
@@ -334,7 +337,7 @@
         <!-- Dang nhap -->
         <div style="background:var(--primary-light);border-radius:12px;padding:1rem 1.25rem">
           <div style="font-weight:800;font-size:.95rem;color:var(--primary);margin-bottom:.5rem">🔐 Đăng nhập</div>
-          <p style="font-size:.88rem;line-height:1.7;color:var(--text)">Nhắn <b>Trợ Lý - Trần Cường</b> cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ hoạt động trên <b>01 thiết bị</b> tại một thời điểm. Sau <b>5 lần nhập sai</b> mật khẩu, tài khoản sẽ bị khóa tự động.</p>
+          <p style="font-size:.88rem;line-height:1.7;color:var(--text)">Nhắn <b>Trợ Lý - Trần Cường hoặc Quốc Toàn hoặc Quốc Toàn</b> cung cấp Gmail + SĐT để nhận thông tin đăng nhập. Mỗi tài khoản chỉ hoạt động trên <b>01 thiết bị</b> tại một thời điểm. Sau <b>5 lần nhập sai</b> mật khẩu, tài khoản sẽ bị khóa tự động.</p>
         </div>
 
         <!-- Xem bai hoc -->
@@ -374,7 +377,7 @@
           <div style="display:flex;flex-direction:column;gap:.6rem;font-size:.88rem">
             <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:var(--card);border-radius:10px">
               <span style="font-size:1.2rem">🛠️</span>
-              <div><div style="font-weight:700">Kỹ thuật & Tài khoản</div><div style="color:var(--muted);font-size:.8rem">Liên hệ <b>Trợ lý - Trần Cường</b> — cung cấp Gmail, SĐT và Mã HV</div></div>
+              <div><div style="font-weight:700">Kỹ thuật & Tài khoản</div><div style="color:var(--muted);font-size:.8rem">Liên hệ <b>Trợ Lý - Trần Cường hoặc Quốc Toàn hoặc Quốc Toàn</b> — cung cấp Gmail, SĐT và Mã HV</div></div>
             </div>
             <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .75rem;background:var(--card);border-radius:10px">
               <span style="font-size:1.2rem">📐</span>
@@ -478,9 +481,10 @@
   <!-- SECURITY OVERLAY -->
   <div id="securityOverlay">
     <div class="sec-box">
-      <div class="sec-icon">🔒</div>
+      <div class="sec-icon">🚨</div>
       <h2>Cảnh báo bảo mật</h2>
-      <p>Hành vi vi phạm đã bị ghi nhận và báo cáo đến giáo viên.<br/>Nội dung bị ẩn để bảo vệ tài liệu.</p>
+      <p id="secOverlayMsg">Hành vi vi phạm đã bị ghi nhận và báo cáo đến giáo viên.<br/>Nội dung bị ẩn để bảo vệ tài liệu.</p>
+      <p style="font-size:.82rem;color:#ef4444;font-weight:700;margin-top:.5rem">⚠️ Hệ thống phát hiện bạn sử dụng DevTools.<br/>Hệ thống sẽ tự động xóa tài khoản nếu tiếp tục vi phạm.</p>
       <button id="secDismiss">Tôi hiểu, quay lại học</button>
     </div>
   </div>
@@ -517,6 +521,14 @@
     function showOverlay(reason) {
       logAlert(reason);
       document.body.style.filter = 'brightness(0)';
+      const msgEl = document.getElementById('secOverlayMsg');
+      if (msgEl) {
+        if (reason.includes('DevTools') || reason.includes('debugger')) {
+          msgEl.innerHTML = 'Hệ thống phát hiện bạn đang sử dụng <b>DevTools / Debugger</b>.<br/>Hành vi đã bị ghi nhận và báo cáo đến giáo viên.<br/><span style="color:#ef4444;font-weight:700">Tài khoản sẽ bị xóa nếu tiếp tục vi phạm.</span>';
+        } else {
+          msgEl.innerHTML = 'Hành vi vi phạm đã bị ghi nhận và báo cáo đến giáo viên.<br/>Nội dung bị ẩn để bảo vệ tài liệu.';
+        }
+      }
       overlay.classList.add('active');
     }
 
