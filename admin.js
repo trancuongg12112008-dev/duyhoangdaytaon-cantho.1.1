@@ -10,6 +10,26 @@ async function hashPw(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
+// ---- Kiểm tra trùng Gmail / SĐT ----
+async function checkDuplicate(username, phone, excludeId=null) {
+  const warnings = [];
+  // Kiểm tra Gmail
+  if (username) {
+    let q = db.from('students').select('id,full_name').eq('username', username);
+    if (excludeId) q = q.neq('id', excludeId);
+    const { data } = await q;
+    if (data?.length) warnings.push(`Gmail <b>${username}</b> đã được dùng bởi <b>${data[0].full_name}</b>.`);
+  }
+  // Kiểm tra SĐT
+  if (phone) {
+    let q = db.from('students').select('id,full_name').eq('phone', phone);
+    if (excludeId) q = q.neq('id', excludeId);
+    const { data } = await q;
+    if (data?.length) warnings.push(`SĐT <b>${phone}</b> đã được dùng bởi <b>${data[0].full_name}</b>.`);
+  }
+  return warnings;
+}
+
 // ---- Gmail validation ----
 function isValidGmail(val) {
   return /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i.test(val.trim());
@@ -17,28 +37,68 @@ function isValidGmail(val) {
 function attachGmailValidation(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.addEventListener('blur', () => {
+  el.addEventListener('blur', async () => {
     const val = el.value.trim();
+    // Xóa hint cũ
+    let hint = el.nextElementSibling;
+    if (hint && hint.classList.contains('gmail-hint')) hint.remove();
     if (val && !isValidGmail(val)) {
       el.style.borderColor = 'var(--danger, #ef4444)';
-      let hint = el.nextElementSibling;
-      if (!hint || !hint.classList.contains('gmail-hint')) {
+      hint = document.createElement('small');
+      hint.className = 'gmail-hint';
+      hint.style.cssText = 'color:var(--danger,#ef4444);font-size:.78rem;margin-top:2px;display:block';
+      hint.textContent = 'Gmail không hợp lệ. VD: hocsinh@gmail.com';
+      el.insertAdjacentElement('afterend', hint);
+    } else if (val && isValidGmail(val)) {
+      el.style.borderColor = '';
+      // Kiểm tra trùng realtime
+      const excludeId = el.closest('form,div')?.querySelector('[data-editing-id]')?.dataset.editingId || null;
+      const dups = await checkDuplicate(val, null, excludeId);
+      if (dups.length) {
+        el.style.borderColor = 'var(--warning,#f59e0b)';
         hint = document.createElement('small');
         hint.className = 'gmail-hint';
-        hint.style.cssText = 'color:var(--danger,#ef4444);font-size:.78rem;margin-top:2px;display:block';
+        hint.style.cssText = 'color:var(--warning,#f59e0b);font-size:.78rem;margin-top:2px;display:block;font-weight:600';
+        hint.innerHTML = '⚠️ ' + dups[0];
         el.insertAdjacentElement('afterend', hint);
       }
-      hint.textContent = 'Gmail không hợp lệ. VD: hocsinh@gmail.com';
     } else {
       el.style.borderColor = '';
-      const hint = el.nextElementSibling;
-      if (hint && hint.classList.contains('gmail-hint')) hint.remove();
     }
   });
   el.addEventListener('input', () => {
     el.style.borderColor = '';
     const hint = el.nextElementSibling;
     if (hint && hint.classList.contains('gmail-hint')) hint.remove();
+  });
+}
+
+// ---- Kiểm tra trùng SĐT realtime khi blur ----
+function attachPhoneDuplicateCheck(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('blur', async () => {
+    const val = el.value.trim();
+    let hint = el.nextElementSibling;
+    if (hint && hint.classList.contains('phone-dup-hint')) hint.remove();
+    if (!val || val.length < 10) return;
+    const excludeId = el.closest('form,div')?.querySelector('[data-editing-id]')?.dataset.editingId || null;
+    const dups = await checkDuplicate(null, val, excludeId);
+    if (dups.length) {
+      el.style.borderColor = 'var(--warning,#f59e0b)';
+      hint = document.createElement('small');
+      hint.className = 'phone-dup-hint';
+      hint.style.cssText = 'color:var(--warning,#f59e0b);font-size:.78rem;margin-top:2px;display:block;font-weight:600';
+      hint.innerHTML = '⚠️ ' + dups[0];
+      el.insertAdjacentElement('afterend', hint);
+    } else {
+      el.style.borderColor = '';
+    }
+  });
+  el.addEventListener('input', () => {
+    el.style.borderColor = '';
+    const hint = el.nextElementSibling;
+    if (hint && hint.classList.contains('phone-dup-hint')) hint.remove();
   });
 }
 
@@ -59,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', enforcePhoneInput);
   });
+  ['csPhone', 'addPhone', 'esPhone'].forEach(attachPhoneDuplicateCheck);
   ['csUsername', 'addUsername', 'esUsername'].forEach(attachGmailValidation);
 });
 
@@ -635,8 +696,11 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   if (!password) { err.textContent = 'Vui long nhap mat khau.'; return; }
   if (!/\d/.test(password)) { err.textContent = 'Mã học viên / mật khẩu phải chứa ít nhất 1 số.'; return; }
 
+  // Kiểm tra trùng Gmail / SĐT
+  const dupWarnings = await checkDuplicate(username, phone);
+  if (dupWarnings.length) { err.innerHTML = '⚠️ ' + dupWarnings.join('<br/>⚠️ '); return; }
+
   const { error } = await db.from('students').insert({
-    student_code: code || null,
     full_name: name, phone: phone || null,
     username, password: await hashPw(password),
     class_name: cls || null,
@@ -1118,6 +1182,9 @@ document.getElementById('addStudentSaveBtn').addEventListener('click', async () 
   if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
   if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
   if (!/\d/.test(password)) { err.textContent='Mật khẩu phải chứa ít nhất 1 số.'; return; }
+  // Kiểm tra trùng Gmail / SĐT
+  const dupW = await checkDuplicate(username, phone);
+  if (dupW.length) { err.innerHTML = '⚠️ ' + dupW.join('<br/>⚠️ '); return; }
   const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password: await hashPw(password), class_name:cls, active:true, expiry_date:expiry, notes });
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('addStudentModal').classList.remove('open');
@@ -1211,6 +1278,10 @@ document.getElementById('esSaveBtn').addEventListener('click', async () => {
   if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
   if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
   if (code && !/\d/.test(code)) { err.textContent='Mã học viên phải chứa ít nhất 1 số.'; return; }
+  // Kiểm tra trùng Gmail / SĐT (bỏ qua chính học viên đang sửa)
+  const phone = document.getElementById('esPhone')?.value.trim() || '';
+  const dupWE = await checkDuplicate(username, phone, editingStudentId);
+  if (dupWE.length) { err.innerHTML = '⚠️ ' + dupWE.join('<br/>⚠️ '); return; }
   const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes, password: await hashPw(code) };
   const { error } = await db.from('students').update(updates).eq('id',editingStudentId);
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
