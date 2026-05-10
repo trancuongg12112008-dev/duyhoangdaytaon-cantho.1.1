@@ -10,6 +10,34 @@ async function hashPw(str) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
+// ---- Mã hóa / giải mã link AES-GCM ----
+const _ENC_KEY = 'DHDTCT-LMS-2025-SECURE-KEY-32BYT'; // 32 ký tự
+async function _getKey() {
+  const raw = new TextEncoder().encode(_ENC_KEY.slice(0,32).padEnd(32,'0'));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
+}
+async function encryptUrl(url) {
+  if (!url || url.startsWith('ENC:')) return url;
+  try {
+    const key = await _getKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(url));
+    const combined = new Uint8Array(iv.length + enc.byteLength);
+    combined.set(iv); combined.set(new Uint8Array(enc), iv.length);
+    return 'ENC:' + btoa(String.fromCharCode(...combined));
+  } catch { return url; }
+}
+async function decryptUrl(enc) {
+  if (!enc || !enc.startsWith('ENC:')) return enc;
+  try {
+    const key = await _getKey();
+    const combined = Uint8Array.from(atob(enc.slice(4)), c => c.charCodeAt(0));
+    const iv = combined.slice(0,12), data = combined.slice(12);
+    const dec = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, data);
+    return new TextDecoder().decode(dec);
+  } catch { return enc; }
+}
+
 // ---- Kiểm tra trùng Gmail / SĐT ----
 async function checkDuplicate(username, phone, excludeId=null) {
   const warnings = [];
@@ -681,7 +709,7 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   const name     = document.getElementById('csName').value.trim();
   const phone    = document.getElementById('csPhone').value.trim();
   const username = document.getElementById('csUsername').value.trim();
-  const password = document.getElementById('csPassword').value.trim();
+  let   password = document.getElementById('csPassword').value.trim();
   const cls      = document.getElementById('csClassSelect').value;
   const expiry   = document.getElementById('csExpiry').value || null;
   const notes    = document.getElementById('csNotes').value.trim() || null;
@@ -693,7 +721,15 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   if (!username) { err.textContent = 'Vui long nhap Gmail.'; return; }
   if (!isValidGmail(username)) { err.textContent = 'Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
   if (!cls)      { err.textContent = 'Vui lòng chọn lớp.'; return; }
-  if (!password) { err.textContent = 'Vui long nhap mat khau.'; return; }
+
+  // Nếu chưa có mã/mật khẩu thì tự gen
+  if (!password || !code) {
+    const newCode = await genStudentCode();
+    document.getElementById('csCode').value = newCode;
+    document.getElementById('csPassword').value = newCode;
+    password = newCode;
+  }
+
   if (!/\d/.test(password)) { err.textContent = 'Mã học viên / mật khẩu phải chứa ít nhất 1 số.'; return; }
 
   // Kiểm tra trùng Gmail / SĐT
@@ -701,6 +737,7 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
   if (dupWarnings.length) { err.innerHTML = '⚠️ ' + dupWarnings.join('<br/>⚠️ '); return; }
 
   const { error } = await db.from('students').insert({
+    student_code: document.getElementById('csCode').value.trim() || null,
     full_name: name, phone: phone || null,
     username, password: await hashPw(password),
     class_name: cls || null,
@@ -711,7 +748,7 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
 
   // Hien modal thong tin tai khoan
   document.getElementById('naName').textContent     = name;
-  document.getElementById('naCode').textContent     = code || '—';
+  document.getElementById('naCode').textContent     = document.getElementById('csCode').value.trim() || '—';
   document.getElementById('naUsername').textContent = username;
   document.getElementById('naPassword').textContent = password;
   document.getElementById('naClass').textContent    = cls || '';
@@ -800,7 +837,7 @@ document.getElementById('naShareBtn').addEventListener('click', async () => {
 });
 let miniPage=1; const miniPerPage=8;
 async function renderMiniStudents() {
-  const { data: list } = await db.from('students').select('*').order('created_at', { ascending:false });
+  const { data: list } = await db.from('students').select('*').order('created_at', { ascending:false }).limit(10000);
   const tbody = document.getElementById('miniStudentBody');
   const totalPages = Math.max(1, Math.ceil((list||[]).length/miniPerPage));
   if (miniPage > totalPages) miniPage = totalPages;
@@ -808,7 +845,7 @@ async function renderMiniStudents() {
   tbody.innerHTML = '';
   slice.forEach(s => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${s.student_code||''}</td><td>${s.full_name}</td><td>${s.phone||''}</td><td>${s.username}</td><td>${s.class_name||''}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'HD':'Khoa'}</span></td><td><button class="btn-sm" data-action="edit">&#x270F;&#xFE0F;</button></td>`;
+    tr.innerHTML = `<td>${s.student_code||'<span style="color:var(--muted)">—</span>'}</td><td>${s.full_name}</td><td>${s.phone||''}</td><td>${s.username}</td><td>${s.class_name||''}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'HD':'Khoa'}</span></td><td><button class="btn-sm" data-action="edit">&#x270F;&#xFE0F;</button></td>`;
     tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
     tbody.appendChild(tr);
   });
@@ -827,15 +864,108 @@ async function renderMiniStudents() {
 // ============================================================
 // STUDENTS LIST
 // ============================================================
+let _allStudentsFiltered = [];
+let _studentRenderCount = 0;
+const STUDENT_BATCH = 50;
+
+function renderStudentRow(s, today, expiredClasses) {
+  const tr = document.createElement('tr');
+  const loginAttempts = s.login_attempts || 0;
+  const attemptsBadge = loginAttempts > 0 ? `<span class="status-pill orange" style="font-size:.7rem">⚠️ ${loginAttempts} lần sai</span>` : '';
+  const actions = `<div class="smenu-wrap" style="position:relative">
+    <button class="btn-sm smenu-toggle" style="font-size:1.2rem;padding:.2rem .6rem;font-weight:700;letter-spacing:.1em">⋯</button>
+    <div class="student-menu" style="display:none;position:fixed;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:9999;min-width:170px;overflow:hidden">
+      <button class="smenu-item" data-action="edit">✏️ Sửa thông tin</button>
+      <button class="smenu-item" data-action="toggle">${s.active?'🔒 Khóa tài khoản':'🔓 Mở khóa'}</button>
+      <button class="smenu-item" data-action="copy">📋 Copy tài khoản</button>
+      <button class="smenu-item" data-action="export-img">🖼️ Xuất ảnh</button>
+      ${loginAttempts>0?`<button class="smenu-item" data-action="reset-attempts">🔄 Reset lần sai</button>`:''}
+      <button class="smenu-item" data-action="delete" style="color:#ef4444;border-top:1px solid var(--border)">🗑 Xóa</button>
+    </div>
+  </div>`;
+
+  let studyStatus;
+  if (!s.active) {
+    if (s.expiry_date && new Date(s.expiry_date) < today) studyStatus = '<span class="status-pill red">⏰ Hết hạn</span>';
+    else if (s.class_name && expiredClasses.has(s.class_name)) studyStatus = '<span class="status-pill red">🏫 Lớp kết thúc</span>';
+    else studyStatus = '<span class="status-pill orange">🔒 Đã khóa</span>';
+  } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 90000) {
+    studyStatus = '<span class="status-pill green">🟢 Online</span>';
+  } else {
+    studyStatus = '<span class="status-pill gray">⚫ Offline</span>';
+  }
+
+  tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}${loginAttempts>0?' '+attemptsBadge:''}</td><td>${s.phone||'—'}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td>${(() => {
+    if (!s.expiry_date) return '<span style="color:var(--muted);font-size:.8rem">—</span>';
+    const exp = new Date(s.expiry_date); exp.setHours(0,0,0,0);
+    const daysLeft = Math.round((exp - today) / 86400000);
+    if (daysLeft < 0) return `<span style="background:#fee2e2;color:#991b1b;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Hết hạn</span>`;
+    if (daysLeft === 0) return `<span style="background:#fef3c7;color:#92400e;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Hôm nay</span>`;
+    if (daysLeft <= 7) return `<span style="background:#fef3c7;color:#92400e;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Còn ${daysLeft}n</span>`;
+    return `<span style="font-size:.8rem;color:var(--muted)">${fmtDate(s.expiry_date)}</span>`;
+  })()}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
+
+  tr.querySelector('.smenu-toggle').addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('.student-menu').forEach(m => { if (m !== tr.querySelector('.student-menu')) m.style.display = 'none'; });
+    const menu = tr.querySelector('.student-menu');
+    if (menu.style.display === 'none' || !menu.style.display) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      menu.style.display = 'block';
+      const menuH = menu.offsetHeight || 220;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      menu.style.top = (spaceBelow < menuH + 8 ? rect.top - menuH - 4 : rect.bottom + 4) + 'px';
+      menu.style.left = Math.min(rect.right - 170, window.innerWidth - 178) + 'px';
+    } else { menu.style.display = 'none'; }
+  });
+  tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
+  tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
+    const newActive = !s.active;
+    const updates = { active: newActive, login_attempts: 0 };
+    if (newActive) updates.manually_unlocked = true; else updates.manually_unlocked = false;
+    await db.from('students').update(updates).eq('id', s.id);
+    renderStudents();
+  });
+  if (tr.querySelector('[data-action="reset-attempts"]')) {
+    tr.querySelector('[data-action="reset-attempts"]').addEventListener('click', async () => {
+      await db.from('students').update({ login_attempts: 0 }).eq('id', s.id);
+      renderStudents();
+    });
+  }
+  tr.querySelector('[data-action="copy"]').addEventListener('click', () => {
+    const text = `Họ tên: ${s.full_name}\nMã HV: ${s.student_code||''}\nGmail: ${s.username}\nMật khẩu: ${s.student_code||''}\nLớp: ${s.class_name||''}`;
+    navigator.clipboard?.writeText(text).then(() => {
+      const btn = tr.querySelector('[data-action="copy"]');
+      btn.textContent = '✅ Đã copy!';
+      setTimeout(() => { btn.textContent = '📋 Copy tài khoản'; }, 2000);
+    });
+  });
+  tr.querySelector('[data-action="export-img"]').addEventListener('click', () => exportStudentCard(s));
+  tr.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+    showConfirm(`Xóa học sinh "${s.full_name}"?`, async () => {
+      await db.from('students').delete().eq('id', s.id); renderStudents(); renderMiniStudents(); populateClassFilters();
+    });
+  });
+  return tr;
+}
+
+function loadMoreStudents() {
+  const tbody = document.getElementById('studentBody');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const { _expiredClasses } = window._studentMeta || {};
+  const batch = _allStudentsFiltered.slice(_studentRenderCount, _studentRenderCount + STUDENT_BATCH);
+  batch.forEach(s => tbody.appendChild(renderStudentRow(s, today, _expiredClasses || new Set())));
+  _studentRenderCount += batch.length;
+}
+
 async function renderStudents() {
   const q      = (document.getElementById('studentSearch').value||'').toLowerCase();
   const cls    = document.getElementById('studentFilterClass').value;
   const expiry = document.getElementById('studentFilterExpiry')?.value || '';
-  let query = db.from('students').select('*').order('full_name');
+  let query = db.from('students').select('*').order('full_name').limit(10000);
   if (cls) query = query.eq('class_name', cls);
   const { data: list } = await query;
 
-  // Tự động khóa tài khoản hết hạn (cá nhân + lớp học)
   const today = new Date(); today.setHours(0,0,0,0);
   const { data: allClasses } = await db.from('classes').select('name,end_date');
   const expiredClasses = new Set((allClasses||[]).filter(c => c.end_date && new Date(c.end_date) < today).map(c => c.name));
@@ -848,9 +978,7 @@ async function renderStudents() {
     expired.forEach(s => { s.active = false; });
   }
 
-  let filtered = (list||[]).filter(s => !q || s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q));
-
-  // Lọc theo hết hạn
+  let filtered = (list||[]).filter(s => !q || s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q) || (s.student_code||'').toLowerCase().includes(q) || (s.phone||'').includes(q));
   if (expiry === 'expired') {
     filtered = filtered.filter(s => s.expiry_date && new Date(s.expiry_date) < today);
   } else if (expiry) {
@@ -858,180 +986,125 @@ async function renderStudents() {
     const future = new Date(today); future.setDate(future.getDate() + days);
     filtered = filtered.filter(s => s.expiry_date && new Date(s.expiry_date) >= today && new Date(s.expiry_date) <= future);
   }
+
+  _allStudentsFiltered = filtered;
+  _studentRenderCount = 0;
+  window._studentMeta = { _expiredClasses: expiredClasses };
+
   const tbody = document.getElementById('studentBody');
   tbody.innerHTML = '';
-  document.getElementById('emptyStudents').style.display = filtered.length?'none':'block';
-  const PER_PAGE_ST = 20;
-  const totalPagesSt = Math.max(1, Math.ceil(filtered.length / PER_PAGE_ST));
-  if (!window._studentPage || window._studentPage > totalPagesSt) window._studentPage = 1;
-  const stPage = window._studentPage;
-  const stSlice = filtered.slice((stPage - 1) * PER_PAGE_ST, stPage * PER_PAGE_ST);
+  document.getElementById('emptyStudents').style.display = filtered.length ? 'none' : 'block';
 
-  stSlice.forEach(s => {
-    const tr = document.createElement('tr');
-    const loginAttempts = s.login_attempts || 0;
-    const attemptsBadge = loginAttempts > 0 ? `<span class="status-pill orange" style="font-size:.7rem">⚠️ ${loginAttempts} lần sai</span>` : '';
-    const actions = `<div class="smenu-wrap" style="position:relative">
-      <button class="btn-sm smenu-toggle" style="font-size:1.2rem;padding:.2rem .6rem;font-weight:700;letter-spacing:.1em">⋯</button>
-      <div class="student-menu" style="position:fixed;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:9999;min-width:170px;overflow:hidden">
-        <button class="smenu-item" data-action="edit">✏️ Sửa thông tin</button>
-        <button class="smenu-item" data-action="toggle">${s.active?'🔒 Khóa tài khoản':'🔓 Mở khóa'}</button>
-        <button class="smenu-item" data-action="copy">📋 Copy tài khoản</button>
-        <button class="smenu-item" data-action="export-img">🖼️ Xuất ảnh</button>
-        ${loginAttempts>0?`<button class="smenu-item" data-action="reset-attempts">🔄 Reset lần sai</button>`:''}
-        <button class="smenu-item" data-action="delete" style="color:#ef4444;border-top:1px solid var(--border)">🗑 Xóa</button>
-      </div>
-    </div>`;
+  // Render batch đầu tiên
+  loadMoreStudents();
 
-    // Trạng thái học tập
-    let studyStatus;
-    if (!s.active) {
-      if (s.expiry_date && new Date(s.expiry_date) < today) {
-        studyStatus = '<span class="status-pill red">⏰ Hết hạn</span>';
-      } else if (s.class_name && expiredClasses.has(s.class_name)) {
-        studyStatus = '<span class="status-pill red">🏫 Lớp kết thúc</span>';
-      } else {
-        studyStatus = '<span class="status-pill orange">🔒 Đã khóa</span>';
-      }
-    } else if (s.is_online && s.last_seen && (Date.now() - new Date(s.last_seen).getTime()) < 90000) {
-      studyStatus = '<span class="status-pill green">🟢 Online</span>';
-    } else {
-      studyStatus = '<span class="status-pill gray">⚫ Offline</span>';
-    }
+  // Xóa sentinel cũ
+  const old = document.getElementById('studentScrollSentinel');
+  if (old) old.remove();
 
-    tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}${loginAttempts>0?' '+attemptsBadge:''}</td><td>${s.phone||'—'}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td>${(() => {
-      if (!s.expiry_date) return '<span style="color:var(--muted);font-size:.8rem">—</span>';
-      const exp = new Date(s.expiry_date); exp.setHours(0,0,0,0);
-      const daysLeft = Math.round((exp - today) / 86400000);
-      if (daysLeft < 0) return `<span style="background:#fee2e2;color:#991b1b;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Hết hạn</span>`;
-      if (daysLeft === 0) return `<span style="background:#fef3c7;color:#92400e;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Hôm nay</span>`;
-      if (daysLeft <= 7) return `<span style="background:#fef3c7;color:#92400e;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">Còn ${daysLeft}n</span>`;
-      return `<span style="font-size:.8rem;color:var(--muted)">${fmtDate(s.expiry_date)}</span>`;
-    })()}</td><td><span class="status-badge ${s.active?'active':'inactive'}">${s.active?'Hoạt động':'Khóa'}</span></td><td>${studyStatus}</td><td>${actions}</td>`;
-    tr.querySelector('.smenu-toggle').addEventListener('click', e => {
-      e.stopPropagation();
-      // Chỉ dùng click toggle trên mobile (không có hover)
-      const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-      if (isDesktop) return;
-      document.querySelectorAll('.student-menu').forEach(m => {
-        if (m !== tr.querySelector('.student-menu')) m.style.display = 'none';
-      });
-      const menu = tr.querySelector('.student-menu');
-      if (menu.style.display === 'none' || menu.style.display === '') {
-        const rect = e.currentTarget.getBoundingClientRect();
-        menu.style.display = 'block';
-        const menuH = menu.offsetHeight || 220;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        if (spaceBelow < menuH + 8) {
-          menu.style.top = (rect.top - menuH - 4) + 'px';
-        } else {
-          menu.style.top = (rect.bottom + 4) + 'px';
+  // Thêm sentinel để trigger load thêm
+  if (_studentRenderCount < filtered.length) {
+    const sentinel = document.createElement('tr');
+    sentinel.id = 'studentScrollSentinel';
+    sentinel.innerHTML = `<td colspan="10" style="text-align:center;padding:1rem;color:var(--muted);font-size:.85rem">⏳ Đang tải thêm...</td>`;
+    tbody.appendChild(sentinel);
+
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && _studentRenderCount < _allStudentsFiltered.length) {
+        loadMoreStudents();
+        if (_studentRenderCount >= _allStudentsFiltered.length) {
+          sentinel.remove();
+          observer.disconnect();
         }
-        menu.style.left = Math.min(rect.right - 170, window.innerWidth - 178) + 'px';
-      } else {
-        menu.style.display = 'none';
       }
-    });
-
-    // Desktop: tính vị trí fixed khi hover vào wrap
-    const wrap = tr.querySelector('.smenu-wrap');
-    wrap.addEventListener('mouseenter', () => {
-      const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-      if (!isDesktop) return;
-      const btn = wrap.querySelector('.smenu-toggle');
-      const rect = btn.getBoundingClientRect();
-      const menu = wrap.querySelector('.student-menu');
-      const menuH = 220;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      menu.style.top = (spaceBelow < menuH + 8 ? rect.top - menuH - 4 : rect.bottom + 4) + 'px';
-      menu.style.left = Math.min(rect.right - 170, window.innerWidth - 178) + 'px';
-    });
-    tr.querySelector('[data-action="edit"]').addEventListener('click', () => openEditStudent(s));
-    tr.querySelector('[data-action="toggle"]').addEventListener('click', async () => {
-      const newActive = !s.active;
-      const updates = { active: newActive, login_attempts: 0 };
-      if (newActive) updates.manually_unlocked = true;
-      else updates.manually_unlocked = false;
-      await db.from('students').update(updates).eq('id', s.id);
-      renderStudents();
-    });
-    if (tr.querySelector('[data-action="reset-attempts"]')) {
-      tr.querySelector('[data-action="reset-attempts"]').addEventListener('click', async () => {
-        await db.from('students').update({ login_attempts: 0 }).eq('id', s.id);
-        renderStudents();
-      });
-    }
-    tr.querySelector('[data-action="copy"]').addEventListener('click', () => {
-      const text = `Họ tên: ${s.full_name}\nMã HV: ${s.student_code||''}\nGmail: ${s.username}\nMật khẩu: ${s.student_code||''}\nLớp: ${s.class_name||''}`;
-      navigator.clipboard?.writeText(text).then(() => {
-        const btn = tr.querySelector('[data-action="copy"]');
-        btn.textContent = '✅ Đã copy!';
-        setTimeout(() => { btn.textContent = '📋 Copy tài khoản'; }, 2000);
-      });
-    });
-    tr.querySelector('[data-action="export-img"]').addEventListener('click', () => exportStudentCard(s));
-    tr.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-      showConfirm(`Xóa học sinh "${s.full_name}"?`, async () => {
-        await db.from('students').delete().eq('id',s.id); renderStudents(); renderMiniStudents(); populateClassFilters();
-      });
-    });
-    tbody.appendChild(tr);
-  });
-
-  // Phân trang danh sách học sinh
-  let stPgEl = document.getElementById('studentPagination');
-  if (!stPgEl) {
-    stPgEl = document.createElement('div');
-    stPgEl.id = 'studentPagination';
-    stPgEl.style.cssText = 'display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:.85rem;padding:.75rem 0';
-    tbody.closest('table').parentElement.after(stPgEl);
+    }, { threshold: 0.1 });
+    observer.observe(sentinel);
   }
-  stPgEl.innerHTML = '';
-  if (totalPagesSt > 1) {
-    const info = document.createElement('span');
-    info.style.cssText = 'font-size:.8rem;color:var(--muted);margin-right:.25rem';
-    info.textContent = `${filtered.length} học sinh`;
-    stPgEl.appendChild(info);
 
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'page-btn';
-    prevBtn.textContent = '‹';
-    if (stPage === 1) { prevBtn.disabled = true; prevBtn.style.opacity = '.4'; }
-    prevBtn.addEventListener('click', () => { window._studentPage = stPage - 1; renderStudents(); });
-    stPgEl.appendChild(prevBtn);
-
-    for (let i = 1; i <= totalPagesSt; i++) {
-      if (i === 1 || i === totalPagesSt || (i >= stPage - 2 && i <= stPage + 2)) {
-        const btn = document.createElement('button');
-        btn.className = 'page-btn' + (i === stPage ? ' active' : '');
-        btn.textContent = i;
-        btn.addEventListener('click', () => { window._studentPage = i; renderStudents(); });
-        stPgEl.appendChild(btn);
-      } else if (i === stPage - 3 || i === stPage + 3) {
-        const dots = document.createElement('span');
-        dots.style.cssText = 'color:var(--muted);padding:0 .2rem';
-        dots.textContent = '…';
-        stPgEl.appendChild(dots);
-      }
-    }
-
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'page-btn';
-    nextBtn.textContent = '›';
-    if (stPage === totalPagesSt) { nextBtn.disabled = true; nextBtn.style.opacity = '.4'; }
-    nextBtn.addEventListener('click', () => { window._studentPage = stPage + 1; renderStudents(); });
-    stPgEl.appendChild(nextBtn);
-  }
+  // Xóa pagination cũ nếu còn
+  const stPgEl = document.getElementById('studentPagination');
+  if (stPgEl) stPgEl.remove();
 }
-document.getElementById('studentSearch').addEventListener('input', () => { window._studentPage = 1; renderStudents(); });
-document.getElementById('studentFilterClass').addEventListener('change', () => { window._studentPage = 1; renderStudents(); });
-document.getElementById('studentFilterExpiry')?.addEventListener('change', () => { window._studentPage = 1; renderStudents(); });
+document.getElementById('studentSearch').addEventListener('input', renderStudents);
+document.getElementById('studentFilterClass').addEventListener('change', renderStudents);
+document.getElementById('studentFilterExpiry')?.addEventListener('change', renderStudents);
+
+document.getElementById('genMissingCodesBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('genMissingCodesBtn');
+  btn.textContent = '⏳ Đang xử lý...'; btn.disabled = true;
+  const { data: students } = await db.from('students').select('id,student_code').is('student_code', null);
+  if (!students?.length) {
+    btn.textContent = '✅ Không có học viên nào thiếu mã';
+    setTimeout(() => { btn.textContent = '🔧 Sinh mã còn thiếu'; btn.disabled = false; }, 2000);
+    return;
+  }
+  // Lấy tất cả mã đã dùng
+  const { data: all } = await db.from('students').select('student_code');
+  const usedCodes = new Set((all||[]).map(s => s.student_code).filter(Boolean));
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lower = 'abcdefghijklmnopqrstuvwxyz', digits = '0123456789';
+  const allChars = upper + lower + digits;
+  function genCode() {
+    const arr = [
+      upper[Math.floor(Math.random()*upper.length)],
+      lower[Math.floor(Math.random()*lower.length)],
+      digits[Math.floor(Math.random()*digits.length)],
+      ...Array.from({length:2}, () => allChars[Math.floor(Math.random()*allChars.length)])
+    ];
+    for (let i=arr.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    return arr.join('');
+  }
+  let count = 0;
+  for (const s of students) {
+    let code; do { code = genCode(); } while (usedCodes.has(code));
+    usedCodes.add(code);
+    await db.from('students').update({ student_code: code }).eq('id', s.id);
+    count++;
+  }
+  btn.textContent = `✅ Đã sinh ${count} mã`;
+  setTimeout(() => { btn.textContent = '🔧 Sinh mã còn thiếu'; btn.disabled = false; }, 2500);
+  renderStudents();
+});
+
+document.getElementById('syncExpiryBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('syncExpiryBtn');
+  btn.textContent = '⏳ Đang đồng bộ...'; btn.disabled = true;
+
+  // Lấy tất cả lớp có end_date
+  const { data: classes } = await db.from('classes').select('name,end_date');
+  const clsMap = Object.fromEntries((classes||[]).filter(c => c.end_date).map(c => [c.name, c.end_date]));
+
+  // Lấy học viên chưa có expiry_date nhưng có class_name
+  const { data: students } = await db.from('students').select('id,class_name,expiry_date');
+  const toUpdate = (students||[]).filter(s => !s.expiry_date && s.class_name && clsMap[s.class_name]);
+
+  if (!toUpdate.length) {
+    btn.textContent = '✅ Tất cả đã có ngày hết hạn';
+    setTimeout(() => { btn.textContent = '📅 Đồng bộ hết hạn'; btn.disabled = false; }, 2000);
+    return;
+  }
+
+  // Nhóm theo lớp để update batch
+  const byClass = {};
+  toUpdate.forEach(s => {
+    const end = clsMap[s.class_name];
+    if (!byClass[end]) byClass[end] = [];
+    byClass[end].push(s.id);
+  });
+  for (const [end_date, ids] of Object.entries(byClass)) {
+    await db.from('students').update({ expiry_date: end_date }).in('id', ids);
+  }
+
+  btn.textContent = `✅ Đã cập nhật ${toUpdate.length} học viên`;
+  setTimeout(() => { btn.textContent = '📅 Đồng bộ hết hạn'; btn.disabled = false; }, 2500);
+  renderStudents();
+});
 
 document.getElementById('exportStudentsBtn').addEventListener('click', async () => {
   const cls = document.getElementById('studentFilterClass').value;
-  let query = db.from('students').select('*').order('class_name').order('full_name');
+  let query = db.from('students').select('*').order('class_name').order('full_name').limit(10000);
   if (cls) query = query.eq('class_name', cls);
   const { data: list } = await query;
+  if (!list?.length) { alert('Chưa có dữ liệu.'); return; }
   if (!list?.length) { alert('Chưa có học sinh nào.'); return; }
 
   const wb = XLSX.utils.book_new();
@@ -1265,6 +1338,16 @@ function openEditStudent(s) {
 // esCode → esPassword sync
 document.getElementById('esCode').addEventListener('input', () => {
   document.getElementById('esPassword').value = document.getElementById('esCode').value;
+});
+
+// Nút tạo mã mới cho học viên đang sửa
+document.getElementById('esGenCodeBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('esGenCodeBtn');
+  btn.textContent = '⏳'; btn.disabled = true;
+  const newCode = await genStudentCode();
+  document.getElementById('esCode').value = newCode;
+  document.getElementById('esPassword').value = newCode;
+  btn.textContent = '🔄 Tạo mã mới'; btn.disabled = false;
 });
 
 document.getElementById('esCancelBtn').addEventListener('click', () => document.getElementById('editStudentModal').classList.remove('open'));
@@ -1527,7 +1610,7 @@ document.getElementById('lSaveBtn').addEventListener('click', async () => {
       if (rawVideo) {
         const videoLinks = rawVideo.split('\n').map(l=>l.trim()).filter(Boolean);
         for (const url of videoLinks) {
-          await db.from('lesson_videos').insert({ lesson_id: lessonId, title: 'Video bài học', video_url: url, storage_path: null, file_name: null });
+          await db.from('lesson_videos').insert({ lesson_id: lessonId, title: 'Video bài học', video_url: await encryptUrl(url), storage_path: null, file_name: null });
         }
       }
       // Lưu tài liệu links inline
@@ -1539,7 +1622,7 @@ document.getElementById('lSaveBtn').addEventListener('click', async () => {
           const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
           const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
           const t = docLinks.length > 1 ? `Tài liệu ${i+1}` : 'Tài liệu';
-          await db.from('lesson_docs').insert({ lesson_id: lessonId, title: t, file_name: null, file_type: 'link', storage_path: null, doc_url: docUrl });
+          await db.from('lesson_docs').insert({ lesson_id: lessonId, title: t, file_name: null, file_type: 'link', storage_path: null, doc_url: await encryptUrl(docUrl) });
         }
       }
       // Lưu bản viết tay links inline
@@ -1551,7 +1634,7 @@ document.getElementById('lSaveBtn').addEventListener('click', async () => {
           const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
           const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
           const t = hwLinks.length > 1 ? `Bản viết tay ${i+1}` : 'Bản viết tay';
-          await db.from('lesson_docs').insert({ lesson_id: lessonId, title: t, file_name: null, file_type: 'handwritten', storage_path: null, doc_url: docUrl });
+          await db.from('lesson_docs').insert({ lesson_id: lessonId, title: t, file_name: null, file_type: 'handwritten', storage_path: null, doc_url: await encryptUrl(docUrl) });
         }
       }
     }
@@ -1587,9 +1670,9 @@ async function renderLessonVideos(lessonId) {
   const grid=document.getElementById('lessonVideoGrid');
   grid.innerHTML='';
   document.getElementById('emptyLessonVideos').style.display=(vids||[]).length?'none':'block';
-  (vids||[]).forEach(v=>{
+  (vids||[]).forEach(async v=>{
     const isLink = !!v.video_url;
-    const url = isLink ? v.video_url : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const url = isLink ? await decryptUrl(v.video_url) : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
     const embed = isLink ? getEmbedUrl(url) : null;
     const card=document.createElement('div');
     card.className='video-card';
@@ -1613,10 +1696,10 @@ async function renderLessonDocs(lessonId) {
   const el=document.getElementById('lessonDocList');
   el.innerHTML='';
   document.getElementById('emptyLessonDocs').style.display=(docs||[]).length?'none':'block';
-  (docs||[]).forEach(d=>{
+  (docs||[]).forEach(async d=>{
     const isLink = d.file_type==='link';
     const isHandwritten = d.file_type==='handwritten';
-    const url = (isLink||isHandwritten) ? d.doc_url : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const url = (isLink||isHandwritten) ? await decryptUrl(d.doc_url) : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
     const row=document.createElement('div');
     row.className='content-row clickable';
     const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
@@ -1685,7 +1768,7 @@ document.getElementById('lvSaveBtn').addEventListener('click', async () => {
     if (!raw) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
     const links = raw.split('\n').map(l=>l.trim()).filter(Boolean);
     for (const url of links) {
-      await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: url, storage_path: null, file_name: null });
+      await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: await encryptUrl(url), storage_path: null, file_name: null });
     }
   } else {
     if (!pendingLessonVideoFile) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
@@ -1773,7 +1856,7 @@ document.getElementById('ldSaveBtn').addEventListener('click', async ()=>{
       const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
       const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
       const t = links.length > 1 ? `Bản viết tay ${i+1}` : 'Bản viết tay';
-      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'handwritten', storage_path:null, doc_url:docUrl});
+      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'handwritten', storage_path:null, doc_url:await encryptUrl(docUrl)});
     }
   } else if (isLinkTab) {
     // Tab tài liệu: lưu cả tài liệu + viết tay cùng lúc
@@ -1786,7 +1869,7 @@ document.getElementById('ldSaveBtn').addEventListener('click', async ()=>{
       const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
       const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
       const t = docLinks.length > 1 ? `Tài liệu ${i+1}` : 'Tài liệu';
-      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'link', storage_path:null, doc_url:docUrl});
+      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'link', storage_path:null, doc_url:await encryptUrl(docUrl)});
     }
     const hwLinks = rawHw ? rawHw.split('\n').map(l=>l.trim()).filter(Boolean) : [];
     for (let i=0; i<hwLinks.length; i++) {
@@ -1794,7 +1877,7 @@ document.getElementById('ldSaveBtn').addEventListener('click', async ()=>{
       const gdMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
       const docUrl = gdMatch ? `https://drive.google.com/file/d/${gdMatch[1]}/preview` : url;
       const t = hwLinks.length > 1 ? `Bản viết tay ${i+1}` : 'Bản viết tay';
-      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'handwritten', storage_path:null, doc_url:docUrl});
+      await db.from('lesson_docs').insert({lesson_id:currentLessonId, title:t, file_name:null, file_type:'handwritten', storage_path:null, doc_url:await encryptUrl(docUrl)});
     }
   } else {
     if (!pendingLessonDocFile) { btn.textContent='Tải lên'; btn.disabled=false; return; }
@@ -1905,7 +1988,7 @@ async function openClassDetail(cls) {
   document.getElementById('classDetailView').style.display='';
   document.getElementById('classDetailTitle').textContent=cls;
   const today = new Date(); today.setHours(0,0,0,0);
-  const { data:list }=await db.from('students').select('*').eq('class_name',cls);
+  const { data:list }=await db.from('students').select('*').eq('class_name',cls).limit(10000);
   const tbody=document.getElementById('classStudentBody');
   tbody.innerHTML='';
   document.getElementById('emptyClassStudents').style.display=(list||[]).length?'none':'block';
@@ -1971,6 +2054,10 @@ document.getElementById('editClassSaveBtn').addEventListener('click', async ()=>
     await db.from('classes').upsert({name:newName, start_date:start, end_date:end});
     await db.from('classes').delete().eq('name',editingClassName);
     await db.from('students').update({class_name:newName}).eq('class_name',editingClassName);
+  }
+  // Đồng bộ expiry_date cho tất cả học viên trong lớp (chỉ những ai chưa có expiry riêng hoặc expiry = end_date cũ)
+  if (end) {
+    await db.from('students').update({ expiry_date: end }).eq('class_name', newName);
   }
   document.getElementById('editClassModal').classList.remove('open');
   renderClasses(); populateClassFilters();
@@ -2040,7 +2127,7 @@ document.getElementById('clearDeviceAlertsBtn').addEventListener('click', async 
 // ============================================================
 async function renderAlerts() {
   const q=(document.getElementById('alertSearch').value||'').toLowerCase();
-  const { data:list }=await db.from('alerts').select('*').order('created_at',{ascending:false});
+  const { data:list }=await db.from('alerts').select('*').order('created_at',{ascending:false}).limit(10000);
   const filtered=(list||[]).filter(a=>!q||(a.student_name||'').toLowerCase().includes(q));
   const el=document.getElementById('alertList');
   el.innerHTML='';
@@ -2054,7 +2141,7 @@ async function renderAlerts() {
 }
 document.getElementById('alertSearch').addEventListener('input', renderAlerts);
 document.getElementById('exportAlertsBtn').addEventListener('click', async () => {
-  const { data: list } = await db.from('alerts').select('*').order('created_at', { ascending: false });
+  const { data: list } = await db.from('alerts').select('*').order('created_at', { ascending: false }).limit(10000);
   if (!list || !list.length) { alert('Chưa có cảnh báo nào.'); return; }
   const rows = [['Họ tên', 'Tên đăng nhập', 'Lớp', 'Lý do', 'Thời gian']];
   list.forEach(a => rows.push([a.student_name||'', a.username||'', a.class_name||'', a.reason||'', fmtTime(a.created_at)]));
@@ -2315,7 +2402,7 @@ document.getElementById('clearLoginHistoryBtn').addEventListener('click', () => 
 });
 
 document.getElementById('exportLoginHistoryBtn').addEventListener('click', async () => {
-  const { data: logs } = await db.from('login_logs').select('*').order('logged_in_at', {ascending: false});
+  const { data: logs } = await db.from('login_logs').select('*').order('logged_in_at', {ascending: false}).limit(50000);
   if (!logs?.length) { alert('Chưa có dữ liệu.'); return; }
   const rows = [['Thời gian','Học sinh','Gmail','Lớp']];
   logs.forEach(l => rows.push([
@@ -2411,19 +2498,25 @@ async function renderAccessStats() {
   const from   = document.getElementById('accessDateFrom').value;
   const to     = document.getElementById('accessDateTo').value;
 
-  let query = db.from('access_logs').select('*').order('accessed_at', {ascending: false});
+  let query = db.from('access_logs').select('*').order('accessed_at', {ascending: false}).limit(50000);
   if (cls)  query = query.eq('class_name', cls);
   if (type) query = query.eq('content_type', type);
   if (from) query = query.gte('accessed_at', from);
   if (to)   query = query.lte('accessed_at', to + 'T23:59:59');
-  const { data: logs } = await query;
+
+  // Query count chính xác (không bị giới hạn 1000)
+  let countQuery = db.from('access_logs').select('*', { count: 'exact', head: true });
+  let countVideoQuery = db.from('access_logs').select('*', { count: 'exact', head: true }).eq('content_type', 'video');
+  if (cls)  { countQuery = countQuery.eq('class_name', cls); countVideoQuery = countVideoQuery.eq('class_name', cls); }
+  if (from) { countQuery = countQuery.gte('accessed_at', from); countVideoQuery = countVideoQuery.gte('accessed_at', from); }
+  if (to)   { countQuery = countQuery.lte('accessed_at', to + 'T23:59:59'); countVideoQuery = countVideoQuery.lte('accessed_at', to + 'T23:59:59'); }
+
+  const [{ data: logs }, { count: totalViews }, { count: videoViews }] = await Promise.all([query, countQuery, countVideoQuery]);
   const all = logs || [];
 
   // Stat tổng
-  const totalViews   = all.length;
-  const uniqueUsers  = new Set(all.map(l => l.username)).size;
-  const videoViews   = all.filter(l => l.content_type === 'video').length;
-  const docViews     = all.filter(l => l.content_type === 'doc').length;
+  const uniqueUsers = new Set(all.map(l => l.username)).size;
+  const docViews    = (totalViews||0) - (videoViews||0);
 
   document.getElementById('accessStatGrid').innerHTML = `
     <div class="stat-card blue"><div class="stat-icon">👁</div><div><div class="stat-num">${totalViews}</div><div class="stat-label">Tổng lượt xem</div></div></div>
@@ -2633,7 +2726,7 @@ document.getElementById('chartTodayBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('exportAccessBtn').addEventListener('click', async () => {
-  const { data: logs } = await db.from('access_logs').select('*').order('accessed_at', {ascending: false});
+  const { data: logs } = await db.from('access_logs').select('*').order('accessed_at', {ascending: false}).limit(50000);
   if (!logs?.length) { alert('Chưa có dữ liệu.'); return; }
   const rows = [['Thời gian','Học sinh','Gmail','Lớp','Bài học','Nội dung','Loại']];
   logs.forEach(l => rows.push([

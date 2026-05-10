@@ -75,3 +75,14 @@ self.addEventListener('fetch', e => {
     .catch(() => caches.match(e.request))
   );
 });
+
+// ── Proxy bảo mật: intercept request có header X-Secure-Proxy ──
+// Map tạm lưu token → url thật (xóa sau 60s)
+const _proxyMap = new Map();
+self.addEventListener('message', e => {
+  if (e.data?.type === 'REGISTER_PROXY') {
+    const { token, url } = e.data;
+    _proxyMap.set(token, url);
+    setTimeout(() => _proxyMap.delete(token), 60000);
+  }
+});

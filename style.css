@@ -1655,7 +1655,7 @@ body.landing { background: #fff; }
 .smenu-item:hover { background: var(--primary-light); }
 .smenu-item + .smenu-item { border-top: 1px solid var(--border); }
 
-/* Desktop: hover để mở menu, ẩn nút ⋯ mờ đi khi không hover */
+/* Desktop: ẩn nút ⋯ mờ khi không hover row */
 @media (hover: hover) and (pointer: fine) {
   .smenu-toggle {
     opacity: 0.35;
@@ -1664,14 +1664,7 @@ body.landing { background: #fff; }
   tr:hover .smenu-toggle {
     opacity: 1;
   }
-  .smenu-wrap:hover .student-menu {
-    display: block !important;
-  }
-  .smenu-wrap .student-menu {
-    display: none;
-  }
 }
-
 /* ===================== AUTH HOVER & ANIMATION ===================== */
 
 /* Tab buttons */

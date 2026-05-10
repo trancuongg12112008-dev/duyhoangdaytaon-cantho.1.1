@@ -219,3 +219,19 @@ create table if not exists notification_reads (
   unique(username, announcement_id)
 );
 alter table notification_reads disable row level security;
+
+-- ============================================================
+-- Bảng phòng học LIVE
+-- ============================================================
+create table if not exists live_sessions (
+  id          bigint generated always as identity primary key,
+  title       text not null,
+  stream_url  text not null,
+  class_name  text default null,   -- null = tất cả lớp
+  is_active   boolean default true,
+  created_by  text,
+  created_at  timestamptz default now(),
+  ended_at    timestamptz default null
+);
+alter table live_sessions disable row level security;
+-- alter publication supabase_realtime add table live_sessions;

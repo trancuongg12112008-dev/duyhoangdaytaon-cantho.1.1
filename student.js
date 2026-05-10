@@ -4,6 +4,23 @@ const db = supabase.createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
 );
 
+// ---- Giải mã link AES-GCM ----
+const _ENC_KEY = 'DHDTCT-LMS-2025-SECURE-KEY-32BYT';
+async function _getKey() {
+  const raw = new TextEncoder().encode(_ENC_KEY.slice(0,32).padEnd(32,'0'));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
+}
+async function decryptUrl(enc) {
+  if (!enc || !enc.startsWith('ENC:')) return enc;
+  try {
+    const key = await _getKey();
+    const combined = Uint8Array.from(atob(enc.slice(4)), c => c.charCodeAt(0));
+    const iv = combined.slice(0,12), data = combined.slice(12);
+    const dec = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, data);
+    return new TextDecoder().decode(dec);
+  } catch { return enc; }
+}
+
 // Auth guard
 if (sessionStorage.getItem('dh_role') !== 'student') location.href = 'index.html';
 
@@ -215,7 +232,7 @@ async function renderHome() {
       if (myClass) q = q.eq('class_name', myClass);
       return q;
     })(),
-    db.from('announcements').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false})
+    db.from('announcements').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(200)
   ]);
 
   // Thông báo
@@ -296,7 +313,7 @@ async function renderHome() {
 async function renderLessonList() {
   document.getElementById('sLessonListView').style.display = '';
   document.getElementById('sLessonDetailView').style.display = 'none';
-  let query = db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false});
+  let query = db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false}).limit(5000);
   if (myClass) query = query.eq('class_name', myClass);
   const { data: list } = await query;
   const el = document.getElementById('sLessonList');
@@ -576,9 +593,9 @@ async function openLessonDetail(id) {
   const vGrid = document.getElementById('sLessonVideoGrid');
   vGrid.innerHTML = '';
   document.getElementById('sEmptyLessonVideos').style.display = (vids||[]).length?'none':'block';
-  (vids||[]).forEach((v, idx) => {
+  (vids||[]).forEach(async (v, idx) => {
     const isLink = !!v.video_url;
-    const url = isLink ? v.video_url : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const url = isLink ? await decryptUrl(v.video_url) : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
     const card = document.createElement('div');
     card.className = 'video-card';
     if (isLink && getEmbedUrl(url)) {
@@ -617,10 +634,10 @@ async function openLessonDetail(id) {
   const dList = document.getElementById('sLessonDocList');
   dList.innerHTML = '';
   document.getElementById('sEmptyLessonDocs').style.display = (docs||[]).length?'none':'block';
-  (docs||[]).forEach(d => {
+  (docs||[]).forEach(async d => {
     const isLink = d.file_type==='link';
     const isHandwritten = d.file_type==='handwritten';
-    const url = (isLink||isHandwritten) ? d.doc_url : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const url = (isLink||isHandwritten) ? await decryptUrl(d.doc_url) : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
 
     const icon  = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
     const color = isHandwritten ? '#8b5cf6' : isLink ? '#0ea5e9' : '#f59e0b';
@@ -659,65 +676,98 @@ function openViewer(title, url, fileName, fileType) {
   const isDocLink = fileType==='doc-link';
   const isHandwrittenLink = fileType==='handwritten-link';
 
-  // Tự động tiêu đề theo loại
   let displayTitle = title;
   if (isVideo || isLink) displayTitle = 'Video bài học';
   else if (isHandwrittenLink) displayTitle = 'Bản viết tay';
   else if (isDocLink || fileType==='application/pdf' || (fileType||'').startsWith('image/')) displayTitle = 'Tài liệu';
 
   document.getElementById('viewerTitle').textContent = displayTitle;
-  const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
-  dl.href=url; dl.download=fileName||title;
+  const body = document.getElementById('viewerBody');
+  const dl = document.getElementById('viewerDownload');
+  dl.style.display = 'none';
+  body.innerHTML = '';
 
-  const loadingHTML = `<div id="viewerLoading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;background:#0f172a;z-index:10;border-radius:10px">
-    <div style="width:40px;height:40px;border:3px solid rgba(99,102,241,.3);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite"></div>
-    <div style="color:rgba(255,255,255,.7);font-size:.88rem;font-weight:600">${isVideo||isLink ? '⏳ Đang tải video...' : '⏳ Đang tải tài liệu...'}</div>
-  </div>`;
+  // Loading spinner
+  const loading = document.createElement('div');
+  loading.id = 'viewerLoading';
+  loading.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;background:#0f172a;z-index:10;border-radius:10px';
+  loading.innerHTML = `<div style="width:40px;height:40px;border:3px solid rgba(99,102,241,.3);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite"></div><div style="color:rgba(255,255,255,.7);font-size:.88rem;font-weight:600">${isVideo||isLink?'⏳ Đang tải video...':'⏳ Đang tải tài liệu...'}</div>`;
 
-  function wrapWithLoading(html) {
-    return `<div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column">${loadingHTML}${html}</div>`;
-  }
-  function hideLoading(el) {
-    const ld = document.getElementById('viewerLoading');
-    if (ld) ld.remove();
-  }
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;flex:1;min-height:0;display:flex;flex-direction:column';
+  wrap.appendChild(loading);
+  body.appendChild(wrap);
 
-  if (isDocLink || isHandwrittenLink) {
-    const dlUrl = getDownloadUrl(url);
-    if (dlUrl) { dl.style.display=''; dl.href=dlUrl; dl.removeAttribute('download'); dl.target='_blank'; }
-    else { dl.style.display='none'; }
-    const embed = getEmbedUrl(url);
-    const src = embed || url;
-    body.innerHTML = wrapWithLoading(`<iframe src="${src}" style="flex:1;width:100%;height:100%;border:none;border-radius:8px" allowfullscreen onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
-  } else if (isLink) {
-    dl.style.display = 'none';
+  const hideLoading = () => { const ld = document.getElementById('viewerLoading'); if(ld) ld.remove(); };
+
+  if (isLink) {
+    // Video (YouTube/Drive) — set src qua JS, không xuất hiện trong HTML
     const embed = getEmbedUrl(url);
     if (embed) {
-      body.innerHTML = `<div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .85rem;border-radius:8px;margin-bottom:.5rem;font-size:.8rem;color:#92400e;flex-shrink:0">💡 Video bị mờ? Nhấn ⚙️ trong góc video → chọn <b>Chất lượng</b> → tăng lên <b>720p hoặc 1080p</b></div>`
-        + wrapWithLoading(`<iframe src="${embed}" style="flex:1;width:100%;height:100%;border:none;border-radius:8px" allowfullscreen onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
+      body.insertBefore(Object.assign(document.createElement('div'), {
+        style: 'background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .85rem;border-radius:8px;margin-bottom:.5rem;font-size:.8rem;color:#92400e;flex-shrink:0',
+        innerHTML: '💡 Video bị mờ? Nhấn ⚙️ → <b>Chất lượng</b> → tăng lên <b>720p hoặc 1080p</b>'
+      }), wrap);
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'flex:1;width:100%;height:100%;border:none;border-radius:8px';
+      iframe.allowFullscreen = true;
+      iframe.onload = hideLoading;
+      wrap.appendChild(iframe);
+      // Set src sau — không xuất hiện trong DOM khi inspect HTML
+      setTimeout(() => { iframe.src = embed; }, 0);
     } else {
-      body.innerHTML = wrapWithLoading(`<iframe src="${url}" style="flex:1;width:100%;height:100%;border:none;border-radius:8px" onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'flex:1;width:100%;height:100%;border:none;border-radius:8px';
+      iframe.onload = hideLoading;
+      wrap.appendChild(iframe);
+      setTimeout(() => { iframe.src = url; }, 0);
     }
+  } else if (isDocLink || isHandwrittenLink) {
+    const dlUrl = getDownloadUrl(url);
+    if (dlUrl) { dl.style.display=''; dl.href=dlUrl; dl.removeAttribute('download'); dl.target='_blank'; }
+    const embed = getEmbedUrl(url);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'flex:1;width:100%;height:100%;border:none;border-radius:8px';
+    iframe.allowFullscreen = true;
+    iframe.onload = hideLoading;
+    wrap.appendChild(iframe);
+    setTimeout(() => { iframe.src = embed || url; }, 0);
   } else if (isVideo) {
-    dl.style.display = 'none';
-    body.innerHTML = wrapWithLoading(`<video src="${url}" controls controlsList="nodownload noremoteplayback" oncontextmenu="return false" style="flex:1;width:100%;background:#000" playsinline oncanplay="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></video>`);
+    const video = document.createElement('video');
+    video.controls = true;
+    video.setAttribute('controlsList', 'nodownload noremoteplayback');
+    video.setAttribute('playsinline', '');
+    video.oncontextmenu = () => false;
+    video.style.cssText = 'flex:1;width:100%;background:#000';
+    video.oncanplay = hideLoading;
+    wrap.appendChild(video);
+    setTimeout(() => { video.src = url; }, 0);
     if (window.innerWidth < 768 && window.innerHeight > window.innerWidth) {
       const tip = document.createElement('div');
       tip.style.cssText = 'background:#fff3cd;color:#856404;padding:.6rem 1rem;border-radius:8px;margin-bottom:.5rem;font-size:.85rem;text-align:center;flex-shrink:0';
       tip.textContent = '📱 Vui lòng chuyển điện thoại sang ngang để có trải nghiệm học tốt nhất';
-      body.insertBefore(tip, body.firstChild);
+      body.insertBefore(tip, wrap);
       const onOrient = () => { if (window.innerWidth > window.innerHeight) { tip.remove(); window.removeEventListener('resize', onOrient); } };
       window.addEventListener('resize', onOrient);
     }
   } else if (fileType==='application/pdf') {
     dl.style.display = '';
-    body.innerHTML = wrapWithLoading(`<iframe src="${url}" class="viewer-iframe" onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"></iframe>`);
+    const iframe = document.createElement('iframe');
+    iframe.className = 'viewer-iframe';
+    iframe.onload = hideLoading;
+    wrap.appendChild(iframe);
+    setTimeout(() => { iframe.src = url; }, 0);
   } else if ((fileType||'').startsWith('image/')) {
     dl.style.display = '';
-    body.innerHTML = wrapWithLoading(`<img src="${url}" class="viewer-img" alt="${title}" onload="document.getElementById('viewerLoading')&&document.getElementById('viewerLoading').remove()"/>`);
+    const img = document.createElement('img');
+    img.className = 'viewer-img';
+    img.alt = title;
+    img.onload = hideLoading;
+    wrap.appendChild(img);
+    setTimeout(() => { img.src = url; }, 0);
   } else {
     dl.style.display = '';
-    body.innerHTML=`<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>`;
+    body.innerHTML = '<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>';
   }
   document.getElementById('viewerModal').classList.add('open');
 }
@@ -1017,3 +1067,4 @@ setInterval(async () => {
   update();
   setInterval(update, 1000);
 })();
+

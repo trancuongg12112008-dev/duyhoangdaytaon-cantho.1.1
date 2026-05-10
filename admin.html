@@ -43,7 +43,7 @@
       <a href="#" class="slink" data-page="access-stats" data-label="Thống kê"><span class="slink-icon">📈</span><span class="slink-label">Thống kê truy cập</span></a>
       <a href="#" class="slink" data-page="login-history" data-label="Đăng nhập"><span class="slink-icon">🕐</span><span class="slink-label">Lịch sử đăng nhập</span></a>
       <a href="#" class="slink" data-page="announcements" data-label="Thông báo"><span class="slink-icon">📢</span><span class="slink-label">Thông báo</span></a>
-      <a href="#" class="slink" data-page="profile" data-label="Hồ sơ"><span class="slink-icon">👤</span><span class="slink-label">Hồ sơ</span></a>
+      <a href="#" class="slink" data-page="profile" data-label="Hồ sơ"><span class="slink-icon">�</span><span class="slink-label">Hồ sơ</span></a>/
     </nav>
     <a href="index.html" class="slink slink-logout" id="logoutBtn" data-label="Đăng xuất"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
     <a href="https://thienshin12112008-cloud.github.io/htql.1.1.2/index.html" target="_blank" class="slink" style="margin:.4rem .75rem" data-label="Trang đăng nhập"><span class="slink-icon">🔗</span><span class="slink-label">Trang đăng nhập</span></a>
@@ -249,6 +249,8 @@
       <div class="page-header">
         <h1 class="page-title">Danh sách học sinh</h1>
         <div style="display:flex;gap:.5rem">
+          <button class="btn-outline" id="genMissingCodesBtn" title="Tự động sinh mã cho học viên chưa có">🔧 Sinh mã còn thiếu</button>
+          <button class="btn-outline" id="syncExpiryBtn" title="Đồng bộ ngày hết hạn từ lớp">📅 Đồng bộ hết hạn</button>
           <button class="btn-outline" id="exportStudentsBtn">⬇ Xuất Excel</button>
           <button class="btn-primary" id="openAddStudentBtn">➕ Thêm học sinh</button>
         </div>
@@ -481,7 +483,6 @@
         <button class="btn-primary" id="pwSaveBtn" style="margin-top:0.5rem">Lưu thay đổi</button>
       </div>
     </section>
-  </div>
 
   <!-- MODAL: Thông tin tài khoản vừa tạo -->
   <div class="modal-overlay" id="newAccountModal">
@@ -575,8 +576,11 @@
     <div class="modal">
       <h2>Chỉnh sửa tài khoản</h2>
       <label>Mã học viên</label>
-      <input type="text" id="esCode" placeholder="Mã học viên..." style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
-      <label>Mật khẩu <span class="muted">(= mã học viên, không thể thay đổi)</span></label>
+      <div style="display:flex;gap:.5rem">
+        <input type="text" id="esCode" placeholder="Mã học viên..." style="flex:1"/>
+        <button type="button" id="esGenCodeBtn" class="btn-sm btn-outline" style="flex-shrink:0;white-space:nowrap">🔄 Tạo mã mới</button>
+      </div>
+      <label>Mật khẩu <span class="muted">(= mã học viên, tự cập nhật)</span></label>
       <input type="text" id="esPassword" placeholder="Tự động theo mã học viên" style="background:var(--bg,#f8fafc);color:var(--muted,#94a3b8)" readonly/>
       <label>Họ và tên</label>
       <input type="text" id="esName" placeholder="Họ và tên..."/>
