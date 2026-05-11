@@ -127,7 +127,7 @@
     document.getElementById('loginForm').addEventListener('submit', async e => {
       e.preventDefault();
       const u = document.getElementById('usernameInput').value.trim();
-      const p = document.getElementById('passwordInput').value;
+      const p = document.getElementById('passwordInput').value.trim();
       const err = document.getElementById('loginError');
       err.textContent = '';
 

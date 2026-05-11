@@ -445,7 +445,7 @@
         btnText.style.display = 'none';
         btnLoader.style.display = 'flex';
         const u = document.getElementById('usernameInput').value.trim();
-        const p = document.getElementById('passwordInput').value;
+        const p = document.getElementById('passwordInput').value.trim();
         const err = document.getElementById('loginError');
         err.textContent = '';
 
@@ -488,9 +488,13 @@
           const { data: student } = await db.from('students').select('*').eq('username', u).single();
           if (!student) { resetLoading('Sai tên đăng nhập hoặc mật khẩu.'); return; }
 
-          const isPlainMatch = student.password === p;
+          const isPlainMatch = student.password === p || student.password === p.toLowerCase() || student.password === p.toUpperCase();
           const isHashMatch  = student.password === inputHash;
-          if (!isPlainMatch && !isHashMatch) {
+          // Thử thêm hash không trim (phòng trường hợp mật khẩu có khoảng trắng)
+          const pRaw = document.getElementById('passwordInput').value;
+          const inputHashRaw = await hashPw(pRaw);
+          const isHashRawMatch = student.password === inputHashRaw;
+          if (!isPlainMatch && !isHashMatch && !isHashRawMatch) {
             const attempts = (student.login_attempts || 0) + 1;
             const updates = { login_attempts: attempts };
             if (attempts >= 5) {
@@ -553,7 +557,7 @@
 
           const token = Math.random().toString(36).slice(2) + Date.now();
           const updatePayload = { session_token: token, login_attempts: 0, last_login: now.toISOString(), is_online: true, last_seen: now.toISOString() };
-          if (isPlainMatch) updatePayload.password = await hashPw(p);
+          if (isPlainMatch || isHashRawMatch) updatePayload.password = await hashPw(p);
           await db.from('students').update(updatePayload).eq('id', student.id);
 
           if (student.session_token) {

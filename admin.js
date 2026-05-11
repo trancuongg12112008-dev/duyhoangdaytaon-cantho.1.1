@@ -1365,7 +1365,12 @@ document.getElementById('esSaveBtn').addEventListener('click', async () => {
   const phone = document.getElementById('esPhone')?.value.trim() || '';
   const dupWE = await checkDuplicate(username, phone, editingStudentId);
   if (dupWE.length) { err.innerHTML = '⚠️ ' + dupWE.join('<br/>⚠️ '); return; }
-  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes, password: await hashPw(code) };
+  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes };
+  // Chỉ đổi password khi mã học viên thay đổi
+  const { data: orig } = await db.from('students').select('student_code').eq('id', editingStudentId).single();
+  if (code && code !== (orig?.student_code || '')) {
+    updates.password = await hashPw(code);
+  }
   const { error } = await db.from('students').update(updates).eq('id',editingStudentId);
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
   document.getElementById('editStudentModal').classList.remove('open');
@@ -2349,22 +2354,27 @@ async function renderLoginHistory() {
   const from   = document.getElementById('loginHistoryDateFrom').value;
   const to     = document.getElementById('loginHistoryDateTo').value;
 
-  let query = db.from('login_logs').select('*').order('logged_in_at', {ascending: false}).limit(500);
+  let query = db.from('login_logs').select('*').order('logged_in_at', {ascending: false}).limit(10000);
   if (cls)  query = query.eq('class_name', cls);
   if (from) query = query.gte('logged_in_at', from);
   if (to)   query = query.lte('logged_in_at', to + 'T23:59:59');
-  const { data: logs } = await query;
+
+  // Count chính xác không bị giới hạn
+  let cq = db.from('login_logs').select('*', { count: 'exact', head: true });
+  let cqToday = db.from('login_logs').select('*', { count: 'exact', head: true }).gte('logged_in_at', new Date().toISOString().split('T')[0]);
+  if (cls) { cq = cq.eq('class_name', cls); cqToday = cqToday.eq('class_name', cls); }
+  if (from) cq = cq.gte('logged_in_at', from);
+  if (to)   cq = cq.lte('logged_in_at', to + 'T23:59:59');
+
+  const [{ data: logs }, { count: totalCount }, { count: todayCount }] = await Promise.all([query, cq, cqToday]);
   const all = logs || [];
 
   // Stats
-  const today = new Date().toISOString().split('T')[0];
-  const todayLogs = all.filter(l => l.logged_in_at?.startsWith(today));
-  const uniqueToday = new Set(todayLogs.map(l => l.username)).size;
   const uniqueTotal = new Set(all.map(l => l.username)).size;
 
   document.getElementById('loginHistoryStats').innerHTML = `
-    <div class="stat-card blue"><div class="stat-icon">📋</div><div><div class="stat-num">${all.length}</div><div class="stat-label">Tổng lượt đăng nhập</div></div></div>
-    <div class="stat-card green"><div class="stat-icon">📅</div><div><div class="stat-num">${todayLogs.length}</div><div class="stat-label">Hôm nay</div></div></div>
+    <div class="stat-card blue"><div class="stat-icon">📋</div><div><div class="stat-num">${totalCount||0}</div><div class="stat-label">Tổng lượt đăng nhập</div></div></div>
+    <div class="stat-card green"><div class="stat-icon">📅</div><div><div class="stat-num">${todayCount||0}</div><div class="stat-label">Hôm nay</div></div></div>
     <div class="stat-card purple"><div class="stat-icon">👨‍🎓</div><div><div class="stat-num">${uniqueTotal}</div><div class="stat-label">Học sinh đã đăng nhập</div></div></div>
   `;
 
