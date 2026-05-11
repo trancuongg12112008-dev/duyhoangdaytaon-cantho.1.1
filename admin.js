@@ -809,7 +809,7 @@ document.getElementById('naCopyBtn').addEventListener('click', () => {
   const phone = document.getElementById('naPhone').textContent;
   const start = document.getElementById('naStartDate').textContent;
   const end   = document.getElementById('naEndDate').textContent;
-  const text  = `Ho ten: ${name}\nMa HV: ${code}\nGmail: ${user}\nMat khau: ${pw}\nLop: ${cls}\nNgay khai giang: ${start}\nNgay ket thuc: ${end}\nSDT: ${phone}`;
+  const text  = `Họ tên: ${name}\nMã HV: ${code}\nGmail: ${user}\nMật khẩu: ${pw}\nLớp: ${cls}\nNgày khai giảng: ${start}\nNgày kết thúc: ${end}\nSĐT: ${phone}\n\n👉 Bạn sao chép mật khẩu trên rồi dán vào chỗ mật khẩu trong web nha.\nNếu gặp vấn đề kỹ thuật hay gì cứ liên hệ mình nha.`;
   navigator.clipboard?.writeText(text).then(() => {
     const btn = document.getElementById('naCopyBtn');
     btn.textContent = '✅ Đã sao chép!';
@@ -2385,8 +2385,8 @@ async function renderLoginHistory() {
 
   const el = document.getElementById('loginHistoryList');
   document.getElementById('emptyLoginHistory').style.display = filtered.length ? 'none' : 'block';
-
-  el.innerHTML = filtered.slice(0, 200).map(l => {
+  const today = new Date().toISOString().split('T')[0];
+  el.innerHTML = filtered.slice(0, 500).map(l => {
     const time = new Date(l.logged_in_at).toLocaleString('vi-VN');
     const isToday = l.logged_in_at?.startsWith(today);
     return `<div class="list-row">
