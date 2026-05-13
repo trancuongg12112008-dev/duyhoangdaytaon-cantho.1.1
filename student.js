@@ -24,6 +24,28 @@ async function decryptUrl(enc) {
 // Auth guard
 if (sessionStorage.getItem('dh_role') !== 'student') location.href = 'index.html';
 
+// Kiểm tra bảo trì
+(async () => {
+  try {
+    const { data } = await db.from('app_settings').select('value').eq('key', 'maintenance').maybeSingle();
+    if (data?.value === 'true') {
+      document.body.style.cssText = 'margin:0;padding:0;overflow:hidden';
+      document.body.innerHTML = `
+        <div style="min-height:100vh;width:100vw;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e1b4b,#312e81);padding:2rem;box-sizing:border-box">
+          <div style="background:#fff;border-radius:20px;padding:2.5rem 2rem;text-align:center;max-width:420px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+            <img src="btht.png" alt="Bảo trì" style="width:100%;border-radius:12px;margin-bottom:1.25rem"/>
+            <div style="font-size:1.3rem;font-weight:800;color:#1e1b4b;margin-bottom:.75rem">Hệ thống đang bảo trì</div>
+            <div style="font-size:.9rem;color:#64748b;line-height:1.7;margin-bottom:1.5rem">
+              Chúng tôi đang nâng cấp hệ thống để phục vụ bạn tốt hơn.<br/>
+              Vui lòng quay lại sau ít phút.
+            </div>
+            <div style="font-size:.82rem;color:#94a3b8">Liên hệ trợ lý nếu cần hỗ trợ gấp.</div>
+          </div>
+        </div>`;
+    }
+  } catch(e) { /* Bảng chưa tạo hoặc lỗi — bỏ qua */ }
+})();
+
 const currentUser = sessionStorage.getItem('dh_user');
 const currentName = sessionStorage.getItem('dh_name') || currentUser;
 
@@ -32,10 +54,25 @@ document.getElementById('welcomeTitle').textContent = `Xin chào, ${currentName}
 document.getElementById('profileName').textContent  = currentName;
 
 let myClass = '';
+let myClasses = []; // Hỗ trợ nhiều lớp — load từ student_classes
+
+// Debounce helper
+function debounce(fn, ms) {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
 
 async function loadMe() {
-  const { data } = await db.from('students').select('class_name, student_code, expiry_date, created_at, username, active').eq('username', currentUser).single();
+  const { data } = await db.from('students').select('id, class_name, student_code, expiry_date, created_at, username, active').eq('username', currentUser).single();
   myClass = data?.class_name || '';
+  // Load tất cả lớp từ student_classes
+  if (data?.id) {
+    const { data: scData } = await db.from('student_classes').select('class_name').eq('student_id', data.id);
+    myClasses = (scData||[]).length > 0
+      ? (scData||[]).map(sc => sc.class_name).filter(Boolean)
+      : [myClass].filter(Boolean);
+  } else {
+    myClasses = [myClass].filter(Boolean);
+  }
   sessionStorage.setItem('dh_code', data?.student_code || '');
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -46,16 +83,19 @@ async function loadMe() {
   const av = document.getElementById('profileAvatar');
   if (av) av.textContent = (currentName||'?')[0].toUpperCase();
   const el = id => document.getElementById(id);
-  if (el('profileClass'))    el('profileClass').textContent    = myClass ? `🎓 Lớp: ${myClass}` : '';
+  if (el('profileClass'))    el('profileClass').textContent    = myClasses.length ? `🎓 Lớp: ${myClasses.join(', ')}` : '';
   if (el('profileCode'))     el('profileCode').textContent     = data?.student_code ? `Mã HV: ${data.student_code}` : '';
   if (el('profileUsername')) el('profileUsername').textContent = data?.username || '—';
   if (el('profileCreated'))  el('profileCreated').textContent  = data?.created_at ? fmt(data.created_at) : '—';
 
-  // Lấy thông tin lớp học (song song với kiểm tra hết hạn)
+  // Lấy thông tin tất cả lớp học
   let clsData = null;
-  if (myClass) {
-    const { data: c } = await db.from('classes').select('start_date, end_date').eq('name', myClass).single();
-    clsData = c;
+  let allClsData = [];
+  if (myClasses.length) {
+    const { data: clsList } = await db.from('classes').select('name,start_date,end_date').in('name', myClasses);
+    allClsData = clsList || [];
+    // Lấy lớp đầu tiên để hiển thị profile (hoặc lớp sắp hết hạn nhất)
+    clsData = allClsData[0] || null;
   }
 
   if (el('profileStartDate')) el('profileStartDate').textContent = clsData?.start_date ? fmt(clsData.start_date) : '—';
@@ -78,31 +118,51 @@ async function loadMe() {
   const banner = document.getElementById('expiryBanner');
   let locked = false;
 
+  function showExpiryBanner(daysLeft, dateStr, type) {
+    banner.style.display = 'block';
+    const isUrgent = daysLeft <= 3;
+    const color = daysLeft === 0 ? '#dc2626' : isUrgent ? '#d97706' : '#2563eb';
+    const bg    = daysLeft === 0 ? '#fee2e2' : isUrgent ? '#fef3c7' : '#eff6ff';
+    const icon  = daysLeft === 0 ? '🔴' : isUrgent ? '⚠️' : '📅';
+    const msg   = daysLeft === 0
+      ? `Tài khoản hết hạn <b>hôm nay</b>! Liên hệ ngay để gia hạn.`
+      : daysLeft < 0
+      ? `Tài khoản đã hết hạn vào <b>${dateStr}</b>.`
+      : `${type === 'class' ? `Khóa học <b>${myClass}</b>` : 'Tài khoản'} sẽ hết hạn vào <b>${dateStr}</b> — còn <b>${daysLeft} ngày</b>. Liên hệ trợ lý để gia hạn.`;
+    banner.style.cssText = `display:block;background:${bg};border-left:4px solid ${color};border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.88rem;color:${color};font-weight:600`;
+    banner.innerHTML = `${icon} ${msg}`;
+  }
+
   // Hết hạn tài khoản cá nhân
   if (data?.expiry_date) {
     const exp = new Date(data.expiry_date); exp.setHours(0,0,0,0);
     const daysLeft = Math.round((exp - today) / 86400000);
     if (daysLeft < 0) {
-      // Tự khóa
       await db.from('students').update({ active: false }).eq('username', currentUser);
       locked = true;
     } else if (daysLeft <= WARN_DAYS) {
-      banner.style.display = 'block';
-      banner.innerHTML = `⚠️ Tài khoản sẽ hết hạn vào ngày <b>${exp.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Liên hệ trợ lý để gia hạn.`;
+      showExpiryBanner(daysLeft, exp.toLocaleDateString('vi-VN'), 'account');
     }
   }
 
-  // Hết hạn lớp học
-  if (!locked && clsData?.end_date) {
-    const end = new Date(clsData.end_date); end.setHours(0,0,0,0);
-    const daysLeft = Math.round((end - today) / 86400000);
-    if (daysLeft < 0) {
-      // Tự khóa vĩnh viễn
-      await db.from('students').update({ active: false }).eq('username', currentUser);
-      locked = true;
-    } else if (daysLeft <= WARN_DAYS) {
-      banner.style.display = 'block';
-      banner.innerHTML = `⚠️ Khóa học <b>${myClass}</b> kết thúc vào ngày <b>${end.toLocaleDateString('vi-VN')}</b> (còn <b>${daysLeft} ngày</b>). Liên hệ trợ lý để được hỗ trợ.`;
+  // Hết hạn lớp học — kiểm tra tất cả lớp
+  if (!locked) {
+    for (const cls of allClsData) {
+      if (!cls.end_date) continue;
+      const end = new Date(cls.end_date); end.setHours(0,0,0,0);
+      const daysLeft = Math.round((end - today) / 86400000);
+      if (daysLeft < 0) {
+        // Chỉ khóa nếu TẤT CẢ lớp đã hết hạn
+        const allExpired = allClsData.every(c => !c.end_date || new Date(c.end_date) < today);
+        if (allExpired) {
+          await db.from('students').update({ active: false }).eq('username', currentUser);
+          locked = true;
+        }
+        break;
+      } else if (daysLeft <= WARN_DAYS) {
+        showExpiryBanner(daysLeft, end.toLocaleDateString('vi-VN'), 'class');
+        break;
+      }
     }
   }
 
@@ -221,7 +281,7 @@ async function renderHome() {
   const codeEl   = document.getElementById('homeStudentCode');
   if (avatarEl) avatarEl.textContent = (currentName||'?')[0].toUpperCase();
   if (nameEl)   nameEl.textContent   = currentName;
-  if (classEl)  classEl.textContent  = myClass ? `Lớp: ${myClass}` : '';
+  if (classEl)  classEl.textContent  = myClasses.length ? `Lớp: ${myClasses.join(', ')}` : '';
   const code = sessionStorage.getItem('dh_code');
   if (codeEl)   codeEl.textContent   = code ? `Mã HV: ${code}` : '';
 
@@ -229,10 +289,11 @@ async function renderHome() {
   const [{ data: list }, { data: anns }] = await Promise.all([
     (() => {
       let q = db.from('lessons').select('id,name,class_name').order('created_at',{ascending:false}).limit(4);
-      if (myClass) q = q.eq('class_name', myClass);
+      if (myClasses.length === 1) q = q.eq('class_name', myClasses[0]);
+      else if (myClasses.length > 1) q = q.in('class_name', myClasses);
       return q;
     })(),
-    db.from('announcements').select('*').order('pinned',{ascending:false}).order('created_at',{ascending:false}).limit(200)
+    db.from('announcements').select('*').order('created_at',{ascending:false}).limit(200)
   ]);
 
   // Thông báo
@@ -249,7 +310,8 @@ async function renderHome() {
       annList.innerHTML = myAnns.map(a => `
         <div style="padding:.65rem .75rem;background:${a.pinned?'#fef9c3':'#fff'};border-radius:10px;border-left:3px solid ${a.pinned?'#f59e0b':'#e2e8f0'}">
           <div style="font-weight:700;font-size:.88rem;margin-bottom:.2rem">${a.pinned?'📌 ':''}${a.title}${a.class_name?` <span class="class-tag">${a.class_name}</span>`:''}</div>
-          <div style="font-size:.82rem;color:var(--muted);line-height:1.6">${a.content}</div>
+          <div style="font-size:.82rem;color:var(--muted);line-height:1.6;white-space:pre-line">${a.content}</div>
+          ${a.link_url ? `<a href="${a.link_url}" target="_blank" style="display:inline-block;margin-top:.35rem;color:#6366f1;font-size:.8rem;font-weight:600;text-decoration:none">🔗 ${a.link_text||a.link_url}</a>` : ''}
           <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem">${new Date(a.created_at).toLocaleDateString('vi-VN')}</div>
         </div>`).join('');
     } else {
@@ -310,33 +372,45 @@ async function renderHome() {
 }
 
 // ---- Danh sách bài học ----
-async function renderLessonList() {
+let _lessonCache = null; // Cache data để tìm kiếm realtime
+
+async function renderLessonList(forceRefresh = false) {
   document.getElementById('sLessonListView').style.display = '';
   document.getElementById('sLessonDetailView').style.display = 'none';
-  let query = db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false}).limit(5000);
-  if (myClass) query = query.eq('class_name', myClass);
-  const { data: list } = await query;
+
+  // Chỉ fetch lại khi cần
+  if (!_lessonCache || forceRefresh) {
+    let query = db.from('lessons').select('*').order('group_name',{ascending:true}).order('created_at',{ascending:false}).limit(5000);
+    if (myClasses.length === 1) query = query.eq('class_name', myClasses[0]);
+    else if (myClasses.length > 1) query = query.in('class_name', myClasses);
+    const { data: list } = await query;
+
+    const lessonIds = (list||[]).map(l => l.id);
+    const [{ data: allVids }, { data: allDocs }, { data: allGroups }] = await Promise.all([
+      lessonIds.length ? db.from('lesson_videos').select('lesson_id').in('lesson_id', lessonIds) : { data: [] },
+      lessonIds.length ? db.from('lesson_docs').select('lesson_id').in('lesson_id', lessonIds) : { data: [] },
+      db.from('lesson_groups').select('*').order('name'),
+    ]);
+    _lessonCache = { list: list||[], allVids: allVids||[], allDocs: allDocs||[], allGroups: allGroups||[] };
+  }
+
+  renderLessonListFromCache();
+}
+
+function renderLessonListFromCache() {
+  const { list, allVids, allDocs, allGroups } = _lessonCache;
   const el = document.getElementById('sLessonList');
   el.innerHTML = '';
 
   // Lọc theo search
   const q = (document.getElementById('sLessonSearch')?.value||'').toLowerCase().trim();
-  const filtered = q ? (list||[]).filter(l => l.name.toLowerCase().includes(q) || (l.description||'').toLowerCase().includes(q)) : (list||[]);
+  const filtered = q ? list.filter(l => l.name.toLowerCase().includes(q) || (l.description||'').toLowerCase().includes(q)) : list;
 
   document.getElementById('sEmptyLessons').style.display = filtered.length?'none':'block';
   if (!filtered.length) return;
-
-  const lessonIds = filtered.map(l => l.id);
-  const [{ data: allVids }, { data: allDocs }] = await Promise.all([
-    db.from('lesson_videos').select('lesson_id').in('lesson_id', lessonIds),
-    db.from('lesson_docs').select('lesson_id').in('lesson_id', lessonIds),
-  ]);
   const vcMap = {}, dcMap = {};
   (allVids||[]).forEach(v => { vcMap[v.lesson_id] = (vcMap[v.lesson_id]||0)+1; });
   (allDocs||[]).forEach(d => { dcMap[d.lesson_id] = (dcMap[d.lesson_id]||0)+1; });
-
-  // Fetch nhóm bài học để build cây
-  const { data: allGroups } = await db.from('lesson_groups').select('*').order('name');
 
   const colors = [
     { gc:'#6366f1', gcLight:'#eef2ff', gcGlow:'rgba(99,102,241,.15)' },
@@ -536,7 +610,7 @@ async function renderLessonList() {
 function getEmbedUrl(url) {
   if (!url) return null;
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}?controls=0&modestbranding=1&rel=0&disablekb=1`;
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0&modestbranding=1`;
   const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
   if (gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
   return null;
@@ -589,13 +663,16 @@ async function openLessonDetail(id) {
   document.getElementById('sLessonDetailTitle').textContent = l.name;
   document.getElementById('sLessonDetailDesc').textContent  = l.description||'';
 
-  // Render video
+  // Render video — decrypt song song
   const vGrid = document.getElementById('sLessonVideoGrid');
   vGrid.innerHTML = '';
   document.getElementById('sEmptyLessonVideos').style.display = (vids||[]).length?'none':'block';
-  (vids||[]).forEach(async (v, idx) => {
+  const vidUrls = await Promise.all((vids||[]).map(v =>
+    v.video_url ? decryptUrl(v.video_url) : Promise.resolve(db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl)
+  ));
+  (vids||[]).forEach((v, idx) => {
     const isLink = !!v.video_url;
-    const url = isLink ? await decryptUrl(v.video_url) : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const url = vidUrls[idx];
     const card = document.createElement('div');
     card.className = 'video-card';
     if (isLink && getEmbedUrl(url)) {
@@ -630,14 +707,17 @@ async function openLessonDetail(id) {
     vGrid.appendChild(card);
   });
 
-  // Render tài liệu
+  // Render tài liệu — decrypt song song
   const dList = document.getElementById('sLessonDocList');
   dList.innerHTML = '';
   document.getElementById('sEmptyLessonDocs').style.display = (docs||[]).length?'none':'block';
-  (docs||[]).forEach(async d => {
+  const docUrls = await Promise.all((docs||[]).map(d =>
+    (d.file_type==='link'||d.file_type==='handwritten') ? decryptUrl(d.doc_url) : Promise.resolve(db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl)
+  ));
+  (docs||[]).forEach((d, di) => {
     const isLink = d.file_type==='link';
     const isHandwritten = d.file_type==='handwritten';
-    const url = (isLink||isHandwritten) ? await decryptUrl(d.doc_url) : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const url = docUrls[di];
 
     const icon  = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
     const color = isHandwritten ? '#8b5cf6' : isLink ? '#0ea5e9' : '#f59e0b';
@@ -665,9 +745,10 @@ async function openLessonDetail(id) {
 }
 document.getElementById('sBackToLessonsBtn').addEventListener('click', () => {
   sessionStorage.removeItem('st_lesson_id');
+  _lessonCache = null; // Reset cache để fetch mới
   renderLessonList();
 });
-document.getElementById('sLessonSearch').addEventListener('input', renderLessonList);
+document.getElementById('sLessonSearch').addEventListener('input', debounce(renderLessonListFromCache, 200));
 
 // ---- Viewer ----
 function openViewer(title, url, fileName, fileType) {
@@ -701,19 +782,22 @@ function openViewer(title, url, fileName, fileType) {
   const hideLoading = () => { const ld = document.getElementById('viewerLoading'); if(ld) ld.remove(); };
 
   if (isLink) {
-    // Video (YouTube/Drive) — set src qua JS, không xuất hiện trong HTML
-    const embed = getEmbedUrl(url);
+    // Video (YouTube/Drive/Embed) — set src qua JS
+    const embed = getEmbedUrl(url) || url; // nếu là embed URL thì dùng thẳng
     if (embed) {
       body.insertBefore(Object.assign(document.createElement('div'), {
         style: 'background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .85rem;border-radius:8px;margin-bottom:.5rem;font-size:.8rem;color:#92400e;flex-shrink:0',
         innerHTML: '💡 Video bị mờ? Nhấn ⚙️ → <b>Chất lượng</b> → tăng lên <b>720p hoặc 1080p</b>'
       }), wrap);
+      const iframeWrap = document.createElement('div');
+      iframeWrap.style.cssText = 'position:relative;flex:1;min-height:0;overflow:hidden';
       const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'flex:1;width:100%;height:100%;border:none;border-radius:8px';
+      // Đẩy ra 4 phía để che logo/controls YouTube
+      iframe.style.cssText = 'position:absolute;top:-60px;left:-2px;width:calc(100% + 4px);height:calc(100% + 120px);border:none';
       iframe.allowFullscreen = true;
       iframe.onload = hideLoading;
-      wrap.appendChild(iframe);
-      // Set src sau — không xuất hiện trong DOM khi inspect HTML
+      iframeWrap.appendChild(iframe);
+      wrap.appendChild(iframeWrap);
       setTimeout(() => { iframe.src = embed; }, 0);
     } else {
       const iframe = document.createElement('iframe');
@@ -795,7 +879,7 @@ loadMe().then(() => {
   } else {
     showPage(savedPage);
   }
-  checkNewNotifications();
+  checkNewNotifications(true);
 });
 
 // Realtime: lắng nghe thay đổi active của tài khoản này
@@ -833,7 +917,7 @@ db.channel('student-lock-' + currentUser)
 
 async function renderNotifications() {
   const [{ data: anns }, { data: reads }] = await Promise.all([
-    db.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
+    db.from('announcements').select('*').order('created_at', { ascending: false }),
     db.from('notification_reads').select('announcement_id').eq('username', currentUser)
   ]);
 
@@ -858,7 +942,7 @@ async function renderNotifications() {
   myAnns.forEach(a => {
     const isRead = readSet.has(a.id);
     const card = document.createElement('div');
-    card.style.cssText = `background:${isRead ? 'var(--card)' : (a.pinned ? '#fffbeb' : '#f0f4ff')};border:1.5px solid ${isRead ? 'var(--border)' : (a.pinned ? '#f59e0b' : '#6366f1')};border-radius:14px;padding:1rem 1.1rem;box-shadow:var(--shadow);cursor:pointer;transition:opacity .2s;opacity:${isRead ? '.7' : '1'}`;
+    card.style.cssText = `background:${isRead ? 'var(--card)' : (a.pinned ? '#fffbeb' : '#f0f4ff')};border:1.5px solid ${isRead ? 'var(--border)' : (a.pinned ? '#f59e0b' : '#6366f1')};border-radius:14px;padding:1rem 1.1rem;box-shadow:${isRead ? 'var(--shadow)' : '0 4px 20px rgba(99,102,241,.2)'};cursor:pointer;transition:all .2s;opacity:${isRead ? '.7' : '1'}${!isRead ? ';transform:scale(1.01)' : ''}`;
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
         ${a.pinned ? '<span style="background:#fef3c7;color:#d97706;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:6px">📌 Ghim</span>' : ''}
@@ -867,7 +951,8 @@ async function renderNotifications() {
         <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${new Date(a.created_at).toLocaleDateString('vi-VN')}</span>
       </div>
       <div style="font-weight:${isRead ? '600' : '800'};font-size:.95rem;margin-bottom:.35rem;color:${isRead ? 'var(--muted)' : 'var(--text)'}">${a.title}</div>
-      <div style="font-size:.85rem;color:var(--text);line-height:1.7">${a.content}</div>
+      <div style="font-size:.85rem;color:var(--text);line-height:1.7;white-space:pre-line">${a.content}</div>
+      ${a.link_url ? `<a href="${a.link_url}" target="_blank" style="display:inline-block;margin-top:.5rem;background:#eef2ff;color:#6366f1;padding:.35rem .85rem;border-radius:8px;font-size:.82rem;font-weight:700;text-decoration:none">🔗 ${a.link_text||'Xem tại đây'}</a>` : ''}
       ${!isRead ? '<div style="margin-top:.6rem;font-size:.75rem;color:#6366f1;font-weight:600">Nhấn để đánh dấu đã đọc ✓</div>' : '<div style="margin-top:.4rem;font-size:.72rem;color:var(--muted)">✓ Đã đọc</div>'}
     `;
     if (!isRead) {
@@ -891,9 +976,9 @@ function updateNotiBadge(hasNew) {
   if (dot) dot.style.display = hasNew ? 'block' : 'none';
 }
 
-async function checkNewNotifications() {
+async function checkNewNotifications(showPopupIfUnread = false) {
   const { data: anns } = await db.from('announcements')
-    .select('id, class_name, expires_at').order('created_at', { ascending: false });
+    .select('id, class_name, expires_at, target_username').order('created_at', { ascending: false });
   const myAnns = (anns || []).filter(a =>
     (!a.expires_at || new Date(a.expires_at) > new Date()) &&
     (a.target_username ? a.target_username === currentUser : (!a.class_name || a.class_name === myClass))
@@ -904,10 +989,23 @@ async function checkNewNotifications() {
   const readSet = new Set((reads || []).map(r => r.announcement_id));
   const hasUnread = myAnns.some(a => !readSet.has(a.id));
   updateNotiBadge(hasUnread);
+
+  if (showPopupIfUnread && hasUnread) {
+    showAnnouncementToast();
+  }
 }
 
 // Nút chuông trên topbar
 document.getElementById('notiBtn').addEventListener('click', () => showPage('notifications'));
+
+// Dark mode học viên
+const studentDarkBtn = document.getElementById('studentDarkBtn');
+if (localStorage.getItem('st_dark') === '1') { document.body.classList.add('dark-mode'); studentDarkBtn.textContent = '☀️'; }
+studentDarkBtn?.addEventListener('click', () => {
+  const on = document.body.classList.toggle('dark-mode');
+  studentDarkBtn.textContent = on ? '☀️' : '🌙';
+  localStorage.setItem('st_dark', on ? '1' : '0');
+});
 
 // Realtime thông báo
 db.channel('announcements-realtime')
@@ -926,11 +1024,41 @@ function showAnnouncementToast() {
   if (existing) existing.remove();
   const toast = document.createElement('div');
   toast.id = 'annToast';
-  toast.style.cssText = 'position:fixed;top:70px;right:1rem;z-index:9000;background:#1e1b4b;color:#fff;padding:.75rem 1.1rem;border-radius:12px;font-size:.85rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.3);border-left:4px solid #f59e0b;display:flex;align-items:center;gap:.6rem;animation:slideInRight .3s ease;max-width:280px';
-  toast.innerHTML = '<span style="font-size:1.1rem">📢</span><span>Có thông báo mới từ giáo viên!</span>';
-  toast.addEventListener('click', () => { showPage('home'); toast.remove(); });
+  toast.style.cssText = `
+    position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);
+    z-index:9999;background:linear-gradient(135deg,#1e1b4b,#4338ca);color:#fff;
+    padding:1rem 1.5rem;border-radius:16px;font-size:.9rem;font-weight:600;
+    box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:.85rem;
+    max-width:340px;width:90%;cursor:pointer;
+    transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+    border:1px solid rgba(255,255,255,.15)`;
+  toast.innerHTML = `
+    <div style="width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📢</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.78rem;opacity:.75;margin-bottom:.15rem">Thông báo mới</div>
+      <div style="font-size:.88rem;font-weight:700">Có thông báo mới từ giáo viên!</div>
+    </div>
+    <button style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:.9rem;flex-shrink:0" id="annToastClose">✕</button>`;
+
   document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .5s'; setTimeout(() => toast.remove(), 500); }, 5000);
+  // Animate vào
+  requestAnimationFrame(() => {
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+  });
+
+  toast.addEventListener('click', e => {
+    if (e.target.id === 'annToastClose') { dismissToast(); return; }
+    showPage('notifications');
+    dismissToast();
+  });
+
+  function dismissToast() {
+    toast.style.transform = 'translateX(-50%) translateY(80px)';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 400);
+  }
+
+  setTimeout(dismissToast, 6000);
 }
 
 // Kiểm tra session token + trạng thái tài khoản mỗi 30 giây
@@ -966,20 +1094,19 @@ setInterval(async () => {
     }
   }
 
-  // Lớp học hết hạn
+  // Lớp học hết hạn — kiểm tra tất cả lớp
   if (data.class_name && !data.manually_unlocked) {
-    const { data: cls } = await db.from('classes').select('end_date').eq('name', data.class_name).single();
-    if (cls?.end_date) {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const end = new Date(cls.end_date); end.setHours(0,0,0,0);
-      if (today > end) {
-        await db.from('students').update({ active: false }).eq('username', currentUser);
-        alert(`Khóa học "${data.class_name}" đã kết thúc. Tài khoản đã bị khóa.`);
-        await setOffline();
-        sessionStorage.clear();
-        location.href = 'index.html';
-        return;
-      }
+    const classes = data.class_name.split(',').map(c=>c.trim()).filter(Boolean);
+    const { data: clsList } = await db.from('classes').select('name,end_date').in('name', classes);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const allExpired = (clsList||[]).filter(c=>c.end_date).every(c => new Date(c.end_date) < today);
+    if (allExpired && (clsList||[]).some(c=>c.end_date)) {
+      await db.from('students').update({ active: false }).eq('username', currentUser);
+      alert(`Tất cả khóa học đã kết thúc. Tài khoản đã bị khóa.`);
+      await setOffline();
+      sessionStorage.clear();
+      location.href = 'index.html';
+      return;
     }
   }
 }, 30000);
@@ -1068,3 +1195,61 @@ setInterval(async () => {
   setInterval(update, 1000);
 })();
 
+
+// ── Realtime: thông báo bài học mới ──
+db.channel('student-new-lesson')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lessons' }, async (payload) => {
+    const lesson = payload.new;
+    // Chỉ hiện nếu bài học thuộc lớp của học viên hoặc không giới hạn lớp
+    if (lesson.class_name && !myClasses.includes(lesson.class_name)) return;
+    showNewLessonToast(lesson.name);
+    // Reset cache để lần sau vào trang bài học sẽ fetch mới
+    _lessonCache = null;
+  })
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lesson_videos' }, async () => {
+    _lessonCache = null; // Reset cache khi có video mới
+  })
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lesson_docs' }, async () => {
+    _lessonCache = null;
+  })
+  .subscribe();
+
+function showNewLessonToast(lessonName) {
+  const existing = document.getElementById('newLessonToast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'newLessonToast';
+  toast.style.cssText = `
+    position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);
+    z-index:9999;background:linear-gradient(135deg,#059669,#047857);color:#fff;
+    padding:1rem 1.5rem;border-radius:16px;font-size:.9rem;font-weight:600;
+    box-shadow:0 12px 40px rgba(0,0,0,.3);display:flex;align-items:center;gap:.85rem;
+    max-width:340px;width:90%;cursor:pointer;
+    transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+    border:1px solid rgba(255,255,255,.2)`;
+  toast.innerHTML = `
+    <div style="width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📚</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.75rem;opacity:.85;margin-bottom:.15rem">Bài học mới vừa được đăng!</div>
+      <div style="font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lessonName}</div>
+    </div>
+    <button id="newLessonToastClose" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:.9rem;flex-shrink:0">✕</button>`;
+
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.transform = 'translateX(-50%) translateY(0)'; });
+
+  function dismiss() {
+    toast.style.transform = 'translateX(-50%) translateY(80px)';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 400);
+  }
+
+  toast.addEventListener('click', e => {
+    if (e.target.id === 'newLessonToastClose') { dismiss(); return; }
+    showPage('lessons');
+    dismiss();
+  });
+  document.getElementById('newLessonToastClose').addEventListener('click', dismiss);
+  setTimeout(dismiss, 7000);
+}

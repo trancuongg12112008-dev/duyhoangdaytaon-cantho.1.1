@@ -235,3 +235,16 @@ create table if not exists live_sessions (
 );
 alter table live_sessions disable row level security;
 -- alter publication supabase_realtime add table live_sessions;
+
+-- Migration: thêm link vào thông báo
+alter table announcements add column if not exists link_url text default null;
+alter table announcements add column if not exists link_text text default null;
+
+-- Migration: thêm thông tin thiết bị vào login_logs
+alter table login_logs add column if not exists device_info text default null;
+alter table login_logs add column if not exists browser text default null;
+alter table login_logs add column if not exists os text default null;
+alter table login_logs add column if not exists device_type text default null;
+
+-- Migration: thêm cột is_embed vào lesson_videos
+alter table lesson_videos add column if not exists is_embed boolean default false;

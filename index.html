@@ -569,7 +569,22 @@
           sessionStorage.setItem('dh_name', student.full_name);
           sessionStorage.setItem('dh_token', token);
 
-          try { db.from('login_logs').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'' }).then(() => {}); } catch(e) {}
+          // Parse thông tin thiết bị
+          const ua = navigator.userAgent;
+          const browser = ua.includes('Chrome') && !ua.includes('Edg') ? 'Chrome'
+            : ua.includes('Safari') && !ua.includes('Chrome') ? 'Safari'
+            : ua.includes('Firefox') ? 'Firefox'
+            : ua.includes('Edg') ? 'Edge'
+            : ua.includes('OPR') ? 'Opera' : 'Khác';
+          const os = ua.includes('Windows') ? 'Windows'
+            : ua.includes('iPhone') || ua.includes('iPad') ? 'iOS'
+            : ua.includes('Android') ? 'Android'
+            : ua.includes('Mac') ? 'macOS'
+            : ua.includes('Linux') ? 'Linux' : 'Khác';
+          const deviceType = /Mobi|Android|iPhone|iPad/i.test(ua) ? 'Mobile' : 'Desktop';
+          const deviceInfo = `${browser} • ${os} • ${deviceType}`;
+
+          try { db.from('login_logs').insert({ username: u, student_name: student.full_name, class_name: student.class_name||'', device_info: deviceInfo, browser, os, device_type: deviceType }).then(() => {}); } catch(e) {}
 
           document.getElementById('monitorNotice').style.display = 'flex';
           setTimeout(() => { window.location.href = 'student.html'; }, 5000);

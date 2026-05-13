@@ -79,16 +79,51 @@ function attachGmailValidation(id) {
       el.insertAdjacentElement('afterend', hint);
     } else if (val && isValidGmail(val)) {
       el.style.borderColor = '';
-      // Kiểm tra trùng realtime
       const excludeId = el.closest('form,div')?.querySelector('[data-editing-id]')?.dataset.editingId || null;
-      const dups = await checkDuplicate(val, null, excludeId);
-      if (dups.length) {
-        el.style.borderColor = 'var(--warning,#f59e0b)';
-        hint = document.createElement('small');
-        hint.className = 'gmail-hint';
-        hint.style.cssText = 'color:var(--warning,#f59e0b);font-size:.78rem;margin-top:2px;display:block;font-weight:600';
-        hint.innerHTML = '⚠️ ' + dups[0];
-        el.insertAdjacentElement('afterend', hint);
+      // Lấy thông tin học viên nếu đã tồn tại
+      const { data: existing } = await db.from('students').select('*').eq('username', val).maybeSingle();
+      if (existing && !excludeId) {
+        // Chỉ áp dụng cho form tạo mới (csUsername)
+        if (id === 'csUsername') {
+          el.style.borderColor = 'var(--warning,#f59e0b)';
+          hint = document.createElement('div');
+          hint.className = 'gmail-hint';
+          hint.style.cssText = 'background:#fef3c7;border:1.5px solid #f59e0b;border-radius:10px;padding:.75rem 1rem;margin-top:.4rem;font-size:.83rem';
+          hint.innerHTML = `
+            <div style="font-weight:700;color:#92400e;margin-bottom:.4rem">⚠️ Gmail này đã có tài khoản: <b>${existing.full_name}</b></div>
+            <div style="color:#78350f;margin-bottom:.6rem">Lớp hiện tại: <b>${existing.class_name||'Chưa có'}</b></div>
+            <button type="button" id="fillExistingBtn" style="background:#f59e0b;color:#fff;border:none;padding:.4rem .9rem;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer">📋 Điền thông tin & thêm lớp phụ</button>`;
+          el.insertAdjacentElement('afterend', hint);
+          hint.querySelector('#fillExistingBtn').addEventListener('click', async () => {
+            // Điền thông tin vào form
+            document.getElementById('csName').value = existing.full_name;
+            document.getElementById('csPhone').value = existing.phone || '';
+            document.getElementById('csCode').value = existing.student_code || '';
+            document.getElementById('csPassword').value = existing.student_code || '';
+            if (existing.expiry_date) document.getElementById('csExpiry').value = existing.expiry_date;
+            if (existing.notes) document.getElementById('csNotes').value = existing.notes;
+            await populateCsClassSelect();
+            // Đổi sang mode thêm lớp phụ
+            const csClassSelect = document.getElementById('csClassSelect');
+            csClassSelect.value = '';
+            // Thêm label hướng dẫn
+            hint.innerHTML = `
+              <div style="font-weight:700;color:#065f46;margin-bottom:.3rem">✅ Đã điền thông tin của <b>${existing.full_name}</b></div>
+              <div style="color:#047857;font-size:.8rem">Lớp hiện tại: <b>${existing.class_name||'Chưa có'}</b><br/>Chọn lớp mới bên dưới để thêm vào tài khoản này.</div>`;
+            hint.style.background = '#d1fae5';
+            hint.style.borderColor = '#10b981';
+            // Đánh dấu đây là update thay vì insert
+            el.dataset.existingId = existing.id;
+            el.dataset.existingClasses = existing.class_name || '';
+          });
+        } else {
+          el.style.borderColor = 'var(--warning,#f59e0b)';
+          hint = document.createElement('small');
+          hint.className = 'gmail-hint';
+          hint.style.cssText = 'color:var(--warning,#f59e0b);font-size:.78rem;margin-top:2px;display:block;font-weight:600';
+          hint.innerHTML = `⚠️ Gmail đã được dùng bởi <b>${existing.full_name}</b>`;
+          el.insertAdjacentElement('afterend', hint);
+        }
       }
     } else {
       el.style.borderColor = '';
@@ -235,7 +270,11 @@ function showPage(name) {
   }
   if (name === 'lessons')        { populateClassFilters(); renderLessons(); }
   if (name === 'lesson-groups')  { populateClassFilters(); renderGroups(); }
-  if (name === 'security')       renderAlerts();
+  if (name === 'security')       {
+    const dateEl = document.getElementById('alertDateFilter');
+    if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().split('T')[0];
+    renderAlerts();
+  }
   if (name === 'devices')        renderDeviceAlerts();
   if (name === 'access-stats')   renderAccessStats();
   if (name === 'login-history')  renderLoginHistory();
@@ -251,11 +290,15 @@ document.querySelectorAll('[data-goto]').forEach(l => {
 
 // ---- Class filters ----
 async function getClasses() {
-  const { data: cls } = await db.from('classes').select('name').order('name');
-  const { data: sts } = await db.from('students').select('class_name');
-  const fromStudents = (sts||[]).map(s => s.class_name).filter(Boolean);
+  const [{ data: cls }, { data: sts }, { data: sc }] = await Promise.all([
+    db.from('classes').select('name').order('name'),
+    db.from('students').select('class_name'),
+    db.from('student_classes').select('class_name'),
+  ]);
   const fromClasses  = (cls||[]).map(c => c.name);
-  return [...new Set([...fromClasses, ...fromStudents])].sort();
+  const fromStudents = (sts||[]).map(s => s.class_name).filter(Boolean);
+  const fromSC       = (sc||[]).map(s => s.class_name).filter(Boolean);
+  return [...new Set([...fromClasses, ...fromStudents, ...fromSC])].sort();
 }
 
 async function populateClassFilters() {
@@ -555,19 +598,33 @@ document.getElementById('groupSearch')?.addEventListener('input', async function
 // ============================================================
 // OVERVIEW
 // ============================================================
+function animateCount(el, target, duration = 1000) {
+  const start = parseInt(el.textContent) || 0;
+  if (start === target) return;
+  const startTime = performance.now();
+  function update(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    el.textContent = Math.round(start + (target - start) * ease);
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
 async function renderOverview() {
-  const [{ count: sc }, { data: todayAlerts }, { data: recentLessons }, { data: recentAlerts }, { count: vidCount }, { count: docCount }] = await Promise.all([
+  const [{ count: sc }, { count: alertCount }, { data: recentLessons }, { data: recentAlerts }, { count: vidCount }, { count: docCount }] = await Promise.all([
     db.from('students').select('*', { count:'exact', head:true }),
-    db.from('alerts').select('*').gte('created_at', new Date().toISOString().split('T')[0]),
+    db.from('alerts').select('*', { count:'exact', head:true }).gte('created_at', new Date().toISOString().split('T')[0]),
     db.from('lessons').select('id,name,class_name').order('created_at', { ascending:false }).limit(4),
     db.from('alerts').select('*').order('created_at', { ascending:false }).limit(4),
     db.from('lesson_videos').select('*', { count:'exact', head:true }),
     db.from('lesson_docs').select('*', { count:'exact', head:true }),
   ]);
-  document.getElementById('statExams').textContent    = docCount || 0;
-  document.getElementById('statVideos').textContent   = vidCount || 0;
-  document.getElementById('statStudents').textContent = sc || 0;
-  document.getElementById('statAlerts').textContent   = (todayAlerts||[]).length;
+  animateCount(document.getElementById('statExams'),    docCount || 0);
+  animateCount(document.getElementById('statVideos'),   vidCount || 0);
+  animateCount(document.getElementById('statStudents'), sc || 0);
+  animateCount(document.getElementById('statAlerts'),   alertCount || 0);
 
   const re = document.getElementById('recentExams');
   re.innerHTML = (recentLessons||[]).map(l =>
@@ -598,7 +655,83 @@ async function renderOverview() {
 
   // Render online students
   renderOnlineStudents();
+
+  // Render danh sách sắp hết hạn — không block nếu lỗi
+  renderExpiryReminders().catch(() => {});
 }
+
+async function renderExpiryReminders() {
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const warn7 = new Date(today); warn7.setDate(warn7.getDate() + 7);
+    const { data: students } = await db.from('students')
+      .select('id,full_name,username,class_name,expiry_date,active')
+      .eq('active', true)
+      .not('expiry_date', 'is', null)
+      .lte('expiry_date', warn7.toISOString().split('T')[0])
+      .gte('expiry_date', today.toISOString().split('T')[0])
+      .order('expiry_date');
+
+  const el = document.getElementById('expiryReminderList');
+  const empty = document.getElementById('emptyExpiryReminder');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!(students||[]).length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  (students||[]).forEach(s => {
+    const exp = new Date(s.expiry_date); exp.setHours(0,0,0,0);
+    const daysLeft = Math.round((exp - today) / 86400000);
+    const color = daysLeft <= 1 ? '#dc2626' : daysLeft <= 3 ? '#d97706' : '#2563eb';
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--bg);border-radius:8px;font-size:.85rem`;
+    row.innerHTML = `
+      <span style="width:8px;height:8px;background:${color};border-radius:50%;flex-shrink:0"></span>
+      <div style="flex:1"><b>${s.full_name}</b> ${s.class_name?`<span class="class-tag">${s.class_name}</span>`:''}</div>
+      <span style="color:${color};font-weight:700;font-size:.8rem">Còn ${daysLeft} ngày (${fmtDate(s.expiry_date)})</span>`;
+    el.appendChild(row);
+  });
+  } catch(e) { console.warn('renderExpiryReminders:', e); }
+}
+
+document.getElementById('sendExpiryRemindersBtn')?.addEventListener('click', async () => {
+  const btn = document.getElementById('sendExpiryRemindersBtn');
+  btn.textContent = '⏳ Đang gửi...'; btn.disabled = true;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const warn7 = new Date(today); warn7.setDate(warn7.getDate() + 7);
+  const { data: students } = await db.from('students')
+    .select('id,full_name,username,class_name,expiry_date,active')
+    .eq('active', true).not('expiry_date','is',null)
+    .lte('expiry_date', warn7.toISOString().split('T')[0])
+    .gte('expiry_date', today.toISOString().split('T')[0]);
+
+  if (!(students||[]).length) {
+    btn.textContent = '✅ Không có ai sắp hết hạn';
+    setTimeout(() => { btn.textContent = '📢 Gửi nhắc nhở tự động'; btn.disabled = false; }, 2000);
+    return;
+  }
+
+  let sent = 0;
+  for (const s of students) {
+    const exp = new Date(s.expiry_date); exp.setHours(0,0,0,0);
+    const daysLeft = Math.round((exp - today) / 86400000);
+    const msg = daysLeft === 0
+      ? `Tài khoản của bạn hết hạn HÔM NAY! Vui lòng liên hệ trợ lý ngay để gia hạn.`
+      : `Tài khoản của bạn sẽ hết hạn vào ngày ${exp.toLocaleDateString('vi-VN')} (còn ${daysLeft} ngày). Vui lòng liên hệ trợ lý để gia hạn kịp thời.`;
+    await db.from('announcements').insert({
+      title: `⏰ Nhắc nhở: Tài khoản sắp hết hạn`,
+      content: msg,
+      target_username: s.username,
+      pinned: false,
+      class_name: null
+    });
+    sent++;
+  }
+
+  btn.textContent = `✅ Đã gửi ${sent} nhắc nhở`;
+  setTimeout(() => { btn.textContent = '📢 Gửi nhắc nhở tự động'; btn.disabled = false; }, 3000);
+});
 
 async function renderOnlineStudents() {
   const cutoff = new Date(Date.now() - 90 * 1000).toISOString(); // 90 giây (heartbeat 20s + buffer)
@@ -730,21 +863,65 @@ document.getElementById('csSaveBtn').addEventListener('click', async () => {
     password = newCode;
   }
 
-  if (!/\d/.test(password)) { err.textContent = 'Mã học viên / mật khẩu phải chứa ít nhất 1 số.'; return; }
+  // Kiểm tra nếu đang thêm lớp phụ cho học viên đã có
+  const usernameEl = document.getElementById('csUsername');
+  const existingId = usernameEl?.dataset.existingId;
+  const existingClasses = usernameEl?.dataset.existingClasses || '';
 
-  // Kiểm tra trùng Gmail / SĐT
+  if (existingId) {
+    // Mode thêm lớp phụ — chỉ insert vào student_classes, không đụng class_name
+    if (!cls) { err.textContent = 'Vui lòng chọn lớp muốn thêm.'; return; }
+    const { data: existing } = await db.from('student_classes').select('id').eq('student_id', existingId).eq('class_name', cls).maybeSingle();
+    if (existing) { err.textContent = `Học viên đã thuộc lớp ${cls} rồi.`; return; }
+    const { error } = await db.from('student_classes').insert({ student_id: parseInt(existingId), class_name: cls });
+    if (error) { err.textContent = error.message; return; }
+
+    // Hiện modal thông tin
+    document.getElementById('naName').textContent     = name;
+    document.getElementById('naCode').textContent     = document.getElementById('csCode').value.trim() || '—';
+    document.getElementById('naUsername').textContent = username;
+    document.getElementById('naPassword').textContent = password;
+    document.getElementById('naClass').textContent    = `${existingClasses}, ${cls}`.replace(/^,\s*/, '');
+    document.getElementById('naPhone').textContent    = phone || '';
+    document.getElementById('naStartDate').textContent = '—';
+    document.getElementById('naEndDate').textContent   = '—';
+    document.getElementById('newAccountModal').classList.add('open');
+
+    // Reset
+    ['csCode','csName','csPhone','csUsername','csPassword'].forEach(id => {
+      const el2 = document.getElementById(id);
+      el2.value = '';
+      delete el2.dataset.existingId;
+      delete el2.dataset.existingClasses;
+    });
+    const hint = document.getElementById('csUsername').nextElementSibling;
+    if (hint?.classList.contains('gmail-hint')) hint.remove();
+    document.getElementById('csExpiry').value = '';
+    document.getElementById('csNotes').value = '';
+    document.getElementById('csClassSelect').value = '';
+    err.textContent = ''; suc.textContent = '';
+    genStudentCode().then(c => { document.getElementById('csCode').value = c; document.getElementById('csPassword').value = c; });
+    await renderMiniStudents();
+    return;
+  }
+
+  // Kiểm tra trùng Gmail / SĐT (chỉ khi tạo mới)
   const dupWarnings = await checkDuplicate(username, phone);
   if (dupWarnings.length) { err.innerHTML = '⚠️ ' + dupWarnings.join('<br/>⚠️ '); return; }
 
-  const { error } = await db.from('students').insert({
+  const { error, data: newStudent } = await db.from('students').insert({
     student_code: document.getElementById('csCode').value.trim() || null,
     full_name: name, phone: phone || null,
     username, password: await hashPw(password),
     class_name: cls || null,
     active: true, expiry_date: expiry, notes
-  });
+  }).select('id').single();
 
   if (error) { err.textContent = error.message.includes('unique') ? 'Gmail nay da ton tai.' : error.message; return; }
+  // Thêm vào student_classes
+  if (cls && newStudent?.id) {
+    await db.from('student_classes').insert({ student_id: newStudent.id, class_name: cls });
+  }
 
   // Hien modal thong tin tai khoan
   document.getElementById('naName').textContent     = name;
@@ -851,13 +1028,23 @@ async function renderMiniStudents() {
   });
   const pg = document.getElementById('miniPagination');
   pg.innerHTML = '';
-  for (let i=1;i<=totalPages;i++) {
-    const btn = document.createElement('button');
-    btn.className = 'page-btn'+(i===miniPage?' active':'');
-    btn.textContent = i;
-    btn.addEventListener('click', () => { miniPage=i; renderMiniStudents(); });
-    pg.appendChild(btn);
-  }
+  if (totalPages <= 1) return;
+  const prev = document.createElement('button');
+  prev.className = 'page-btn'; prev.textContent = '‹';
+  prev.disabled = miniPage === 1;
+  prev.addEventListener('click', () => { miniPage--; renderMiniStudents(); });
+  pg.appendChild(prev);
+
+  const info = document.createElement('span');
+  info.style.cssText = 'font-size:.82rem;color:var(--muted);padding:0 .5rem;font-weight:600';
+  info.textContent = `${miniPage} / ${totalPages}`;
+  pg.appendChild(info);
+
+  const next = document.createElement('button');
+  next.className = 'page-btn'; next.textContent = '›';
+  next.disabled = miniPage === totalPages;
+  next.addEventListener('click', () => { miniPage++; renderMiniStudents(); });
+  pg.appendChild(next);
 }
 
 
@@ -895,7 +1082,7 @@ function renderStudentRow(s, today, expiredClasses) {
     studyStatus = '<span class="status-pill gray">⚫ Offline</span>';
   }
 
-  tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}${loginAttempts>0?' '+attemptsBadge:''}</td><td>${s.phone||'—'}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.username}</td><td>${s.class_name||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td>${(() => {
+  tr.innerHTML = `<td>${s.student_code||'—'}</td><td>${s.full_name}${s.notes?` <span class="muted" title="${s.notes}" style="cursor:help">📝</span>`:''}${loginAttempts>0?' '+attemptsBadge:''}</td><td>${s.phone||'—'}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.username}</td><td>${(s.class_name||'').split(',').map(c=>c.trim()).filter(Boolean).map(c=>`<span class="class-tag">${c}</span>`).join(' ')||'—'}</td><td>${s.created_at ? fmtDate(s.created_at.split('T')[0]) : '—'}</td><td>${(() => {
     if (!s.expiry_date) return '<span style="color:var(--muted);font-size:.8rem">—</span>';
     const exp = new Date(s.expiry_date); exp.setHours(0,0,0,0);
     const daysLeft = Math.round((exp - today) / 86400000);
@@ -963,7 +1150,7 @@ async function renderStudents() {
   const cls    = document.getElementById('studentFilterClass').value;
   const expiry = document.getElementById('studentFilterExpiry')?.value || '';
   let query = db.from('students').select('*').order('full_name').limit(10000);
-  if (cls) query = query.eq('class_name', cls);
+  // Không filter theo lớp ở DB vì class_name có thể chứa nhiều lớp
   const { data: list } = await query;
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -978,7 +1165,12 @@ async function renderStudents() {
     expired.forEach(s => { s.active = false; });
   }
 
-  let filtered = (list||[]).filter(s => !q || s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q) || (s.student_code||'').toLowerCase().includes(q) || (s.phone||'').includes(q));
+  let filtered = (list||[]).filter(s => {
+    // Filter theo lớp — hỗ trợ nhiều lớp
+    if (cls && !s.class_name?.split(',').map(c=>c.trim()).includes(cls)) return false;
+    if (!q) return true;
+    return s.full_name.toLowerCase().includes(q) || s.username.toLowerCase().includes(q) || (s.student_code||'').toLowerCase().includes(q) || (s.phone||'').includes(q);
+  });
   if (expiry === 'expired') {
     filtered = filtered.filter(s => s.expiry_date && new Date(s.expiry_date) < today);
   } else if (expiry) {
@@ -1025,7 +1217,12 @@ async function renderStudents() {
   const stPgEl = document.getElementById('studentPagination');
   if (stPgEl) stPgEl.remove();
 }
-document.getElementById('studentSearch').addEventListener('input', renderStudents);
+// Debounce helper
+function debounce(fn, ms) {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+document.getElementById('studentSearch').addEventListener('input', debounce(renderStudents, 300));
 document.getElementById('studentFilterClass').addEventListener('change', renderStudents);
 document.getElementById('studentFilterExpiry')?.addEventListener('change', renderStudents);
 
@@ -1254,12 +1451,15 @@ document.getElementById('addStudentSaveBtn').addEventListener('click', async () 
   if (!name||!username||!password) { err.textContent='Vui lòng điền đầy đủ họ tên, Gmail và số báo danh.'; return; }
   if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
   if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
-  if (!/\d/.test(password)) { err.textContent='Mật khẩu phải chứa ít nhất 1 số.'; return; }
   // Kiểm tra trùng Gmail / SĐT
   const dupW = await checkDuplicate(username, phone);
   if (dupW.length) { err.innerHTML = '⚠️ ' + dupW.join('<br/>⚠️ '); return; }
-  const { error } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password: await hashPw(password), class_name:cls, active:true, expiry_date:expiry, notes });
+  const { error, data: newSt } = await db.from('students').insert({ student_code:code, full_name:name, phone, username, password: await hashPw(password), class_name:cls, active:true, expiry_date:expiry, notes }).select('id').single();
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
+  // Thêm vào student_classes
+  if (cls && newSt?.id) {
+    await db.from('student_classes').insert({ student_id: newSt.id, class_name: cls });
+  }
   document.getElementById('addStudentModal').classList.remove('open');
   renderStudents(); populateClassFilters();
 });
@@ -1323,17 +1523,50 @@ async function exportStudentCard(s) {
 }
 
 function openEditStudent(s) {
-  editingStudentId=s.id;
-  document.getElementById('esCode').value=s.student_code||'';
-  document.getElementById('esName').value=s.full_name;
-  document.getElementById('esUsername').value=s.username;
-  document.getElementById('esPassword').value=s.student_code||''; // mật khẩu = mã học viên
-  document.getElementById('esExpiry').value=s.expiry_date||'';
-  document.getElementById('esNotes').value=s.notes||'';
-  document.getElementById('esError').textContent='';
-  populateClassFilters().then(() => { document.getElementById('esClass').value=s.class_name||''; });
+  editingStudentId = s.id;
+  document.getElementById('esCode').value = s.student_code||'';
+  document.getElementById('esName').value = s.full_name;
+  document.getElementById('esUsername').value = s.username;
+  document.getElementById('esPassword').value = s.student_code||'';
+  document.getElementById('esExpiry').value = s.expiry_date||'';
+  document.getElementById('esNotes').value = s.notes||'';
+  document.getElementById('esError').textContent = '';
+  populateClassFilters().then(async () => {
+    document.getElementById('esClass').value = s.class_name||'';
+    const esAdd = document.getElementById('esAddClassSelect');
+    if (esAdd) { esAdd.innerHTML = document.getElementById('esClass').innerHTML; esAdd.value = ''; }
+    await renderEsClassList(s.id);
+  });
   document.getElementById('editStudentModal').classList.add('open');
 }
+
+async function renderEsClassList(studentId) {
+  const { data: scList } = await db.from('student_classes').select('id,class_name').eq('student_id', studentId);
+  const el = document.getElementById('esClassList');
+  if (!el) return;
+  el.innerHTML = '';
+  (scList||[]).forEach(sc => {
+    const tag = document.createElement('div');
+    tag.style.cssText = 'display:flex;align-items:center;gap:.3rem;background:#eef2ff;color:#4338ca;padding:.25rem .6rem;border-radius:20px;font-size:.8rem;font-weight:600';
+    tag.innerHTML = `<span>${sc.class_name}</span>
+      <button type="button" data-scid="${sc.id}" style="background:none;border:none;cursor:pointer;color:#6366f1;font-size:.85rem;padding:0;line-height:1">✕</button>`;
+    tag.querySelector('button').addEventListener('click', async () => {
+      await db.from('student_classes').delete().eq('id', sc.id);
+      renderEsClassList(studentId);
+    });
+    el.appendChild(tag);
+  });
+  if (!(scList||[]).length) el.innerHTML = '<span style="color:var(--muted);font-size:.8rem">Chưa có lớp nào</span>';
+}
+
+document.getElementById('esAddClassBtn')?.addEventListener('click', async () => {
+  const cls = document.getElementById('esAddClassSelect')?.value;
+  if (!cls || !editingStudentId) return;
+  const { error } = await db.from('student_classes').insert({ student_id: editingStudentId, class_name: cls });
+  if (error && error.code === '23505') { alert('Học viên đã thuộc lớp này rồi.'); return; }
+  renderEsClassList(editingStudentId);
+  document.getElementById('esAddClassSelect').value = '';
+});
 
 // esCode → esPassword sync
 document.getElementById('esCode').addEventListener('input', () => {
@@ -1354,25 +1587,23 @@ document.getElementById('esCancelBtn').addEventListener('click', () => document.
 document.getElementById('esSaveBtn').addEventListener('click', async () => {
   const name=document.getElementById('esName').value.trim(), username=document.getElementById('esUsername').value.trim();
   const code=document.getElementById('esCode').value.trim(), err=document.getElementById('esError');
-  const cls=document.getElementById('esClass').value.trim();
+  const cls = document.getElementById('esClass').value.trim(); // chỉ lớp chính
   const expiry=document.getElementById('esExpiry').value || null;
   const notes=document.getElementById('esNotes').value.trim() || null;
   if (!name||!username) { err.textContent='Vui lòng điền đầy đủ.'; return; }
   if (!isValidGmail(username)) { err.textContent='Gmail không hợp lệ. VD: hocsinh@gmail.com'; return; }
-  if (!cls) { err.textContent='Vui lòng chọn lớp.'; return; }
-  if (code && !/\d/.test(code)) { err.textContent='Mã học viên phải chứa ít nhất 1 số.'; return; }
-  // Kiểm tra trùng Gmail / SĐT (bỏ qua chính học viên đang sửa)
   const phone = document.getElementById('esPhone')?.value.trim() || '';
   const dupWE = await checkDuplicate(username, phone, editingStudentId);
   if (dupWE.length) { err.innerHTML = '⚠️ ' + dupWE.join('<br/>⚠️ '); return; }
-  const updates={ student_code:code, full_name:name, username, class_name:cls, expiry_date:expiry, notes };
-  // Chỉ đổi password khi mã học viên thay đổi
+  const updates={ student_code:code, full_name:name, username, class_name:cls||null, expiry_date:expiry, notes };
   const { data: orig } = await db.from('students').select('student_code').eq('id', editingStudentId).single();
-  if (code && code !== (orig?.student_code || '')) {
-    updates.password = await hashPw(code);
-  }
+  if (code && code !== (orig?.student_code || '')) updates.password = await hashPw(code);
   const { error } = await db.from('students').update(updates).eq('id',editingStudentId);
   if (error) { err.textContent=error.message.includes('unique')?'Gmail đã tồn tại.':error.message; return; }
+  // Đồng bộ lớp chính vào student_classes (upsert — không xóa lớp phụ)
+  if (cls) {
+    await db.from('student_classes').upsert({ student_id: editingStudentId, class_name: cls }, { onConflict: 'student_id,class_name' });
+  }
   document.getElementById('editStudentModal').classList.remove('open');
   renderStudents(); renderMiniStudents(); populateClassFilters();
 });
@@ -1404,7 +1635,7 @@ function getEmbedUrl(url) {
   if (!url) return null;
   // YouTube
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}?controls=0&modestbranding=1&rel=0&disablekb=1`;
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}?controls=0&modestbranding=1&rel=0&disablekb=1&iv_load_policy=3&fs=0`;
   // Google Drive
   const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
   if (gd) return `https://drive.google.com/file/d/${gd[1]}/preview`;
@@ -1675,9 +1906,12 @@ async function renderLessonVideos(lessonId) {
   const grid=document.getElementById('lessonVideoGrid');
   grid.innerHTML='';
   document.getElementById('emptyLessonVideos').style.display=(vids||[]).length?'none':'block';
-  (vids||[]).forEach(async v=>{
+  const urls = await Promise.all((vids||[]).map(v =>
+    v.video_url ? decryptUrl(v.video_url) : Promise.resolve(db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl)
+  ));
+  (vids||[]).forEach((v, i)=>{
     const isLink = !!v.video_url;
-    const url = isLink ? await decryptUrl(v.video_url) : db.storage.from('lessons').getPublicUrl(v.storage_path).data.publicUrl;
+    const url = urls[i];
     const embed = isLink ? getEmbedUrl(url) : null;
     const card=document.createElement('div');
     card.className='video-card';
@@ -1701,10 +1935,13 @@ async function renderLessonDocs(lessonId) {
   const el=document.getElementById('lessonDocList');
   el.innerHTML='';
   document.getElementById('emptyLessonDocs').style.display=(docs||[]).length?'none':'block';
-  (docs||[]).forEach(async d=>{
+  const urls = await Promise.all((docs||[]).map(d =>
+    (d.file_type==='link'||d.file_type==='handwritten') ? decryptUrl(d.doc_url) : Promise.resolve(db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl)
+  ));
+  (docs||[]).forEach((d, i)=>{
     const isLink = d.file_type==='link';
     const isHandwritten = d.file_type==='handwritten';
-    const url = (isLink||isHandwritten) ? await decryptUrl(d.doc_url) : db.storage.from('lessons').getPublicUrl(d.storage_path).data.publicUrl;
+    const url = urls[i];
     const row=document.createElement('div');
     row.className='content-row clickable';
     const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
@@ -1726,24 +1963,39 @@ document.getElementById('openAddVideoBtn').addEventListener('click', () => {
   document.getElementById('lessonVideoFileInput').value = '';
   document.getElementById('lvLinkInput').value = '';
   document.getElementById('lvLinkPreview').innerHTML = '';
+  document.getElementById('lvEmbedInput').value = '';
   document.getElementById('videoFileSection').style.display = '';
   document.getElementById('videoLinkSection').style.display = 'none';
+  document.getElementById('videoEmbedSection').style.display = 'none';
   document.getElementById('tabVideoFile').classList.add('active');
   document.getElementById('tabVideoLink').classList.remove('active');
+  document.getElementById('tabVideoEmbed').classList.remove('active');
   document.getElementById('lessonVideoModal').classList.add('open');
 });
 
 document.getElementById('tabVideoFile').addEventListener('click', () => {
   document.getElementById('videoFileSection').style.display = '';
   document.getElementById('videoLinkSection').style.display = 'none';
+  document.getElementById('videoEmbedSection').style.display = 'none';
   document.getElementById('tabVideoFile').classList.add('active');
   document.getElementById('tabVideoLink').classList.remove('active');
+  document.getElementById('tabVideoEmbed').classList.remove('active');
 });
 document.getElementById('tabVideoLink').addEventListener('click', () => {
   document.getElementById('videoFileSection').style.display = 'none';
   document.getElementById('videoLinkSection').style.display = '';
+  document.getElementById('videoEmbedSection').style.display = 'none';
   document.getElementById('tabVideoFile').classList.remove('active');
   document.getElementById('tabVideoLink').classList.add('active');
+  document.getElementById('tabVideoEmbed').classList.remove('active');
+});
+document.getElementById('tabVideoEmbed').addEventListener('click', () => {
+  document.getElementById('videoFileSection').style.display = 'none';
+  document.getElementById('videoLinkSection').style.display = 'none';
+  document.getElementById('videoEmbedSection').style.display = '';
+  document.getElementById('tabVideoFile').classList.remove('active');
+  document.getElementById('tabVideoLink').classList.remove('active');
+  document.getElementById('tabVideoEmbed').classList.add('active');
 });
 
 // Preview khi nhập link — bỏ qua vì textarea nhiều dòng
@@ -1763,12 +2015,21 @@ document.getElementById('lvCancelBtn').addEventListener('click', () => {
 });
 
 document.getElementById('lvSaveBtn').addEventListener('click', async () => {
-  const isLinkTab = document.getElementById('tabVideoLink').classList.contains('active');
+  const isLinkTab  = document.getElementById('tabVideoLink').classList.contains('active');
+  const isEmbedTab = document.getElementById('tabVideoEmbed').classList.contains('active');
   const title = 'Video bài học';
   const btn = document.getElementById('lvSaveBtn');
   btn.textContent = 'Đang lưu...'; btn.disabled = true;
 
-  if (isLinkTab) {
+  if (isEmbedTab) {
+    // Lưu mã nhúng — trích src từ iframe hoặc lưu nguyên mã
+    const raw = document.getElementById('lvEmbedInput').value.trim();
+    if (!raw) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
+    // Trích src từ thẻ iframe nếu có
+    const srcMatch = raw.match(/src=["']([^"']+)["']/);
+    const embedUrl = srcMatch ? srcMatch[1] : raw;
+    await db.from('lesson_videos').insert({ lesson_id: currentLessonId, title, video_url: await encryptUrl(embedUrl), storage_path: null, file_name: null, is_embed: true });
+  } else if (isLinkTab) {
     const raw = document.getElementById('lvLinkInput').value.trim();
     if (!raw) { btn.textContent = 'Lưu'; btn.disabled = false; return; }
     const links = raw.split('\n').map(l=>l.trim()).filter(Boolean);
@@ -1787,6 +2048,7 @@ document.getElementById('lvSaveBtn').addEventListener('click', async () => {
   btn.textContent = 'Lưu'; btn.disabled = false;
   document.getElementById('lessonVideoModal').classList.remove('open');
   document.getElementById('lessonPreviewVideo').src = '';
+  document.getElementById('lvEmbedInput').value = '';
   pendingLessonVideoFile = null;
   renderLessonVideos(currentLessonId);
 });
@@ -1914,13 +2176,27 @@ async function renderClasses() {
   grid.innerHTML='';
   document.getElementById('emptyClasses').style.display=allNames.length?'none':'block';
   const today = new Date(); today.setHours(0,0,0,0);
-  const { data: allStudentsFull } = await db.from('students').select('class_name, active, is_online, last_seen');
+  const { data: allStudentsFull } = await db.from('students').select('id, class_name, active, is_online, last_seen');
+  // Lấy tất cả student_classes để đếm đúng học viên nhiều lớp
+  const { data: allSC } = await db.from('student_classes').select('student_id, class_name');
+  const scMap = {}; // class_name → Set of student_id
+  (allSC||[]).forEach(sc => {
+    if (!scMap[sc.class_name]) scMap[sc.class_name] = new Set();
+    scMap[sc.class_name].add(sc.student_id);
+  });
+  const studentMap = Object.fromEntries((allStudentsFull||[]).map(s=>[s.id, s]));
+
   const colors = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899'];
   allNames.forEach((cls, idx)=>{
-    const students = (allStudentsFull||[]).filter(s=>s.class_name===cls);
-    const count = students.length;
-    const activeCount = students.filter(s=>s.active).length;
-    const onlineCount = students.filter(s=>s.is_online && s.last_seen && (Date.now()-new Date(s.last_seen).getTime())<90000).length;
+    // Lấy học viên từ student_classes (bao gồm cả lớp phụ)
+    const studentIds = scMap[cls] ? [...scMap[cls]] : [];
+    const students = studentIds.map(id => studentMap[id]).filter(Boolean);
+    // Fallback: học viên có class_name = cls nhưng chưa có trong student_classes
+    const fallback = (allStudentsFull||[]).filter(s => s.class_name === cls && !scMap[cls]?.has(s.id));
+    const allInClass = [...students, ...fallback];
+    const count = allInClass.length;
+    const activeCount = allInClass.filter(s=>s.active).length;
+    const onlineCount = allInClass.filter(s=>s.is_online && s.last_seen && (Date.now()-new Date(s.last_seen).getTime())<90000).length;
     const info = clsMap[cls]||{};
     const isExpired = info.end_date && new Date(info.end_date) < today;
     const color = isExpired ? '#94a3b8' : colors[idx % colors.length];
@@ -1993,7 +2269,18 @@ async function openClassDetail(cls) {
   document.getElementById('classDetailView').style.display='';
   document.getElementById('classDetailTitle').textContent=cls;
   const today = new Date(); today.setHours(0,0,0,0);
-  const { data:list }=await db.from('students').select('*').eq('class_name',cls).limit(10000);
+  // Lấy học viên từ student_classes (bao gồm lớp phụ)
+  const { data: scList } = await db.from('student_classes').select('student_id').eq('class_name', cls);
+  const scIds = (scList||[]).map(sc => sc.student_id);
+  // Fallback: học viên có class_name = cls nhưng chưa có trong student_classes
+  const { data: fallbackList } = await db.from('students').select('*').eq('class_name', cls).limit(10000);
+  const fallbackIds = (fallbackList||[]).map(s => s.id).filter(id => !scIds.includes(id));
+  const allIds = [...new Set([...scIds, ...fallbackIds])];
+  let list = [];
+  if (allIds.length) {
+    const { data } = await db.from('students').select('*').in('id', allIds).limit(10000);
+    list = data || [];
+  }
   const tbody=document.getElementById('classStudentBody');
   tbody.innerHTML='';
   document.getElementById('emptyClassStudents').style.display=(list||[]).length?'none':'block';
@@ -2131,20 +2418,30 @@ document.getElementById('clearDeviceAlertsBtn').addEventListener('click', async 
 // SECURITY ALERTS
 // ============================================================
 async function renderAlerts() {
-  const q=(document.getElementById('alertSearch').value||'').toLowerCase();
-  const { data:list }=await db.from('alerts').select('*').order('created_at',{ascending:false}).limit(10000);
-  const filtered=(list||[]).filter(a=>!q||(a.student_name||'').toLowerCase().includes(q));
-  const el=document.getElementById('alertList');
-  el.innerHTML='';
-  document.getElementById('emptyAlerts').style.display=filtered.length?'none':'block';
-  filtered.forEach(a=>{
-    const row=document.createElement('div');
-    row.className='content-row alert-row';
-    row.innerHTML=`<span class="list-icon">🚨</span><div class="list-info"><div class="list-title">${a.student_name} <span class="muted" style="font-weight:400">— ${a.username}</span></div><div class="list-meta"><span class="alert-badge">${a.reason}</span>${a.class_name?`<span class="class-tag">${a.class_name}</span>`:''} • ${fmtTime(a.created_at)}</div></div>`;
+  const q = (document.getElementById('alertSearch').value||'').toLowerCase();
+  const dateFilter = document.getElementById('alertDateFilter')?.value || '';
+  let query = db.from('alerts').select('*').order('created_at',{ascending:false}).limit(10000);
+  if (dateFilter) {
+    query = query.gte('created_at', dateFilter).lte('created_at', dateFilter + 'T23:59:59');
+  }
+  const { data:list } = await query;
+  const filtered = (list||[]).filter(a => !q || (a.student_name||'').toLowerCase().includes(q) || (a.username||'').toLowerCase().includes(q));
+  const el = document.getElementById('alertList');
+  el.innerHTML = '';
+  document.getElementById('emptyAlerts').style.display = filtered.length ? 'none' : 'block';
+  filtered.forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'content-row alert-row';
+    row.innerHTML = `<span class="list-icon">🚨</span><div class="list-info"><div class="list-title">${a.student_name} <span class="muted" style="font-weight:400">— ${a.username}</span></div><div class="list-meta"><span class="alert-badge">${a.reason}</span>${a.class_name?`<span class="class-tag">${a.class_name}</span>`:''} • ${fmtTime(a.created_at)}</div></div>`;
     el.appendChild(row);
   });
 }
 document.getElementById('alertSearch').addEventListener('input', renderAlerts);
+document.getElementById('alertDateFilter')?.addEventListener('change', renderAlerts);
+document.getElementById('alertDateClear')?.addEventListener('click', () => {
+  document.getElementById('alertDateFilter').value = '';
+  renderAlerts();
+});
 document.getElementById('exportAlertsBtn').addEventListener('click', async () => {
   const { data: list } = await db.from('alerts').select('*').order('created_at', { ascending: false }).limit(10000);
   if (!list || !list.length) { alert('Chưa có cảnh báo nào.'); return; }
@@ -2177,33 +2474,41 @@ populateClassFilters().then(() => {
 async function autoLockExpiredAccounts() {
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // Lấy tất cả lớp có end_date
   const { data: classes } = await db.from('classes').select('name, end_date');
   if (!classes?.length) return;
 
-  // Lọc các lớp đã hết hạn
-  const expiredClasses = (classes).filter(c => {
+  const expiredClassSet = new Set(classes.filter(c => {
     if (!c.end_date) return false;
     const end = new Date(c.end_date); end.setHours(0,0,0,0);
     return today > end;
-  }).map(c => c.name);
+  }).map(c => c.name));
 
-  if (!expiredClasses.length) return;
+  if (!expiredClassSet.size) return;
 
-  // Lấy học sinh thuộc lớp hết hạn còn đang active và chưa được mở thủ công
+  // Lấy học sinh active chưa bị mở thủ công
   const { data: students } = await db.from('students')
-    .select('id, full_name, class_name, username')
-    .in('class_name', expiredClasses)
-    .eq('active', true)
-    .eq('manually_unlocked', false);
-
+    .select('id, class_name').eq('active', true).eq('manually_unlocked', false);
   if (!students?.length) return;
 
-  // Khóa hàng loạt
-  const ids = students.map(s => s.id);
-  await db.from('students').update({ active: false }).in('id', ids);
+  // Lấy tất cả student_classes
+  const { data: allSC } = await db.from('student_classes').select('student_id, class_name');
+  const scByStudent = {};
+  (allSC||[]).forEach(sc => {
+    if (!scByStudent[sc.student_id]) scByStudent[sc.student_id] = [];
+    scByStudent[sc.student_id].push(sc.class_name);
+  });
 
-  console.log(`[AutoLock] Đã khóa ${ids.length} tài khoản thuộc lớp hết hạn:`, expiredClasses);
+  // Chỉ khóa khi TẤT CẢ lớp của học viên đã hết hạn
+  const toLock = students.filter(s => {
+    const allClasses = scByStudent[s.id]?.length
+      ? scByStudent[s.id]
+      : [s.class_name].filter(Boolean);
+    if (!allClasses.length) return false;
+    return allClasses.every(c => expiredClassSet.has(c));
+  }).map(s => s.id);
+
+  if (!toLock.length) return;
+  await db.from('students').update({ active: false }).in('id', toLock);
 }
 
 // Chạy ngay khi admin đăng nhập
@@ -2215,7 +2520,7 @@ autoLockExpiredAccounts();
 let editingAnnId = null;
 
 async function renderAnnouncements() {
-  const { data: list } = await db.from('announcements').select('*').order('pinned', {ascending:false}).order('created_at', {ascending:false});
+  const { data: list } = await db.from('announcements').select('*').order('created_at', {ascending:false});
   const el = document.getElementById('annList');
   el.innerHTML = '';
   document.getElementById('emptyAnn').style.display = (list||[]).length ? 'none' : 'block';
@@ -2235,7 +2540,8 @@ async function renderAnnouncements() {
           <button class="btn-sm btn-danger" data-action="delete">🗑</button>
         </div>
       </div>
-      <div style="font-size:.83rem;color:var(--muted);padding-left:1.75rem;line-height:1.6">${a.content}</div>
+      <div style="font-size:.83rem;color:var(--muted);padding-left:1.75rem;line-height:1.6;white-space:pre-line">${a.content}</div>
+      ${a.link_url ? `<div style="padding-left:1.75rem;margin-top:.4rem"><a href="${a.link_url}" target="_blank" style="color:#6366f1;font-size:.82rem;font-weight:600;text-decoration:none">🔗 ${a.link_text||a.link_url}</a></div>` : ''}
       <div style="font-size:.75rem;color:#94a3b8;padding-left:1.75rem">${new Date(a.created_at).toLocaleString('vi-VN')}${a.expires_at ? ` • ⏱ Hết hạn: ${new Date(a.expires_at).toLocaleString('vi-VN')}` : ''}</div>
     `;
     row.querySelector('[data-action="edit"]').addEventListener('click', () => {
@@ -2262,31 +2568,32 @@ document.getElementById('annSaveBtn').addEventListener('click', async () => {
   const cls     = document.getElementById('annClass').value;
   const pinned  = document.getElementById('annPinned').checked;
   const expire24h = document.getElementById('annExpire24h')?.checked;
+  const link_url  = document.getElementById('annLink')?.value.trim() || null;
+  const link_text = document.getElementById('annLinkText')?.value.trim() || null;
   const err     = document.getElementById('annError');
   err.textContent = '';
   if (!title)   { err.textContent = 'Vui lòng nhập tiêu đề.'; return; }
   if (!content) { err.textContent = 'Vui lòng nhập nội dung.'; return; }
 
   const expires_at = expire24h ? new Date(Date.now() + 24*60*60*1000).toISOString() : null;
-
-  // Ưu tiên gửi cho học sinh cụ thể nếu có chọn
   const selectedUsername = document.getElementById('annStudentSearch')?.dataset.selectedUsername || '';
   const finalClass = selectedUsername ? null : (cls || null);
   const target_username = selectedUsername || null;
 
   if (editingAnnId) {
-    await db.from('announcements').update({ title, content, class_name: finalClass, pinned, expires_at, target_username }).eq('id', editingAnnId);
+    await db.from('announcements').update({ title, content, class_name: finalClass, pinned, expires_at, target_username, link_url, link_text }).eq('id', editingAnnId);
   } else {
-    await db.from('announcements').insert({ title, content, class_name: finalClass, pinned, expires_at, target_username });
+    await db.from('announcements').insert({ title, content, class_name: finalClass, pinned, expires_at, target_username, link_url, link_text });
   }
   editingAnnId = null;
   document.getElementById('annFormTitle').textContent = '✏️ Tạo thông báo mới';
   document.getElementById('annTitle').value = '';
   document.getElementById('annContent').value = '';
+  document.getElementById('annLink').value = '';
+  document.getElementById('annLinkText').value = '';
   document.getElementById('annClass').value = '';
   document.getElementById('annPinned').checked = false;
   if (document.getElementById('annExpire24h')) document.getElementById('annExpire24h').checked = false;
-  // Reset student search
   const annSearch = document.getElementById('annStudentSearch');
   if (annSearch) { annSearch.value = ''; annSearch.dataset.selectedUsername = ''; }
   document.getElementById('annStudentSelected').style.display = 'none';
@@ -2394,6 +2701,9 @@ async function renderLoginHistory() {
       <div class="list-info" style="flex:1">
         <div class="list-title">${l.student_name||l.username} ${isToday ? '<span class="status-pill green" style="font-size:.7rem">Hôm nay</span>' : ''}</div>
         <div class="list-meta">${l.username} ${l.class_name ? `• <span class="class-tag">${l.class_name}</span>` : ''} • ${time}</div>
+        ${l.device_info ? `<div style="font-size:.75rem;color:var(--muted);margin-top:.15rem">
+          ${l.device_type==='Mobile'?'📱':'💻'} ${l.device_info}
+        </div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -2414,10 +2724,11 @@ document.getElementById('clearLoginHistoryBtn').addEventListener('click', () => 
 document.getElementById('exportLoginHistoryBtn').addEventListener('click', async () => {
   const { data: logs } = await db.from('login_logs').select('*').order('logged_in_at', {ascending: false}).limit(50000);
   if (!logs?.length) { alert('Chưa có dữ liệu.'); return; }
-  const rows = [['Thời gian','Học sinh','Gmail','Lớp']];
+  const rows = [['Thời gian','Học sinh','Gmail','Lớp','Thiết bị','Trình duyệt','HĐH']];
   logs.forEach(l => rows.push([
     new Date(l.logged_in_at).toLocaleString('vi-VN'),
-    l.student_name||'', l.username||'', l.class_name||''
+    l.student_name||'', l.username||'', l.class_name||'',
+    l.device_type||'', l.browser||'', l.os||''
   ]));
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
@@ -2537,7 +2848,14 @@ async function renderAccessStats() {
   // Biểu đồ theo giờ — dùng _chartDate để điều hướng ngày
   if (!window._chartDate) window._chartDate = new Date().toISOString().split('T')[0];
   if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
-  renderAccessChart(all);
+
+  // Fetch data 7 ngày cho biểu đồ — độc lập với filter
+  const chartFrom = new Date(); chartFrom.setDate(chartFrom.getDate() - 6); 
+  const chartFromStr = chartFrom.toISOString().split('T')[0];
+  let chartQuery = db.from('access_logs').select('content_type,accessed_at').gte('accessed_at', chartFromStr).limit(100000);
+  if (cls) chartQuery = chartQuery.eq('class_name', cls);
+  const { data: chartLogs } = await chartQuery;
+  renderAccessChart(chartLogs || []);
 
   // Top bài học
   const lessonCount = {};
@@ -2718,21 +3036,32 @@ function renderAccessChart(allLogs) {
 }
 
 // Nút điều hướng ngày biểu đồ
+async function refreshChart() {
+  if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
+  const chartFrom = new Date(); chartFrom.setDate(chartFrom.getDate() - 6);
+  const chartFromStr = chartFrom.toISOString().split('T')[0];
+  const cls = document.getElementById('accessFilterClass').value;
+  let q = db.from('access_logs').select('content_type,accessed_at').gte('accessed_at', chartFromStr).limit(100000);
+  if (cls) q = q.eq('class_name', cls);
+  const { data } = await q;
+  renderAccessChart(data || []);
+}
+
 document.getElementById('chartPrevDay')?.addEventListener('click', () => {
   const d = new Date(window._chartDate); d.setDate(d.getDate() - 1);
   window._chartDate = d.toISOString().split('T')[0];
-  renderAccessStats();
+  refreshChart();
 });
 document.getElementById('chartNextDay')?.addEventListener('click', () => {
   const todayStr = new Date().toISOString().split('T')[0];
   if (window._chartDate >= todayStr) return;
   const d = new Date(window._chartDate); d.setDate(d.getDate() + 1);
   window._chartDate = d.toISOString().split('T')[0];
-  renderAccessStats();
+  refreshChart();
 });
 document.getElementById('chartTodayBtn')?.addEventListener('click', () => {
   window._chartDate = new Date().toISOString().split('T')[0];
-  renderAccessStats();
+  refreshChart();
 });
 
 document.getElementById('exportAccessBtn').addEventListener('click', async () => {
@@ -2849,6 +3178,60 @@ darkBtn?.addEventListener('click', () => {
   const on = document.body.classList.toggle('dark-mode');
   darkBtn.textContent = on ? '☀️' : '🌙';
   localStorage.setItem('dh_dark', on ? '1' : '0');
+});
+
+// ============================================================
+// BẢO TRÌ
+// ============================================================
+const maintenanceBtn = document.getElementById('maintenanceBtn');
+
+async function checkMaintenanceStatus() {
+  const { data } = await db.from('app_settings').select('value').eq('key', 'maintenance').maybeSingle();
+  const isOn = data?.value === 'true';
+  // Topbar button
+  if (maintenanceBtn) {
+    maintenanceBtn.style.background = isOn ? '#ef4444' : '';
+    maintenanceBtn.style.borderColor = isOn ? '#ef4444' : '';
+    maintenanceBtn.style.color = isOn ? '#fff' : '';
+  }
+  // Sidebar button
+  const sideBtn = document.getElementById('maintenanceSideBtn');
+  if (sideBtn) {
+    sideBtn.style.color = isOn ? '#ef4444' : '';
+    sideBtn.querySelector('.slink-label').textContent = isOn ? '🔴 Đang bảo trì' : 'Chế độ bảo trì';
+  }
+}
+checkMaintenanceStatus();
+
+maintenanceBtn?.addEventListener('click', async () => {
+  const { data } = await db.from('app_settings').select('value').eq('key', 'maintenance').maybeSingle();
+  const isOn = data?.value === 'true';
+  const newVal = isOn ? 'false' : 'true';
+  await db.from('app_settings').upsert({ key: 'maintenance', value: newVal }, { onConflict: 'key' });
+  checkMaintenanceStatus();
+  if (newVal === 'true') {
+    showConfirm('Đã bật chế độ bảo trì. Học viên sẽ thấy thông báo bảo trì khi vào trang.', () => {}, { title: '🔧 Bảo trì đã bật', icon: '🔧', okText: 'OK' });
+  }
+});
+
+// Nút bảo trì trong sidebar
+document.getElementById('maintenanceSideBtn')?.addEventListener('click', async (e) => {
+  e.preventDefault();
+  const { data } = await db.from('app_settings').select('value').eq('key', 'maintenance').maybeSingle();
+  const isOn = data?.value === 'true';
+  const newVal = isOn ? 'false' : 'true';
+  await db.from('app_settings').upsert({ key: 'maintenance', value: newVal }, { onConflict: 'key' });
+  const btn = document.getElementById('maintenanceSideBtn');
+  if (newVal === 'true') {
+    btn.style.color = '#ef4444';
+    btn.querySelector('.slink-label').textContent = '🔴 Đang bảo trì';
+    alert('✅ Đã bật bảo trì — học viên sẽ thấy thông báo bảo trì.');
+  } else {
+    btn.style.color = '';
+    btn.querySelector('.slink-label').textContent = 'Chế độ bảo trì';
+    alert('✅ Đã tắt bảo trì — học viên vào bình thường.');
+  }
+  checkMaintenanceStatus();
 });
 
 // ============================================================
