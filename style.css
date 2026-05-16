@@ -1538,6 +1538,13 @@ body.landing { background: #fff; }
   .btn-sm { padding: .25rem .55rem; font-size: .75rem; }
 }
 
+/* --- Scrollbar sidebar --- */
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.3); }
+.sidebar-nav { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+
 /* --- Scrollbar ẩn trên mobile --- */
 @media (max-width: 768px) {
   .sidebar-nav::-webkit-scrollbar { display: none; }

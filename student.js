@@ -264,6 +264,7 @@ function showPage(pg) {
   if (pg === 'home')          renderHome();
   if (pg === 'lessons')       renderLessonList();
   if (pg === 'notifications') renderNotifications();
+  if (pg === 'schedule')      renderStudentSchedule();
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
   l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); });
@@ -898,7 +899,7 @@ db.channel('student-lock-' + currentUser)
           <div style="color:#ef4444;font-size:1.3rem;font-weight:800">Tài khoản đã bị khóa</div>
           <div style="color:rgba(255,255,255,.75);font-size:.95rem;max-width:320px;line-height:1.7">
             Tài khoản của bạn vừa bị khóa bởi quản trị viên.<br/>
-            Vui lòng liên hệ <b style="color:#fff">Trợ Lý Trần Cường hoặc Quốc Toàn hoặc Quốc Toàn</b> để được hỗ trợ.
+            Vui lòng liên hệ <b style="color:#fff">Trợ Lý Trần Cường hoặc Quốc Toàn</b> để được hỗ trợ.
           </div>
           <button onclick="sessionStorage.clear();location.href='index.html'" style="margin-top:.5rem;background:#6366f1;color:#fff;border:none;padding:.75rem 2rem;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer">
             Về trang đăng nhập
@@ -1019,7 +1020,23 @@ db.channel('announcements-realtime')
   })
   .subscribe();
 
-function showAnnouncementToast() {
+async function showAnnouncementToast(ann = null) {
+  // Nếu không truyền ann thì lấy thông báo mới nhất chưa đọc
+  if (!ann) {
+    const { data: anns } = await db.from('announcements')
+      .select('*').order('created_at', { ascending: false }).limit(20);
+    const { data: reads } = await db.from('notification_reads')
+      .select('announcement_id').eq('username', currentUser);
+    const readSet = new Set((reads||[]).map(r => r.announcement_id));
+    const now = new Date();
+    ann = (anns||[]).find(a =>
+      !readSet.has(a.id) &&
+      (!a.expires_at || new Date(a.expires_at) > now) &&
+      (a.target_username ? a.target_username === currentUser : (!a.class_name || myClasses.includes(a.class_name)))
+    );
+    if (!ann) return;
+  }
+
   const existing = document.getElementById('annToast');
   if (existing) existing.remove();
   const toast = document.createElement('div');
@@ -1029,27 +1046,30 @@ function showAnnouncementToast() {
     z-index:9999;background:linear-gradient(135deg,#1e1b4b,#4338ca);color:#fff;
     padding:1rem 1.5rem;border-radius:16px;font-size:.9rem;font-weight:600;
     box-shadow:0 12px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:.85rem;
-    max-width:340px;width:90%;cursor:pointer;
+    max-width:360px;width:90%;cursor:pointer;
     transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;
     border:1px solid rgba(255,255,255,.15)`;
   toast.innerHTML = `
     <div style="width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">📢</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:.78rem;opacity:.75;margin-bottom:.15rem">Thông báo mới</div>
-      <div style="font-size:.88rem;font-weight:700">Có thông báo mới từ giáo viên!</div>
+      <div style="font-size:.78rem;opacity:.75;margin-bottom:.15rem">Thông báo mới từ giáo viên</div>
+      <div style="font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ann.title}</div>
     </div>
     <button style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:.9rem;flex-shrink:0" id="annToastClose">✕</button>`;
 
   document.body.appendChild(toast);
-  // Animate vào
-  requestAnimationFrame(() => {
-    toast.style.transform = 'translateX(-50%) translateY(0)';
-  });
+  requestAnimationFrame(() => { toast.style.transform = 'translateX(-50%) translateY(0)'; });
 
-  toast.addEventListener('click', e => {
+  toast.addEventListener('click', async e => {
     if (e.target.id === 'annToastClose') { dismissToast(); return; }
+    // Đánh dấu đã đọc
+    await db.from('notification_reads').upsert(
+      { username: currentUser, announcement_id: ann.id },
+      { onConflict: 'username,announcement_id' }
+    );
     showPage('notifications');
     dismissToast();
+    checkNewNotifications();
   });
 
   function dismissToast() {
@@ -1058,7 +1078,7 @@ function showAnnouncementToast() {
     setTimeout(() => toast.remove(), 400);
   }
 
-  setTimeout(dismissToast, 6000);
+  setTimeout(dismissToast, 8000);
 }
 
 // Kiểm tra session token + trạng thái tài khoản mỗi 30 giây
@@ -1252,4 +1272,50 @@ function showNewLessonToast(lessonName) {
   });
   document.getElementById('newLessonToastClose').addEventListener('click', dismiss);
   setTimeout(dismiss, 7000);
+}
+
+// ============================================================
+// LỊCH HỌC
+// ============================================================
+async function renderStudentSchedule() {
+  let query = db.from('schedules').select('*').order('created_at', { ascending: false });
+  if (myClasses.length === 1) query = query.or(`class_name.eq.${myClasses[0]},class_name.is.null`);
+  else if (myClasses.length > 1) query = query.or(`class_name.in.(${myClasses.join(',')}),class_name.is.null`);
+  const { data: list } = await query;
+  const grid = document.getElementById('sScheduleGrid');
+  grid.innerHTML = '';
+  document.getElementById('sEmptySchedule').style.display = (list||[]).length ? 'none' : 'block';
+  (list||[]).forEach(s => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1.5px solid var(--border);cursor:pointer';
+    card.innerHTML = `
+      <img src="${s.image_url}" style="width:100%;border-radius:14px 14px 0 0"/>
+      <div style="padding:.75rem 1rem">
+        <div style="font-weight:700;font-size:.95rem">${s.title}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">${s.class_name ? `<span class="class-tag">${s.class_name}</span>` : 'Tất cả lớp'}</div>
+      </div>`;
+    card.addEventListener('click', () => openScheduleViewer(s));
+    grid.appendChild(card);
+  });
+}
+
+function openScheduleViewer(s) {
+  let modal = document.getElementById('scheduleViewerModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'scheduleViewerModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem';
+    modal.innerHTML = `
+      <div style="width:100%;max-width:700px;position:relative">
+        <button id="closeScheduleViewer" style="position:absolute;top:-40px;right:0;background:rgba(255,255,255,.15);border:none;color:#fff;width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:1.1rem">✕</button>
+        <div id="scheduleViewerTitle" style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:.75rem;text-align:center"></div>
+        <img id="scheduleViewerImg" style="width:100%;border-radius:14px;max-height:80vh;object-fit:contain"/>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('closeScheduleViewer').addEventListener('click', () => { modal.style.display = 'none'; });
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+  }
+  document.getElementById('scheduleViewerTitle').textContent = s.title;
+  document.getElementById('scheduleViewerImg').src = s.image_url;
+  modal.style.display = 'flex';
 }

@@ -19,8 +19,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body class="dashboard-page">
 
@@ -44,6 +42,7 @@
       <a href="#" class="slink" data-page="access-stats" data-label="Thống kê"><span class="slink-icon">📈</span><span class="slink-label">Thống kê truy cập</span></a>
       <a href="#" class="slink" data-page="login-history" data-label="Đăng nhập"><span class="slink-icon">🕐</span><span class="slink-label">Lịch sử đăng nhập</span></a>
       <a href="#" class="slink" data-page="announcements" data-label="Thông báo"><span class="slink-icon">📢</span><span class="slink-label">Thông báo</span></a>
+      <a href="#" class="slink" data-page="schedule" data-label="Lịch học"><span class="slink-icon">📅</span><span class="slink-label">Lịch học</span></a>
       <a href="#" class="slink" data-page="profile" data-label="Hồ sơ"><span class="slink-icon">�</span><span class="slink-label">Hồ sơ</span></a>/
     </nav>
     <a href="index.html" class="slink slink-logout" id="logoutBtn" data-label="Đăng xuất"><span class="slink-icon">🚪</span><span class="slink-label">Đăng xuất</span></a>
@@ -502,6 +501,43 @@
         <button class="btn-primary" id="pwSaveBtn" style="margin-top:0.5rem">Lưu thay đổi</button>
       </div>
     </section>
+
+    <!-- PAGE: LỊCH HỌC -->
+    <section class="page" id="pageSchedule">
+      <div class="page-header">
+        <h1 class="page-title">📅 Lịch học</h1>
+        <button class="btn-primary" id="openAddScheduleBtn">➕ Thêm lịch học</button>
+      </div>
+      <div class="filter-bar">
+        <select id="scheduleFilterClass"><option value="">Tất cả lớp</option></select>
+      </div>
+      <div id="scheduleGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-top:.5rem"></div>
+      <div class="empty-state" id="emptySchedule">Chưa có lịch học nào.</div>
+    </section>
+
+  <!-- MODAL: Thêm lịch học -->
+  <div class="modal-overlay" id="addScheduleModal">
+    <div class="modal" style="max-width:480px">
+      <h2>📅 Thêm lịch học</h2>
+      <label>Tiêu đề</label>
+      <input type="text" id="scheduleTitle" placeholder="VD: Lịch học tuần 1..."/>
+      <label>Lớp <span class="muted">(để trống = tất cả)</span></label>
+      <select id="scheduleClass" style="position:relative;z-index:9999"><option value="">-- Tất cả lớp --</option></select>
+      <label>Hình ảnh lịch học</label>
+      <div id="scheduleDropZone" style="border:2px dashed var(--border);border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--bg)" onclick="document.getElementById('scheduleFileInput').click()">
+        <div style="font-size:2rem;margin-bottom:.5rem">🖼️</div>
+        <div style="font-size:.88rem;color:var(--muted)">Bấm để chọn ảnh hoặc kéo thả vào đây</div>
+        <div id="scheduleFileInfo" style="margin-top:.5rem;font-size:.82rem;color:var(--primary);font-weight:600"></div>
+      </div>
+      <input type="file" id="scheduleFileInput" accept="image/*" hidden/>
+      <div id="schedulePreview" style="display:none;margin-top:.75rem"><img id="schedulePreviewImg" style="width:100%;border-radius:10px;max-height:300px;object-fit:contain"/></div>
+      <div id="scheduleError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button class="btn-outline" id="scheduleCancelBtn">Hủy</button>
+        <button class="btn-primary" id="scheduleSaveBtn">💾 Lưu</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: Thông tin tài khoản vừa tạo -->
   <div class="modal-overlay" id="newAccountModal">

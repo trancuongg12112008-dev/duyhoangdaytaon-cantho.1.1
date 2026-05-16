@@ -280,6 +280,7 @@ function showPage(name) {
   if (name === 'login-history')  renderLoginHistory();
   if (name === 'announcements')  { populateClassFilters(); renderAnnouncements(); }
   if (name === 'classes')        renderClasses();
+  if (name === 'schedule')       { populateClassFilters(); renderSchedule(); }
 }
 document.querySelectorAll('.slink[data-page]').forEach(l => {
   l.addEventListener('click', e => { e.preventDefault(); showPage(l.dataset.page); document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarBackdrop').classList.remove('show'); });
@@ -305,12 +306,12 @@ async function populateClassFilters() {
   const classes = await getClasses();
   const filterOpts = '<option value="">Tất cả lớp</option>' + classes.map(c=>`<option value="${c}">${c}</option>`).join('');
   const modalOpts  = '<option value="">-- Tất cả lớp --</option>' + classes.map(c=>`<option value="${c}">${c}</option>`).join('');
-  ['studentFilterClass','lessonFilterClass','accessFilterClass','loginHistoryFilterClass','annClass'].forEach(id => {
+  ['studentFilterClass','lessonFilterClass','accessFilterClass','loginHistoryFilterClass','annClass','scheduleFilterClass'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     const cur = el.value; el.innerHTML = filterOpts; el.value = cur;
   });
   const lcs = document.getElementById('lClassSelect'); if (lcs) { const cur=lcs.value; lcs.innerHTML=modalOpts; lcs.value=cur; }
-  ['addClass','esClass','groupClassSelect'].forEach(id => {
+  ['addClass','esClass','groupClassSelect','scheduleClass'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
     const cur = el.value; el.innerHTML = modalOpts; el.value = cur;
   });
@@ -2462,7 +2463,7 @@ document.getElementById('clearAlertsBtn').addEventListener('click', async ()=>{
 });
 
 // ---- Init ----
-const _validPages = ['overview','lessons','lesson-groups','create-student','students','classes','security','devices','access-stats','login-history','announcements','profile'];
+const _validPages = ['overview','lessons','lesson-groups','create-student','students','classes','security','devices','access-stats','login-history','announcements','schedule','profile'];
 const _savedPage = sessionStorage.getItem('dh_page');
 populateClassFilters().then(() => {
   showPage(_validPages.includes(_savedPage) ? _savedPage : 'overview');
@@ -2849,10 +2850,16 @@ async function renderAccessStats() {
   if (!window._chartDate) window._chartDate = new Date().toISOString().split('T')[0];
   if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
 
-  // Fetch data 7 ngày cho biểu đồ — độc lập với filter
-  const chartFrom = new Date(); chartFrom.setDate(chartFrom.getDate() - 6); 
-  const chartFromStr = chartFrom.toISOString().split('T')[0];
-  let chartQuery = db.from('access_logs').select('content_type,accessed_at').gte('accessed_at', chartFromStr).limit(100000);
+  // Fetch data xung quanh _chartDate cho biểu đồ — độc lập với filter
+  const centerDate = new Date(window._chartDate || new Date().toISOString().split('T')[0]);
+  const chartFromDate = new Date(centerDate); chartFromDate.setDate(chartFromDate.getDate() - 6);
+  const chartToDate = new Date(centerDate); chartToDate.setDate(chartToDate.getDate() + 6);
+  const chartFromStr = chartFromDate.toISOString().split('T')[0];
+  const chartToStr = chartToDate.toISOString().split('T')[0];
+  let chartQuery = db.from('access_logs').select('content_type,accessed_at')
+    .gte('accessed_at', chartFromStr)
+    .lte('accessed_at', chartToStr + 'T23:59:59')
+    .limit(100000);
   if (cls) chartQuery = chartQuery.eq('class_name', cls);
   const { data: chartLogs } = await chartQuery;
   renderAccessChart(chartLogs || []);
@@ -2947,10 +2954,11 @@ function renderAccessChart(allLogs) {
   const todayStr = new Date().toISOString().split('T')[0];
   if (!window._chartDate) window._chartDate = todayStr;
 
-  // Tạo điểm dữ liệu theo từng giờ trong 7 ngày gần nhất
+  // Tạo điểm dữ liệu theo từng giờ trong 13 ngày xung quanh _chartDate
   const points = { video: [], doc: [] };
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i); d.setMinutes(0,0,0);
+  const center = new Date(window._chartDate + 'T00:00:00');
+  for (let i = -6; i <= 6; i++) {
+    const d = new Date(center); d.setDate(d.getDate() + i); d.setMinutes(0,0,0);
     const dayStr = d.toISOString().split('T')[0];
     for (let h = 0; h < 24; h++) {
       const t = new Date(d); t.setHours(h);
@@ -2995,10 +3003,9 @@ function renderAccessChart(allLogs) {
         },
         zoom: {
           pan: {
-            enabled: true,
+            enabled: false,
             mode: 'x',
             onPan({ chart }) {
-              // Cập nhật _chartDate theo vị trí giữa cửa sổ
               const mid = (chart.scales.x.min + chart.scales.x.max) / 2;
               const midDate = new Date(mid).toISOString().split('T')[0];
               if (midDate !== window._chartDate) {
@@ -3022,26 +3029,83 @@ function renderAccessChart(allLogs) {
       scales: {
         x: {
           type: 'time',
-          time: { unit: 'hour', displayFormats: { hour: 'HH:mm' }, tooltipFormat: 'HH:mm' },
+          time: { unit: 'hour', displayFormats: { hour: 'HH:mm dd/MM' }, tooltipFormat: 'HH:mm dd/MM' },
           min: winStart.toISOString(),
           max: winEnd.toISOString(),
           grid: { display: false },
-          ticks: { font: { size: 10 }, maxRotation: 0, maxTicksLimit: 12 }
+          ticks: { font: { size: 10 }, maxRotation: 0, maxTicksLimit: 16 }
         },
         y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.05)' } }
       }
     }
   });
   canvas.style.cursor = 'grab';
+
+  // Kéo chuột/ngón tay để scroll liên tục theo pixel
+  let _dragStartX = null;
+  let _dragStartMin = null;
+  let _dragStartMax = null;
+
+  const onDragStart = e => {
+    _dragStartX = e.touches ? e.touches[0].clientX : e.clientX;
+    _dragStartMin = window._accessChart.scales.x.min;
+    _dragStartMax = window._accessChart.scales.x.max;
+    canvas.style.cursor = 'grabbing';
+  };
+
+  const onDragMove = e => {
+    if (_dragStartX === null) return;
+    const curX = e.touches ? e.touches[0].clientX : e.clientX;
+    const diff = curX - _dragStartX;
+    const range = _dragStartMax - _dragStartMin;
+    const canvasWidth = canvas.offsetWidth;
+    const msPerPx = range / canvasWidth;
+    const shift = -diff * msPerPx;
+    const todayEnd = new Date(todayStr + 'T23:59:59').getTime();
+    let newMin = _dragStartMin + shift;
+    let newMax = _dragStartMax + shift;
+    if (newMax > todayEnd) { newMax = todayEnd; newMin = todayEnd - range; }
+    window._accessChart.options.scales.x.min = new Date(newMin).toISOString();
+    window._accessChart.options.scales.x.max = new Date(newMax).toISOString();
+    window._accessChart.update('none');
+    // Cập nhật label ngày
+    const midDate = new Date((newMin + newMax) / 2).toISOString().split('T')[0];
+    window._chartDate = midDate;
+    const [y2,m2,d2] = midDate.split('-');
+    const lbl = document.getElementById('chartDayLabel');
+    if (lbl) lbl.textContent = midDate === todayStr ? `Hôm nay (${d2}/${m2})` : `${d2}/${m2}/${y2}`;
+    const nb = document.getElementById('chartNextDay');
+    if (nb) nb.disabled = midDate >= todayStr;
+  };
+
+  const onDragEnd = () => {
+    _dragStartX = null;
+    canvas.style.cursor = 'grab';
+  };
+
+  canvas.addEventListener('mousedown', onDragStart);
+  canvas.addEventListener('mousemove', onDragMove);
+  canvas.addEventListener('mouseup', onDragEnd);
+  canvas.addEventListener('mouseleave', onDragEnd);
+  canvas.addEventListener('touchstart', onDragStart, { passive: true });
+  canvas.addEventListener('touchmove', onDragMove, { passive: true });
+  canvas.addEventListener('touchend', onDragEnd, { passive: true });
 }
 
 // Nút điều hướng ngày biểu đồ
 async function refreshChart() {
   if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
-  const chartFrom = new Date(); chartFrom.setDate(chartFrom.getDate() - 6);
-  const chartFromStr = chartFrom.toISOString().split('T')[0];
+  // Fetch 13 ngày xung quanh _chartDate để có đủ data khi kéo
+  const centerDate = new Date(window._chartDate || new Date().toISOString().split('T')[0]);
+  const fromDate = new Date(centerDate); fromDate.setDate(fromDate.getDate() - 6);
+  const toDate = new Date(centerDate); toDate.setDate(toDate.getDate() + 6);
+  const chartFromStr = fromDate.toISOString().split('T')[0];
+  const chartToStr = toDate.toISOString().split('T')[0];
   const cls = document.getElementById('accessFilterClass').value;
-  let q = db.from('access_logs').select('content_type,accessed_at').gte('accessed_at', chartFromStr).limit(100000);
+  let q = db.from('access_logs').select('content_type,accessed_at')
+    .gte('accessed_at', chartFromStr)
+    .lte('accessed_at', chartToStr + 'T23:59:59')
+    .limit(100000);
   if (cls) q = q.eq('class_name', cls);
   const { data } = await q;
   renderAccessChart(data || []);
@@ -3312,3 +3376,106 @@ document.getElementById('maintenanceSideBtn')?.addEventListener('click', async (
   update();
   setInterval(update, 1000);
 })();
+
+// ============================================================
+// LỊCH HỌC
+// ============================================================
+let pendingScheduleFile = null;
+
+async function renderSchedule() {
+  const cls = document.getElementById('scheduleFilterClass')?.value || '';
+  let query = db.from('schedules').select('*').order('created_at', { ascending: false });
+  if (cls) query = query.eq('class_name', cls);
+  const { data: list } = await query;
+  const grid = document.getElementById('scheduleGrid');
+  grid.innerHTML = '';
+  document.getElementById('emptySchedule').style.display = (list||[]).length ? 'none' : 'block';
+  (list||[]).forEach(s => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1.5px solid var(--border)';
+    card.innerHTML = `
+      <img src="${s.image_url}" style="width:100%;max-height:220px;object-fit:cover;cursor:pointer" onclick="window.open('${s.image_url}','_blank')"/>
+      <div style="padding:.75rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+        <div>
+          <div style="font-weight:700;font-size:.9rem">${s.title}</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.15rem">${s.class_name ? `<span class="class-tag">${s.class_name}</span>` : 'Tất cả lớp'} • ${fmtTime(s.created_at)}</div>
+        </div>
+        <button class="btn-sm btn-danger" data-del="${s.id}">🗑</button>
+      </div>`;
+    card.querySelector('[data-del]').addEventListener('click', () => {
+      showConfirm(`Xóa lịch học "${s.title}"?`, async () => {
+        // Xóa file storage nếu có
+        if (s.image_url?.includes('supabase')) {
+          const path = s.image_url.split('/schedules/')[1];
+          if (path) await db.storage.from('schedules').remove([path]);
+        }
+        await db.from('schedules').delete().eq('id', s.id);
+        renderSchedule();
+      });
+    });
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('scheduleFilterClass')?.addEventListener('change', renderSchedule);
+
+document.getElementById('openAddScheduleBtn')?.addEventListener('click', async () => {
+  pendingScheduleFile = null;
+  document.getElementById('scheduleTitle').value = '';
+  document.getElementById('scheduleFileInfo').textContent = '';
+  document.getElementById('schedulePreview').style.display = 'none';
+  document.getElementById('scheduleError').textContent = '';
+  await populateClassFilters();
+  document.getElementById('scheduleClass').value = '';
+  document.getElementById('addScheduleModal').classList.add('open');
+});
+
+document.getElementById('scheduleCancelBtn')?.addEventListener('click', () => {
+  document.getElementById('addScheduleModal').classList.remove('open');
+  pendingScheduleFile = null;
+});
+
+document.getElementById('scheduleFileInput')?.addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  pendingScheduleFile = f;
+  document.getElementById('scheduleFileInfo').textContent = `📎 ${f.name}`;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('schedulePreviewImg').src = ev.target.result;
+    document.getElementById('schedulePreview').style.display = '';
+  };
+  reader.readAsDataURL(f);
+});
+
+// Drag & drop
+const dropZone = document.getElementById('scheduleDropZone');
+dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; });
+dropZone?.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border)'; });
+dropZone?.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.style.borderColor = 'var(--border)';
+  const f = e.dataTransfer.files[0]; if (!f || !f.type.startsWith('image/')) return;
+  pendingScheduleFile = f;
+  document.getElementById('scheduleFileInfo').textContent = `📎 ${f.name}`;
+  const reader = new FileReader();
+  reader.onload = ev => { document.getElementById('schedulePreviewImg').src = ev.target.result; document.getElementById('schedulePreview').style.display = ''; };
+  reader.readAsDataURL(f);
+});
+
+document.getElementById('scheduleSaveBtn')?.addEventListener('click', async () => {
+  const title = document.getElementById('scheduleTitle').value.trim();
+  const cls   = document.getElementById('scheduleClass').value;
+  const err   = document.getElementById('scheduleError');
+  const btn   = document.getElementById('scheduleSaveBtn');
+  if (!title) { err.textContent = 'Vui lòng nhập tiêu đề.'; return; }
+  if (!pendingScheduleFile) { err.textContent = 'Vui lòng chọn hình ảnh.'; return; }
+  btn.textContent = '⏳ Đang lưu...'; btn.disabled = true;
+  const safeName = `${Date.now()}_${pendingScheduleFile.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;
+  const { error: upErr } = await db.storage.from('schedules').upload(safeName, pendingScheduleFile, { cacheControl: '3600', upsert: false });
+  if (upErr) { err.textContent = 'Lỗi upload: ' + upErr.message; btn.textContent = '💾 Lưu'; btn.disabled = false; return; }
+  const { data: urlData } = db.storage.from('schedules').getPublicUrl(safeName);
+  await db.from('schedules').insert({ title, class_name: cls || null, image_url: urlData.publicUrl });
+  btn.textContent = '💾 Lưu'; btn.disabled = false;
+  document.getElementById('addScheduleModal').classList.remove('open');
+  pendingScheduleFile = null;
+  renderSchedule();
+});
