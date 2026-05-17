@@ -1,4 +1,4 @@
-﻿﻿﻿﻿//// Khởi tạo Supabase client (CDN đã load sẵn qua script tag)
+﻿﻿﻿//// Khởi tạo Supabase client (CDN đã load sẵn qua script tag)
 const db = supabase.createClient(
   'https://gojpmogjretoxplydjvg.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvanBtb2dqcmV0b3hwbHlkanZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0Nzg4ODEsImV4cCI6MjA5MzA1NDg4MX0.iLCNd2VRMiZoFp6_KclZlFsOenUNoM041tl1fobHKDA'
@@ -1644,35 +1644,47 @@ function getEmbedUrl(url) {
 }
 
 function openViewer(title, url, fileName, fileType) {
-  // Tự động tiêu đề theo loại
   const isVideoType = fileType==='video'||(fileType||'').startsWith('video/');
   const isLinkType = fileType==='link';
+  const isDocLink = fileType==='doc-link';
+  const isHandwrittenLink = fileType==='handwritten-link';
+
   let displayTitle = title;
   if (isVideoType || isLinkType) displayTitle = 'Video bài học';
+  else if (isHandwrittenLink) displayTitle = 'Bản viết tay';
+  else if (isDocLink) displayTitle = 'Tài liệu';
   else displayTitle = 'Tài liệu';
   document.getElementById('viewerTitle').textContent = displayTitle;
+
   const body=document.getElementById('viewerBody'), dl=document.getElementById('viewerDownload');
-  dl.href=url; dl.download=fileName||title;
+
   if (fileType==='link') {
     dl.style.display='none';
     const embed = getEmbedUrl(url);
-    if (embed) {
-      body.innerHTML=`<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`;
-    } else {
-      // Link tài liệu hoặc video trực tiếp
-      body.innerHTML=`<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
-    }
-  } else if (fileType==='video'||(fileType||'').startsWith('video/')) {
+    body.innerHTML = embed
+      ? `<iframe src="${embed}" style="width:100%;height:400px;border:none;border-radius:8px" allowfullscreen></iframe>`
+      : `<iframe src="${url}" style="width:100%;height:500px;border:none;border-radius:8px"></iframe>`;
+  } else if (isDocLink || isHandwrittenLink) {
+    // Tài liệu / viết tay dạng link — có nút tải
+    const gdMatch = url && url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    const downloadUrl = gdMatch ? `https://drive.google.com/uc?export=download&id=${gdMatch[1]}` : url;
+    dl.href = downloadUrl;
+    dl.removeAttribute('download');
+    dl.target = '_blank';
+    dl.style.display = '';
+    const embed = getEmbedUrl(url);
+    body.innerHTML = `<iframe src="${embed||url}" style="width:100%;height:500px;border:none;border-radius:8px" allowfullscreen></iframe>`;
+  } else if (isVideoType) {
     dl.style.display='none';
     body.innerHTML=`<video src="${url}" controls controlsList="nodownload nofullscreen noremoteplayback" disablePictureInPicture oncontextmenu="return false" class="viewer-video"></video>`;
   } else if (fileType==='application/pdf') {
-    dl.style.display='';
+    dl.href=url; dl.download=fileName||title; dl.style.display='';
     body.innerHTML=`<iframe src="${url}" class="viewer-iframe"></iframe>`;
   } else if ((fileType||'').startsWith('image/')) {
-    dl.style.display='';
+    dl.href=url; dl.download=fileName||title; dl.style.display='';
     body.innerHTML=`<img src="${url}" class="viewer-img" alt="${title}"/>`;
   } else {
-    dl.style.display='';
+    dl.href=url; dl.download=fileName||title; dl.style.display='';
     body.innerHTML=`<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>`;
   }
   document.getElementById('viewerModal').classList.add('open');
@@ -1947,7 +1959,7 @@ async function renderLessonDocs(lessonId) {
     row.className='content-row clickable';
     const icon = isHandwritten ? '✍️' : isLink ? '🔗' : '📄';
     row.innerHTML=`<span class="list-icon">${icon}</span><div class="list-info"><div class="list-title">${d.title}</div></div><div class="row-actions"><button class="btn-sm btn-danger">🗑</button></div>`;
-    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openViewer(isHandwritten?'Bản viết tay':d.title, url, d.file_name, (isLink||isHandwritten)?'link':d.file_type); });
+    row.addEventListener('click', e=>{ if(!e.target.closest('.row-actions')) openViewer(isHandwritten?'Bản viết tay':d.title, url, d.file_name, isHandwritten?'handwritten-link':isLink?'doc-link':d.file_type); });
     row.querySelector('.btn-danger').addEventListener('click', async e=>{
       e.stopPropagation();
       if (!isLink && !isHandwritten && d.storage_path) await db.storage.from('lessons').remove([d.storage_path]);
