@@ -24,11 +24,26 @@ async function decryptUrl(enc) {
 // Auth guard
 if (sessionStorage.getItem('dh_role') !== 'student') location.href = 'index.html';
 
+// ── Xác thực session token với DB ngay khi load ──
+(async () => {
+  const username = sessionStorage.getItem('dh_user');
+  const token    = sessionStorage.getItem('dh_token');
+  if (!username || !token) { sessionStorage.clear(); location.href = 'index.html'; return; }
+  try {
+    const { data: s } = await db.from('students').select('session_token,active').eq('username', username).single();
+    if (!s || s.session_token !== token || s.active === false) {
+      sessionStorage.clear();
+      location.href = 'index.html';
+    }
+  } catch(e) { /* network error — cho qua */ }
+})();
+
 // Kiểm tra bảo trì
 (async () => {
   try {
     const { data } = await db.from('app_settings').select('value').eq('key', 'maintenance').maybeSingle();
     if (data?.value === 'true') {
+      if (typeof _wmDestroyed !== 'undefined') _wmDestroyed = true;
       document.body.style.cssText = 'margin:0;padding:0;overflow:hidden';
       document.body.innerHTML = `
         <div style="min-height:100vh;width:100vw;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e1b4b,#312e81);padding:2rem;box-sizing:border-box">
@@ -922,6 +937,7 @@ db.channel('student-lock-' + currentUser)
   }, async (payload) => {
     const s = payload.new;
     if (!s.active) {
+      if (typeof _wmDestroyed !== 'undefined') _wmDestroyed = true;
       document.body.innerHTML = `
         <div style="position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;text-align:center;padding:2rem;z-index:99999">
           <div style="font-size:3.5rem">🔒</div>

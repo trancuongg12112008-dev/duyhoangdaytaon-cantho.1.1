@@ -4,6 +4,24 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Học Sinh - DHDTCT LMS v1.3.0</title>
+  <!-- Content Security Policy — chặn inject script từ domain lạ -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com;
+    media-src 'self' blob: https://*.supabase.co https://drive.google.com https://www.youtube.com;
+    frame-src https://drive.google.com https://www.youtube.com https://docs.google.com;
+    connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+  "/>
+  <meta http-equiv="X-Frame-Options" content="DENY"/>
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta http-equiv="Referrer-Policy" content="no-referrer"/>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -520,31 +538,9 @@
     const overlay = document.getElementById('securityOverlay');
     let lastLogTime = 0;
 
-    async function logAlert(reason) {
-      const now = Date.now();
-      if (now - lastLogTime < 3000) return;
-      lastLogTime = now;
-      const username = sessionStorage.getItem('dh_user') || '—';
-      const studentName = sessionStorage.getItem('dh_name') || '—';
-      try {
-        const { data } = await _db.from('students').select('class_name').eq('username', username).single();
-        await _db.from('alerts').insert({ username, student_name: studentName, class_name: data?.class_name || '', reason });
-      } catch(e) {}
-    }
+    // logAlert và showOverlay được định nghĩa bên dưới
 
-    function showOverlay(reason) {
-      logAlert(reason);
-      document.body.style.filter = 'brightness(0)';
-      const msgEl = document.getElementById('secOverlayMsg');
-      if (msgEl) {
-        if (reason.includes('DevTools') || reason.includes('debugger')) {
-          msgEl.innerHTML = 'Hệ thống phát hiện bạn đang sử dụng <b>DevTools / Debugger</b>.<br/>Hành vi đã bị ghi nhận và báo cáo đến giáo viên.<br/><span style="color:#ef4444;font-weight:700">Tài khoản sẽ bị xóa nếu tiếp tục vi phạm.</span>';
-        } else {
-          msgEl.innerHTML = 'Hành vi vi phạm đã bị ghi nhận và báo cáo đến giáo viên.<br/>Nội dung bị ẩn để bảo vệ tài liệu.';
-        }
-      }
-      overlay.classList.add('active');
-    }
+    // showOverlay được định nghĩa bên dưới sau khi có đủ context
 
     document.getElementById('secDismiss').addEventListener('click', () => {
       overlay.classList.remove('active');
@@ -554,13 +550,54 @@
     // ── Chặn chuột phải ──
     document.addEventListener('contextmenu', e => e.preventDefault());
 
-    // ── Chặn copy / cut / drag ──
-    document.addEventListener('copy',  e => { e.preventDefault(); e.clipboardData?.setData('text/plain',''); });
-    document.addEventListener('cut',   e => e.preventDefault());
-    document.addEventListener('dragstart', e => e.preventDefault());
+    // ── Chặn chuột phải ──
+    document.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); return false; }, true);
 
-    // ── Chặn paste vào clipboard (xóa nội dung nếu có) ──
-    document.addEventListener('paste', e => e.preventDefault());
+    // ── Chặn copy / cut / drag ──
+    document.addEventListener('copy',      e => { e.preventDefault(); e.stopPropagation(); e.clipboardData?.setData('text/plain',''); }, true);
+    document.addEventListener('cut',       e => { e.preventDefault(); e.stopPropagation(); }, true);
+    document.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); }, true);
+    document.addEventListener('drag',      e => { e.preventDefault(); e.stopPropagation(); }, true);
+    document.addEventListener('paste',     e => { e.preventDefault(); e.stopPropagation(); }, true);
+
+    // ── Chặn TẤT CẢ phím tắt — 1 handler duy nhất ──
+    document.addEventListener('keydown', e => {
+      const k = e.key;
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
+      const alt = e.altKey;
+
+      // Chặn tất cả Ctrl+* và Meta+*
+      if (ctrl) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (!['Control','Meta','Shift','Alt'].includes(k)) showOverlay('Phím bị chặn: ' + (ctrl?'Ctrl+':'') + k);
+        return;
+      }
+      // Chặn tất cả Alt+* (trừ Alt một mình)
+      if (alt && k !== 'Alt') {
+        e.preventDefault(); e.stopImmediatePropagation();
+        return;
+      }
+      // Chặn tất cả F-keys
+      if (/^F\d+$/.test(k)) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        showOverlay('Phím bị chặn: ' + k);
+        return;
+      }
+      // Chặn PrintScreen, Insert, Delete đặc biệt
+      if (['PrintScreen','F13','ScrollLock','Pause'].includes(k)) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        showOverlay('Phím bị chặn: ' + k);
+        return;
+      }
+    }, true);
+
+    document.addEventListener('keyup', e => {
+      if (e.key === 'PrintScreen') {
+        navigator.clipboard?.writeText('').catch(()=>{});
+        showOverlay('PrintScreen — ảnh chụp đã bị xóa');
+      }
+    }, true);
 
     // ── Ẩn nội dung khi chuyển tab / minimize ──
     document.addEventListener('visibilitychange', () => {
@@ -572,49 +609,38 @@
       }
     });
 
-    // ── Phát hiện DevTools (kích thước cửa sổ) ──
-    let devtoolsOpen = false;
+    // ── Phát hiện DevTools — window size detection ──
+    let _dtOpen = false;
+
+    function _onDevToolsOpen() {
+      if (_dtOpen) return;
+      _dtOpen = true;
+      document.body.style.filter = 'brightness(0)';
+      document.body.style.pointerEvents = 'none';
+      showOverlay('Phát hiện DevTools đang mở');
+    }
+    function _onDevToolsClosed() {
+      _dtOpen = false;
+      document.body.style.filter = '';
+      document.body.style.pointerEvents = '';
+    }
+
+    // Window size — phát hiện khi dock side/bottom
     setInterval(() => {
-      const threshold = 160;
       const w = window.outerWidth  - window.innerWidth;
       const h = window.outerHeight - window.innerHeight;
-      if ((w > threshold || h > threshold) && !devtoolsOpen) {
-        devtoolsOpen = true;
-        showOverlay('Phát hiện DevTools đang mở');
-      } else if (w <= threshold && h <= threshold) {
-        devtoolsOpen = false;
-      }
+      if (w > 100 || h > 100) _onDevToolsOpen();
+      else _onDevToolsClosed();
     }, 1000);
 
-    // ── Phát hiện DevTools qua debugger timing ──
-    setInterval(() => {
-      const t = performance.now();
-      // eslint-disable-next-line no-debugger
-      debugger;
-      if (performance.now() - t > 100) {
-        showOverlay('Phát hiện debugger đang chạy');
+    // Resize event — phát hiện khi undock/dock
+    let _lastInner = window.innerWidth;
+    window.addEventListener('resize', () => {
+      const diff = Math.abs(window.innerWidth - _lastInner);
+      if (diff > 0 && diff < 200 && (window.outerWidth - window.innerWidth) > 100) {
+        _onDevToolsOpen();
       }
-    }, 3000);
-
-    // ── Chặn phím nguy hiểm ──
-    document.addEventListener('keydown', e => {
-      const blocked =
-        e.key === 'PrintScreen' || e.key === 'F13' ||
-        (e.metaKey && e.shiftKey && ['3','4','5','6','s','S'].includes(e.key)) ||
-        (e.ctrlKey && ['p','P','s','S','u','U'].includes(e.key)) ||
-        (e.ctrlKey && e.shiftKey && ['i','I','j','J','c','C','s','S','k','K'].includes(e.key)) ||
-        ['F12','F11'].includes(e.key);
-      if (blocked) {
-        e.preventDefault(); e.stopImmediatePropagation();
-        showOverlay('Phím bị chặn: ' + e.key);
-      }
-    }, true);
-
-    document.addEventListener('keyup', e => {
-      if (e.key === 'PrintScreen') {
-        navigator.clipboard?.writeText('').catch(()=>{});
-        showOverlay('PrintScreen — ảnh chụp đã bị xóa');
-      }
+      _lastInner = window.innerWidth;
     });
 
     // ── Chặn quay màn hình ──
@@ -636,46 +662,430 @@
     // ── Chặn kéo thả nội dung ──
     document.addEventListener('drop', e => e.preventDefault());
 
-    // ── Phát hiện chụp màn hình iOS (thay đổi brightness đột ngột) ──
-    // Dùng Page Visibility API — đã xử lý ở visibilitychange bên trên
+    // ── Chặn iframe embedding (Clickjacking) ──
+    if (window.top !== window.self) {
+      window.top.location = window.self.location;
+    }
 
-    // ── Watermark cá nhân hóa ──
+    // ── Fingerprint thiết bị khi vi phạm ──
+    function getDeviceFingerprint() {
+      const nav = window.navigator;
+      return [
+        nav.userAgent,
+        nav.language,
+        screen.width + 'x' + screen.height,
+        screen.colorDepth,
+        new Date().getTimezoneOffset(),
+        nav.hardwareConcurrency || '',
+        nav.platform || ''
+      ].join('|');
+    }
+
+    // ── Override logAlert để kèm fingerprint ──
+    async function logAlert(reason) {
+      const now = Date.now();
+      if (now - lastLogTime < 30000) return;
+      lastLogTime = now;
+      const username = sessionStorage.getItem('dh_user') || '—';
+      const studentName = sessionStorage.getItem('dh_name') || '—';
+      const fp = getDeviceFingerprint();
+      try {
+        const { data } = await _db.from('students').select('class_name').eq('username', username).single();
+        await _db.from('alerts').insert({
+          username, student_name: studentName,
+          class_name: data?.class_name || '',
+          reason: reason + ' | FP: ' + fp.slice(0, 200)
+        });
+      } catch(e) {}
+    }
+
+    // ── Auto-lock sau 3 lần vi phạm nghiêm trọng ──
+    let _violationCount = 0;
+    const _SERIOUS = ['watermark', 'DevTools', 'debugger', 'quay màn hình'];
+    function showOverlay(reason) {
+      logAlert(reason);
+      document.body.style.filter = 'brightness(0)';
+      const msgEl = document.getElementById('secOverlayMsg');
+      if (msgEl) {
+        if (reason.includes('DevTools') || reason.includes('debugger')) {
+          msgEl.innerHTML = 'Hệ thống phát hiện bạn đang sử dụng <b>DevTools / Debugger</b>.<br/>Hành vi đã bị ghi nhận và báo cáo đến giáo viên.<br/><span style="color:#ef4444;font-weight:700">Tài khoản sẽ bị xóa nếu tiếp tục vi phạm.</span>';
+        } else {
+          msgEl.innerHTML = 'Hành vi vi phạm đã bị ghi nhận và báo cáo đến giáo viên.<br/>Nội dung bị ẩn để bảo vệ tài liệu.';
+        }
+      }
+      overlay.classList.add('active');
+
+      // Đếm vi phạm nghiêm trọng → auto lock
+      if (_SERIOUS.some(k => reason.includes(k))) {
+        _violationCount++;
+        if (_violationCount >= 3) {
+          _autoLockAccount('Vi phạm bảo mật nhiều lần: ' + reason);
+        }
+      }
+    }
+
+    async function _autoLockAccount(reason) {
+      const username = sessionStorage.getItem('dh_user');
+      if (!username) return;
+      try {
+        await _db.from('students').update({ active: false }).eq('username', username);
+        await _db.from('alerts').insert({
+          username,
+          student_name: sessionStorage.getItem('dh_name') || '—',
+          class_name: '',
+          reason: '[AUTO-LOCK] ' + reason
+        });
+      } catch(e) {}
+      // Xóa session và chuyển về login
+      sessionStorage.clear();
+      setTimeout(() => { location.href = 'index.html'; }, 2000);
+    }
+
+    // ── Chặn console hoàn toàn ──
+    (function() {
+      const noop = () => {};
+      const methods = ['log','warn','error','info','debug','table','dir','dirxml','group','groupEnd','time','timeEnd','assert','profile','profileEnd'];
+      methods.forEach(m => {
+        try { console[m] = noop; } catch(e) {}
+      });
+    })();
+
+    // ── Chặn chọn text toàn trang ──
+    document.addEventListener('selectstart', e => {
+      if (!['INPUT','TEXTAREA'].includes(e.target.tagName)) e.preventDefault();
+    });
+
+    // ── Chặn zoom bằng wheel ──
+    document.addEventListener('wheel', e => {
+      if (e.ctrlKey) e.preventDefault();
+    }, { passive: false });
+
+    // ── Chặn touch zoom (pinch) trên mobile ──
+    document.addEventListener('touchstart', e => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+    let _lastTouchEnd = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - _lastTouchEnd < 300) e.preventDefault();
+      _lastTouchEnd = now;
+    }, { passive: false });
+
+    // ── Chặn Save As đã được xử lý trong handler keydown tổng ──
+
+    // ── Phát hiện screen capture API ──
+    if ('onscreenschange' in window) {
+      window.addEventListener('screenschange', () => {
+        showOverlay('Phát hiện thay đổi màn hình — có thể đang quay');
+      });
+    }
+
+    // ── Phát hiện Picture-in-Picture ──
+    document.addEventListener('enterpictureinpicture', () => {
+      showOverlay('Phát hiện Picture-in-Picture');
+    }, true);
+
+    // ── Chặn tất cả link download ──
+    document.addEventListener('click', e => {
+      const a = e.target.closest('a[download]');
+      if (a && !a.classList.contains('dl-btn') && !a.id?.includes('Download')) {
+        e.preventDefault();
+      }
+    }, true);
+
+    // ── Phát hiện mất focus cửa sổ (Alt+Tab) ──
+    window.addEventListener('blur', () => {
+      document.body.style.filter = 'brightness(0)';
+    });
+    window.addEventListener('focus', () => {
+      document.body.style.filter = '';
+    });
+
+    // ── Bảo vệ Object.defineProperty — chặn override prototype ──
+    (function() {
+      try {
+        const _origDefine = Object.defineProperty;
+        Object.defineProperty = function(obj, prop, desc) {
+          // Chặn override các API bảo mật quan trọng
+          if (obj === HTMLCanvasElement.prototype && prop === 'toDataURL') return obj;
+          if (obj === HTMLCanvasElement.prototype && prop === 'getContext') return obj;
+          return _origDefine.call(this, obj, prop, desc);
+        };
+      } catch(e) {}
+    })();
+
+    // ── Chặn screenshot qua Clipboard API ──
+    if (navigator.clipboard) {
+      try {
+        const _origRead = navigator.clipboard.read?.bind(navigator.clipboard);
+        const _origReadText = navigator.clipboard.readText?.bind(navigator.clipboard);
+        if (_origRead) navigator.clipboard.read = async () => { throw new DOMException('Blocked','NotAllowedError'); };
+        if (_origReadText) navigator.clipboard.readText = async () => '';
+      } catch(e) {}
+    }
+
+    // ── Chặn Web Share API ──
+    if (navigator.share) {
+      navigator.share = async () => { throw new DOMException('Blocked','NotAllowedError'); };
+    }
+
+    // ── Session timeout — tự logout sau 2 giờ không hoạt động ──
+    let _lastActivity = Date.now();
+    const _SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 giờ
+    ['mousemove','keydown','touchstart','click','scroll'].forEach(ev => {
+      document.addEventListener(ev, () => { _lastActivity = Date.now(); }, { passive: true });
+    });
+    setInterval(() => {
+      if (Date.now() - _lastActivity > _SESSION_TIMEOUT) {
+        sessionStorage.clear();
+        location.href = 'index.html';
+      }
+    }, 60000);
+
+    // ════════════════════════════════════════
+    // LỚP BẢO MẬT MỚI
+    // ════════════════════════════════════════
+
+    // LỚP 1: Chặn toàn bộ mouse button phụ (middle click, back/forward)
+    document.addEventListener('mousedown', e => {
+      if (e.button !== 0) e.preventDefault();
+    }, true);
+    document.addEventListener('auxclick', e => { e.preventDefault(); e.stopPropagation(); }, true);
+
+    // LỚP 2: Chặn long-press trên mobile (menu ngữ cảnh)
+    let _longPressTimer;
+    document.addEventListener('touchstart', e => {
+      _longPressTimer = setTimeout(() => { /* block */ }, 500);
+    }, { passive: true });
+    document.addEventListener('touchend', () => clearTimeout(_longPressTimer), { passive: true });
+    document.addEventListener('touchmove', () => clearTimeout(_longPressTimer), { passive: true });
+
+    // LỚP 3: Chặn Pointer Lock (dùng để capture chuột)
+    if (document.documentElement.requestPointerLock) {
+      document.documentElement.requestPointerLock = () => {};
+    }
+
+    // LỚP 4: Chặn Fullscreen API (tránh quay toàn màn hình)
+    const _blockFullscreen = () => false;
+    try {
+      document.documentElement.requestFullscreen = _blockFullscreen;
+      document.documentElement.webkitRequestFullscreen = _blockFullscreen;
+      document.documentElement.mozRequestFullScreen = _blockFullscreen;
+    } catch(e) {}
+
+    // LỚP 5: Token xác thực session mỗi 5 phút — tự logout nếu session hết hạn
+    setInterval(async () => {
+      const user = sessionStorage.getItem('dh_user');
+      if (!user) { location.href = 'index.html'; return; }
+      try {
+        const { data } = await _db.from('students').select('active').eq('username', user).maybeSingle();
+        if (!data || data.active === false) {
+          sessionStorage.clear();
+          location.href = 'index.html';
+        }
+      } catch(e) {}
+    }, 5 * 60 * 1000);
+
+    // LỚP 6: Chặn Service Worker bên ngoài inject script
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => {
+          // Chỉ giữ SW của chính app (sw.js)
+          if (!r.active?.scriptURL?.includes('sw.js')) r.unregister();
+        });
+      });
+    }
+
+    // LỚP 7: Obfuscate — đổi tên id watermark ngẫu nhiên mỗi lần load
+    // (làm khó tìm element qua console)
+    const _wmRandId = '_s' + Math.random().toString(36).slice(2,10);
+    // id thật vẫn là 'watermark' nhưng thêm data-attr giả
+    // (xử lý sau khi watermark được tạo)
+
+    // LỚP 8: Phát hiện Selenium / WebDriver / Bot
+    (function() {
+      const botSignals = [
+        navigator.webdriver,
+        !!window.callPhantom,
+        !!window._phantom,
+        !!window.__nightmare,
+        !!window.domAutomation,
+        !!window.domAutomationController,
+        document.documentElement.getAttribute('webdriver'),
+      ];
+      if (botSignals.some(Boolean)) {
+        sessionStorage.clear();
+        document.body.innerHTML = '';
+        location.href = 'index.html';
+      }
+    })();
+
+    // ══════════════════════════════════════════════════
+    // WATERMARK BẢO MẬT CẤP CAO NHẤT
+    // ══════════════════════════════════════════════════
     const wmText = sessionStorage.getItem('dh_user') || '';
-    const wm = document.createElement('canvas');
-    wm.id = 'watermark';
-    document.body.appendChild(wm);
+    let _wmEl = null;
+    let _wmDestroyed = false;
+    let _wmTamperCount = 0;
+    let _wmLastAlert = 0;
+
+    // ID ngẫu nhiên mỗi lần load — khó tìm qua console
+    const _WM_ID = '_wm_' + Math.random().toString(36).slice(2, 10);
+    const _WM_ATTR = 'data-' + Math.random().toString(36).slice(2, 8);
+
+    const _WM_STYLE = 'position:fixed!important;top:0!important;left:0!important;' +
+      'width:100vw!important;height:100vh!important;pointer-events:none!important;' +
+      'z-index:2147483647!important;display:block!important;opacity:1!important;' +
+      'visibility:visible!important;transform:none!important;clip:auto!important;' +
+      'clip-path:none!important;filter:none!important;mix-blend-mode:normal!important;';
+
+    function _createWatermark() {
+      const c = document.createElement('canvas');
+      c.id = _WM_ID;
+      c.setAttribute(_WM_ATTR, '1');
+      c.setAttribute('aria-hidden', 'true');
+      c.style.cssText = _WM_STYLE;
+      // Khóa style không cho thay đổi
+      try {
+        Object.defineProperty(c, 'style', { get() { return c._style || (c._style = c.style); }, configurable: false });
+      } catch(e) {}
+      return c;
+    }
 
     function drawWatermark() {
-      wm.width  = window.innerWidth;
-      wm.height = window.innerHeight;
-      const ctx = wm.getContext('2d');
-      ctx.clearRect(0, 0, wm.width, wm.height);
+      if (!_wmEl) return;
+      _wmEl.width  = window.innerWidth  || screen.width;
+      _wmEl.height = window.innerHeight || screen.height;
+      const ctx = _wmEl.getContext('2d');
+      ctx.clearRect(0, 0, _wmEl.width, _wmEl.height);
       ctx.save();
-      ctx.translate(wm.width/2, wm.height/2);
+      ctx.translate(_wmEl.width / 2, _wmEl.height / 2);
       ctx.rotate(-25 * Math.PI / 180);
       ctx.font = 'bold 15px Arial';
       ctx.fillStyle = 'rgba(0,0,0,0.10)';
       ctx.textAlign = 'center';
       const gapX = 220, gapY = 70;
-      const cols = Math.ceil(wm.width  * 1.5 / gapX) + 2;
-      const rows = Math.ceil(wm.height * 1.5 / gapY) + 2;
+      const cols = Math.ceil(_wmEl.width  * 1.5 / gapX) + 2;
+      const rows = Math.ceil(_wmEl.height * 1.5 / gapY) + 2;
       for (let r = -rows; r <= rows; r++)
         for (let c = -cols; c <= cols; c++)
           ctx.fillText(wmText, c * gapX, r * gapY);
       ctx.restore();
     }
-    drawWatermark();
+
+    function _mountWatermark() {
+      // Xóa bản cũ nếu còn
+      const old = document.getElementById(_WM_ID) || document.querySelector('[' + _WM_ATTR + ']');
+      if (old) old.remove();
+      _wmEl = _createWatermark();
+      document.body.appendChild(_wmEl);
+      drawWatermark();
+      // Freeze style ngay sau khi mount
+      _lockWmStyle();
+    }
+
+    function _lockWmStyle() {
+      if (!_wmEl) return;
+      // Dùng setAttribute để force style
+      _wmEl.setAttribute('style', _WM_STYLE);
+    }
+
+    function _alertTamper(reason) {
+      _wmTamperCount++;
+      const now = Date.now();
+      if (now - _wmLastAlert > 30000) {
+        _wmLastAlert = now;
+        showOverlay(reason);
+      }
+      // Auto-lock nếu bị can thiệp quá 5 lần
+      if (_wmTamperCount >= 5) {
+        _autoLockAccount('Can thiệp watermark ' + _wmTamperCount + ' lần');
+      }
+    }
+
+    _mountWatermark();
     window.addEventListener('resize', drawWatermark);
 
-    // ── Bảo vệ watermark khỏi bị xóa qua DOM ──
-    const wmObserver = new MutationObserver(() => {
-      if (!document.getElementById('watermark')) {
-        document.body.appendChild(wm);
+    // LỚP 1: setInterval 2000ms — kiểm tra tồn tại + style
+    setInterval(() => {
+      if (_wmDestroyed) return;
+
+      const el = document.getElementById(_WM_ID) || document.querySelector('[' + _WM_ATTR + ']');
+      if (!el) {
+        _mountWatermark();
+        _alertTamper('Phát hiện can thiệp DOM — watermark bị xóa');
+        return;
+      }
+      _wmEl = el;
+
+      // Kiểm tra style bị ẩn
+      const cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) {
+        el.setAttribute('style', _WM_STYLE);
         drawWatermark();
-        showOverlay('Phát hiện can thiệp DOM — watermark bị xóa');
+        _alertTamper('Phát hiện can thiệp DOM — watermark bị ẩn');
+      }
+
+    }, 2000);
+
+    // LỚP 2: MutationObserver — phản ứng tức thì khi DOM thay đổi
+    const _wmObserver = new MutationObserver(mutations => {
+      if (_wmDestroyed) return;
+      for (const m of mutations) {
+        // Phát hiện xóa node
+        for (const node of m.removedNodes) {
+          if (node === _wmEl || node.id === _WM_ID || node.getAttribute?.(_WM_ATTR)) {
+            _mountWatermark();
+            _alertTamper('Phát hiện can thiệp DOM — watermark bị xóa');
+          }
+        }
+        // Phát hiện thay đổi style/attribute của watermark
+        if (m.type === 'attributes' && m.target === _wmEl) {
+          _wmEl.setAttribute('style', _WM_STYLE);
+          drawWatermark();
+        }
       }
     });
-    wmObserver.observe(document.body, { childList: true, subtree: false });
+    _wmObserver.observe(document.body, { childList: true, subtree: false });
+
+    // LỚP 3: Shadow DOM clone — watermark thứ 2 trong Shadow DOM (không thể xóa từ ngoài)
+    try {
+      const _shadowHost = document.createElement('div');
+      _shadowHost.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2147483646;';
+      document.body.appendChild(_shadowHost);
+      const _shadow = _shadowHost.attachShadow({ mode: 'closed' });
+      const _shadowCanvas = document.createElement('canvas');
+      _shadowCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+      _shadow.appendChild(_shadowCanvas);
+      function _drawShadowWm() {
+        _shadowCanvas.width  = window.innerWidth;
+        _shadowCanvas.height = window.innerHeight;
+        const ctx = _shadowCanvas.getContext('2d');
+        ctx.clearRect(0, 0, _shadowCanvas.width, _shadowCanvas.height);
+        ctx.save();
+        ctx.translate(_shadowCanvas.width/2, _shadowCanvas.height/2);
+        ctx.rotate(-25 * Math.PI / 180);
+        ctx.font = 'bold 15px Arial';
+        ctx.fillStyle = 'rgba(0,0,0,0.07)';
+        ctx.textAlign = 'center';
+        const gapX = 220, gapY = 70;
+        const cols = Math.ceil(_shadowCanvas.width  * 1.5 / gapX) + 2;
+        const rows = Math.ceil(_shadowCanvas.height * 1.5 / gapY) + 2;
+        for (let r = -rows; r <= rows; r++)
+          for (let c = -cols; c <= cols; c++)
+            ctx.fillText(wmText, c * gapX, r * gapY);
+        ctx.restore();
+      }
+      _drawShadowWm();
+      window.addEventListener('resize', _drawShadowWm);
+    } catch(e) {}
+
+    // LỚP 4: CSS ::after pseudo-element watermark (không thể xóa qua JS)
+    (function() {
+      const s = document.createElement('style');
+      s.textContent = `body::after{content:"${wmText.replace(/"/g,'')} ${wmText.replace(/"/g,'')} ${wmText.replace(/"/g,'')}";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:14px;color:rgba(0,0,0,0.06);white-space:nowrap;pointer-events:none;z-index:2147483645;letter-spacing:80px;word-spacing:80px;width:300vw;text-align:center;}`;
+      document.head.appendChild(s);
+    })();
 
     // ── CSS bảo vệ ──
     const secStyle = document.createElement('style');
@@ -686,7 +1096,7 @@
       .video-card, .stat-card, .clickable,
       .group-card-header, .group-lesson-item { pointer-events: auto !important; }
       video { pointer-events: auto !important; }
-      #watermark { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none !important; z-index:9998; }
+      #watermark, [data-wm] { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none !important; z-index:2147483647; }
       .viewer-modal { max-width:88vw !important; width:88vw !important; height:95vh !important; max-height:95vh !important; position:relative; overflow:hidden; padding:.75rem !important; display:flex !important; flex-direction:column !important; }
       .viewer-video { width:100%; flex:1; min-height:0; }
       .viewer-iframe { width:100%; flex:1; min-height:0; height:100% !important; border:none; }

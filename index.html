@@ -4,6 +4,21 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Đăng Nhập - DHDTCT LMS v1.3.0</title>
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: blob: https://*.supabase.co;
+    connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+  "/>
+  <meta http-equiv="X-Frame-Options" content="DENY"/>
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta http-equiv="Referrer-Policy" content="no-referrer"/>
   <link rel="icon" type="image/png" href="icons/icon-192.png"/>
   <link rel="apple-touch-icon" href="icons/icon-192.png"/>
   <link rel="stylesheet" href="style.css"/>
@@ -621,7 +636,69 @@
     });
   </script>
 
-  <!-- FOOTER -->
+  <script>
+    // ── BẢO MẬT TRANG ĐĂNG NHẬP ──
+
+    // Chặn chuột phải
+    document.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); return false; }, true);
+
+    // Chặn tất cả phím tắt
+    document.addEventListener('keydown', e => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      const k = e.key;
+      const allowed = ['Tab','Enter','Backspace','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Delete'];
+      if (allowed.includes(k)) return;
+      if (ctrl) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+      if (e.altKey && k !== 'Alt') { e.preventDefault(); e.stopImmediatePropagation(); return; }
+      if (/^F\d+$/.test(k)) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+      if (['PrintScreen','ScrollLock','Pause'].includes(k)) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    }, true);
+
+    // Chặn copy/cut/drag
+    document.addEventListener('copy',      e => { e.preventDefault(); e.stopPropagation(); }, true);
+    document.addEventListener('cut',       e => { e.preventDefault(); e.stopPropagation(); }, true);
+    document.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); }, true);
+
+    // Chặn iframe embedding
+    if (window.top !== window.self) { window.top.location = window.self.location; }
+
+    // Phát hiện Bot/WebDriver
+    (function() {
+      if (navigator.webdriver || !!window.callPhantom || !!window._phantom || !!window.__nightmare) {
+        document.body.innerHTML = ''; location.href = 'about:blank';
+      }
+    })();
+
+    // Chặn zoom wheel + pinch
+    document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
+    // ── Phát hiện DevTools ──
+    let _dtOpen = false;
+    function _onDTOpen() {
+      if (_dtOpen) return; _dtOpen = true;
+      document.body.style.filter = 'brightness(0)';
+      document.body.style.pointerEvents = 'none';
+    }
+    function _onDTClose() {
+      _dtOpen = false;
+      document.body.style.filter = '';
+      document.body.style.pointerEvents = '';
+    }
+    setInterval(() => {
+      const w = window.outerWidth  - window.innerWidth;
+      const h = window.outerHeight - window.innerHeight;
+      if (w > 100 || h > 100) _onDTOpen(); else _onDTClose();
+    }, 1000);
+
+    // Chặn console
+    (function() {
+      const noop = () => {};
+      ['log','warn','error','info','debug','table','dir','dirxml','group','groupEnd','time','timeEnd','assert'].forEach(m => {
+        try { console[m] = noop; } catch(e) {}
+      });
+    })();
+  </script>
   <footer style="text-align:center;padding:1.5rem 1rem;font-size:.76rem;color:#888;background:#0f172a;border-top:1px solid #1e293b;margin-top:0;line-height:1.9">
     <p>© Bản quyền thuộc về <b>DHDTCT LMS Education System</b>. Toàn bộ nội dung trên website bao gồm video bài giảng, tài liệu học tập, đề luyện thi, hình ảnh, giao diện và hệ thống quản lý đều thuộc quyền sở hữu của chúng tôi và được pháp luật bảo hộ.</p>
     <p>Nghiêm cấm mọi hành vi sao chép, chỉnh sửa, phát tán, chia sẻ hoặc sử dụng dưới bất kỳ hình thức nào khi chưa có sự cho phép bằng văn bản từ chủ sở hữu.</p>
