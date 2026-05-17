@@ -18,6 +18,40 @@
 </head>
 <body class="auth-page" style="height:auto;min-height:100vh;display:flex;flex-direction:column;">
 
+  <!-- INTRO VIDEO SCREEN -->
+  <div id="introScreen" style="position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <video id="introVideo" src="video/7828842972989.mp4" playsinline
+      style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;display:none"
+      onended="skipIntro()">
+    </video>
+    <!-- Màn hình tap để vào -->
+    <div id="introTap" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;z-index:2" onclick="startIntro()">
+      <img src="icons/icon-192.png" style="width:90px;height:90px;border-radius:22px;box-shadow:0 8px 32px rgba(0,0,0,.5);margin-bottom:1.5rem;animation:introPulse 2s ease-in-out infinite"/>
+      <div style="color:#fff;font-size:1.3rem;font-weight:800;letter-spacing:-.3px;margin-bottom:.5rem">DHDTCT LMS</div>
+      <div style="color:rgba(255,255,255,.6);font-size:.88rem;margin-bottom:2rem">Nhấn để vào</div>
+      <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:1.4rem;animation:introPulse 1.5s ease-in-out infinite">▶</div>
+    </div>
+
+  </div>
+  <style>
+    @keyframes introPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.07);opacity:.8} }
+  </style>
+  <script>
+    function startIntro() {
+      document.getElementById('introTap').style.display = 'none';
+      const v = document.getElementById('introVideo');
+      v.style.display = '';
+      v.muted = false;
+      v.play();
+    }
+    function skipIntro() {
+      const s = document.getElementById('introScreen');
+      s.style.transition = 'opacity .5s';
+      s.style.opacity = '0';
+      setTimeout(() => s.remove(), 500);
+    }
+  </script>
+
   <div class="auth-wrap" style="flex:1">
 
     <!-- MOBILE HEADER (chỉ hiện trên điện thoại) -->
