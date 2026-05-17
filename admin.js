@@ -987,7 +987,7 @@ document.getElementById('naCopyBtn').addEventListener('click', () => {
   const phone = document.getElementById('naPhone').textContent;
   const start = document.getElementById('naStartDate').textContent;
   const end   = document.getElementById('naEndDate').textContent;
-  const text  = `Họ tên: ${name}\nMã HV: ${code}\nGmail: ${user}\nMật khẩu: ${pw}\nLớp: ${cls}\nNgày khai giảng: ${start}\nNgày kết thúc: ${end}\nSĐT: ${phone}\n\n👉 Bạn sao chép mật khẩu trên rồi dán vào chỗ mật khẩu trong web nha.\nNếu gặp vấn đề kỹ thuật hay gì cứ liên hệ mình nha.`;
+  const text  = `Họ tên: ${name}\nMã HV: ${code}\nGmail: ${user}\nMật khẩu: ${pw}\nLớp: ${cls}\nNgày khai giảng: ${start}\nNgày kết thúc: ${end}\nSĐT: ${phone}\n\n👉 Bạn sao chép mật khẩu trên rồi dán vào chỗ mật khẩu trong web nha.\n🌐 Link học: https://trancuongg12112008-dev.github.io/duyhoangdaytaon-cantho.1.1/student.html\nNếu gặp vấn đề kỹ thuật hay gì cứ liên hệ mình nha.`;
   navigator.clipboard?.writeText(text).then(() => {
     const btn = document.getElementById('naCopyBtn');
     btn.textContent = '✅ Đã sao chép!';
@@ -2846,24 +2846,6 @@ async function renderAccessStats() {
     <div class="stat-card purple"><div class="stat-icon">🎬</div><div><div class="stat-num">${videoViews}</div><div class="stat-label">Lượt xem video</div></div></div>
   `;
 
-  // Biểu đồ theo giờ — dùng _chartDate để điều hướng ngày
-  if (!window._chartDate) window._chartDate = new Date().toISOString().split('T')[0];
-  if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
-
-  // Fetch data xung quanh _chartDate cho biểu đồ — độc lập với filter
-  const centerDate = new Date(window._chartDate || new Date().toISOString().split('T')[0]);
-  const chartFromDate = new Date(centerDate); chartFromDate.setDate(chartFromDate.getDate() - 6);
-  const chartToDate = new Date(centerDate); chartToDate.setDate(chartToDate.getDate() + 6);
-  const chartFromStr = chartFromDate.toISOString().split('T')[0];
-  const chartToStr = chartToDate.toISOString().split('T')[0];
-  let chartQuery = db.from('access_logs').select('content_type,accessed_at')
-    .gte('accessed_at', chartFromStr)
-    .lte('accessed_at', chartToStr + 'T23:59:59')
-    .limit(100000);
-  if (cls) chartQuery = chartQuery.eq('class_name', cls);
-  const { data: chartLogs } = await chartQuery;
-  renderAccessChart(chartLogs || []);
-
   // Top bài học
   const lessonCount = {};
   all.forEach(l => { lessonCount[l.lesson_name] = (lessonCount[l.lesson_name]||0)+1; });
@@ -2954,25 +2936,23 @@ function renderAccessChart(allLogs) {
   const todayStr = new Date().toISOString().split('T')[0];
   if (!window._chartDate) window._chartDate = todayStr;
 
-  // Tạo điểm dữ liệu theo từng giờ trong 13 ngày xung quanh _chartDate
+  // Tạo điểm dữ liệu theo từng giờ trong 13 ngày xung quanh _chartDate (UTC)
   const points = { video: [], doc: [] };
-  const center = new Date(window._chartDate + 'T00:00:00');
   for (let i = -6; i <= 6; i++) {
-    const d = new Date(center); d.setDate(d.getDate() + i); d.setMinutes(0,0,0);
-    const dayStr = d.toISOString().split('T')[0];
+    const dayDate = new Date(window._chartDate + 'T00:00:00Z');
+    dayDate.setUTCDate(dayDate.getUTCDate() + i);
+    const dayStr = dayDate.toISOString().split('T')[0];
     for (let h = 0; h < 24; h++) {
-      const t = new Date(d); t.setHours(h);
-      const tStr = t.toISOString();
-      const vCnt = allLogs.filter(l => l.content_type==='video' && (l.accessed_at||'').startsWith(dayStr) && new Date(l.accessed_at).getHours()===h).length;
-      const dCnt = allLogs.filter(l => l.content_type==='doc'   && (l.accessed_at||'').startsWith(dayStr) && new Date(l.accessed_at).getHours()===h).length;
+      const tStr = `${dayStr}T${String(h).padStart(2,'0')}:00:00Z`;
+      const vCnt = allLogs.filter(l => l.content_type==='video' && (l.accessed_at||'').startsWith(dayStr) && new Date(l.accessed_at).getUTCHours()===h).length;
+      const dCnt = allLogs.filter(l => l.content_type==='doc'   && (l.accessed_at||'').startsWith(dayStr) && new Date(l.accessed_at).getUTCHours()===h).length;
       points.video.push({ x: tStr, y: vCnt });
       points.doc.push({ x: tStr, y: dCnt });
     }
   }
 
-  // Cửa sổ hiển thị: 24h tính từ _chartDate
-  const winStart = new Date(window._chartDate + 'T00:00:00');
-  const winEnd   = new Date(window._chartDate + 'T23:59:59');
+  const winStart = window._chartDate + 'T00:00:00Z';
+  const winEnd   = window._chartDate + 'T23:59:59Z';
 
   // Cập nhật label
   const [y,m,dd] = window._chartDate.split('-');
@@ -3030,8 +3010,8 @@ function renderAccessChart(allLogs) {
         x: {
           type: 'time',
           time: { unit: 'hour', displayFormats: { hour: 'HH:mm dd/MM' }, tooltipFormat: 'HH:mm dd/MM' },
-          min: winStart.toISOString(),
-          max: winEnd.toISOString(),
+          min: winStart,
+          max: winEnd,
           grid: { display: false },
           ticks: { font: { size: 10 }, maxRotation: 0, maxTicksLimit: 16 }
         },
@@ -3095,16 +3075,17 @@ function renderAccessChart(allLogs) {
 // Nút điều hướng ngày biểu đồ
 async function refreshChart() {
   if (window._accessChart) { window._accessChart.destroy(); window._accessChart = null; }
-  // Fetch 13 ngày xung quanh _chartDate để có đủ data khi kéo
-  const centerDate = new Date(window._chartDate || new Date().toISOString().split('T')[0]);
-  const fromDate = new Date(centerDate); fromDate.setDate(fromDate.getDate() - 6);
-  const toDate = new Date(centerDate); toDate.setDate(toDate.getDate() + 6);
+  const chartDate = window._chartDate || new Date().toISOString().split('T')[0];
+  // Tính từ/đến theo UTC
+  const centerDate = new Date(chartDate + 'T00:00:00Z');
+  const fromDate = new Date(centerDate); fromDate.setUTCDate(fromDate.getUTCDate() - 6);
+  const toDate   = new Date(centerDate); toDate.setUTCDate(toDate.getUTCDate() + 6);
   const chartFromStr = fromDate.toISOString().split('T')[0];
-  const chartToStr = toDate.toISOString().split('T')[0];
+  const chartToStr   = toDate.toISOString().split('T')[0];
   const cls = document.getElementById('accessFilterClass').value;
   let q = db.from('access_logs').select('content_type,accessed_at')
-    .gte('accessed_at', chartFromStr)
-    .lte('accessed_at', chartToStr + 'T23:59:59')
+    .gte('accessed_at', chartFromStr + 'T00:00:00Z')
+    .lte('accessed_at', chartToStr + 'T23:59:59Z')
     .limit(100000);
   if (cls) q = q.eq('class_name', cls);
   const { data } = await q;

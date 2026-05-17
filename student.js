@@ -628,11 +628,10 @@ function getDownloadUrl(url) {
 // ---- Chi tiết bài học ----
 // ---- Ghi log truy cap ----
 function logAccess(lessonId, lessonName, contentId, contentTitle, contentType) {
-  // Fire-and-forget — không block UI
   db.from('access_logs').insert({
     username: currentUser,
     student_name: currentName,
-    class_name: myClass || '',
+    class_name: myClasses[0] || myClass || '',
     lesson_id: lessonId,
     lesson_name: lessonName,
     content_id: contentId,
@@ -793,8 +792,7 @@ function openViewer(title, url, fileName, fileType) {
       const iframeWrap = document.createElement('div');
       iframeWrap.style.cssText = 'position:relative;flex:1;min-height:0;overflow:hidden';
       const iframe = document.createElement('iframe');
-      // Đẩy ra 4 phía để che logo/controls YouTube
-      iframe.style.cssText = 'position:absolute;top:-60px;left:-2px;width:calc(100% + 4px);height:calc(100% + 120px);border:none';
+      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none';
       iframe.allowFullscreen = true;
       iframe.onload = hideLoading;
       iframeWrap.appendChild(iframe);
@@ -855,14 +853,45 @@ function openViewer(title, url, fileName, fileType) {
     body.innerHTML = '<p class="muted-center">⚠️ Không xem trực tiếp được. Vui lòng tải xuống.</p>';
   }
   document.getElementById('viewerModal').classList.add('open');
+  // Hiện nút xoay trên mobile
+  const rotateBtn = document.getElementById('viewerRotateBtn');
+  if (rotateBtn) {
+    rotateBtn.style.display = window.innerWidth <= 768 ? '' : 'none';
+    rotateBtn.textContent = '🔄 Xoay ngang';
+    _viewerRotated = false;
+  }
 }
 document.getElementById('closeViewer').addEventListener('click', closeViewer);
 document.getElementById('viewerModal').addEventListener('click', e => { if(e.target===document.getElementById('viewerModal')) closeViewer(); });
 function closeViewer() { 
   document.getElementById('viewerModal').classList.remove('open'); 
   document.getElementById('viewerBody').innerHTML='';
+  document.getElementById('viewerRotateBtn').style.display = 'none';
+  _viewerRotated = false;
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
 }
+
+// Xoay viewer
+let _viewerRotated = false;
+document.getElementById('viewerRotateBtn')?.addEventListener('click', () => {
+  _viewerRotated = !_viewerRotated;
+  const body = document.getElementById('viewerBody');
+  const modal = document.querySelector('.viewer-modal');
+  if (_viewerRotated) {
+    body.style.transform = 'rotate(90deg)';
+    body.style.transformOrigin = 'center center';
+    body.style.width = '80vh';
+    body.style.height = '80vw';
+    body.style.margin = 'auto';
+    document.getElementById('viewerRotateBtn').textContent = '🔄 Xoay dọc';
+  } else {
+    body.style.transform = '';
+    body.style.width = '';
+    body.style.height = '';
+    body.style.margin = '';
+    document.getElementById('viewerRotateBtn').textContent = '🔄 Xoay ngang';
+  }
+});
 
 // ---- Init ----
 loadMe().then(() => {
@@ -1285,16 +1314,48 @@ async function renderStudentSchedule() {
   const grid = document.getElementById('sScheduleGrid');
   grid.innerHTML = '';
   document.getElementById('sEmptySchedule').style.display = (list||[]).length ? 'none' : 'block';
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem';
   (list||[]).forEach(s => {
     const card = document.createElement('div');
-    card.style.cssText = 'background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border:1.5px solid var(--border);cursor:pointer';
+    card.style.cssText = 'background:var(--card);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);border:1.5px solid var(--border);cursor:pointer;transition:transform .15s';
     card.innerHTML = `
-      <img src="${s.image_url}" style="width:100%;border-radius:14px 14px 0 0"/>
-      <div style="padding:.75rem 1rem">
-        <div style="font-weight:700;font-size:.95rem">${s.title}</div>
-        <div style="font-size:.75rem;color:var(--muted);margin-top:.2rem">${s.class_name ? `<span class="class-tag">${s.class_name}</span>` : 'Tất cả lớp'}</div>
+      <div style="position:relative;padding-bottom:75%;overflow:hidden">
+        <img src="${s.image_url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"/>
+      </div>
+      <div style="padding:.5rem .75rem">
+        <div style="font-weight:700;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
+        ${s.class_name ? `<span class="class-tag" style="font-size:.68rem">${s.class_name}</span>` : ''}
       </div>`;
-    card.addEventListener('click', () => openScheduleViewer(s));
+    card.addEventListener('mouseenter', () => card.style.transform = 'translateY(-2px)');
+    card.addEventListener('mouseleave', () => card.style.transform = '');
+    card.addEventListener('click', () => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;cursor:zoom-out';
+      overlay.innerHTML = `
+        <img src="${s.image_url}" style="max-width:100%;max-height:100%;border-radius:10px;object-fit:contain"/>
+        <button id="rotateBtn" style="position:fixed;bottom:1.5rem;right:1.5rem;background:rgba(255,255,255,.2);border:none;color:#fff;width:48px;height:48px;border-radius:50%;font-size:1.3rem;cursor:pointer;z-index:10000" title="Xoay ngang">🔄</button>
+        <button style="position:fixed;top:1rem;right:1rem;background:rgba(255,255,255,.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:1.1rem;cursor:pointer;z-index:10000" id="closeOverlay">✕</button>`;
+      let rotated = false;
+      overlay.querySelector('#rotateBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        rotated = !rotated;
+        const img = overlay.querySelector('img');
+        if (rotated) {
+          img.style.transform = 'rotate(90deg)';
+          img.style.maxWidth = '100vh';
+          img.style.maxHeight = '100vw';
+          img.style.width = 'auto';
+          img.style.height = 'auto';
+        } else {
+          img.style.transform = '';
+          img.style.maxWidth = '100%';
+          img.style.maxHeight = '100%';
+        }
+      });
+      overlay.querySelector('#closeOverlay').addEventListener('click', e => { e.stopPropagation(); overlay.remove(); });
+      overlay.addEventListener('click', () => overlay.remove());
+      document.body.appendChild(overlay);
+    });
     grid.appendChild(card);
   });
 }
